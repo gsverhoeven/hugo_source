@@ -282,7 +282,7 @@ enableGitInfo = false
 
  [[params.social]]
     icon = "stack-overflow"
-    icon_pack = "fas"
+    icon_pack = "fab"
     link = "https://stackoverflow.com/users/10628316/gertjan-verhoeven"
 
   # Link to a PDF of your resume/CV from the About widget.
