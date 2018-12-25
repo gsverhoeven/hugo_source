@@ -280,6 +280,11 @@ enableGitInfo = false
     icon_pack = "fab"
     link = "https://github.com/gsverhoeven"
 
+ [[params.social]]
+    icon = "stack-overflow"
+    icon_pack = "fas"
+    link = "https://stackoverflow.com/users/10628316/gertjan-verhoeven"
+
   # Link to a PDF of your resume/CV from the About widget.
   # To enable, copy your resume/CV to `static/files/cv.pdf` and uncomment the lines below.
   # [[params.social]]
