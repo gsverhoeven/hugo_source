@@ -1,6 +1,6 @@
 +++
 title = "Interaction detection using Random Forest predictions"
-date = 2018-12-24T16:54:08+01:00
+date = 2017-09-24T16:54:08+01:00
 draft = false
 
 # Tags and categories
@@ -20,13 +20,9 @@ categories = []
 +++
 
 
-# 
-Gertjan Verhoeven  
-September 2017  
-
 # summary
 
-The idea is that comparing the predictions of an RF model  with the predictions of an OLS model can inform us in what ways the OLS model fails to capture all non-linearities and interactions between the predictors. Subsequently, using partial dependence plots of the RF model can guide the modelling of the non-linearities in the OLS model. After this step, the discrepancies between the RF predictions and the OLS predictions should be caused by non-modeled interactions. Using an RF to predict the discrepancy itself can then be used to discover which predictors are involved in these interactions. We test this method on the classic `Boston Housing` dataset to predict median house values (`medv`). We indeed recover interactions that, as it turns, have already been found and documented in the literature.
+The idea is that comparing the predictions of an RF model with the predictions of an OLS model can inform us in what ways the OLS model fails to capture all non-linearities and interactions between the predictors. Subsequently, using partial dependence plots of the RF model can guide the modelling of the non-linearities in the OLS model. After this step, the discrepancies between the RF predictions and the OLS predictions should be caused by non-modeled interactions. Using an RF to predict the discrepancy itself can then be used to discover which predictors are involved in these interactions. We test this method on the classic `Boston Housing` dataset to predict median house values (`medv`). We indeed recover interactions that, as it turns, have already been found and documented in the literature.
   
 # Load packages
   
