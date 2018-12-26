@@ -11,7 +11,7 @@ weight = 5
 [interests]
   interests = [
     "Bayesian Statistics",
-    "Healthcare Policy",
+    "Health Policy",
     "Causal Inference",
 "Machine Learning"
   ]
@@ -26,5 +26,5 @@ weight = 5
 
 # Biography
 
-I am a data scientist at the Dutch Healthcare Authority, interested in health policy and statistical methods.
+I am a research scientist at the Dutch Healthcare Authority, working on health policy and statistical methods.
 I have a background in experimental physics, with a PhD in Biophysics.

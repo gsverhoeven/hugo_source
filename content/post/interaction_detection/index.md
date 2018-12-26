@@ -5,24 +5,28 @@ draft = false
 
 # Tags and categories
 # For example, use `tags = []` for no tags, or the form `tags = ["A Tag", "Another Tag"]` for one or more tags.
-tags = []
+tags = ["R", "Machine Learning", "Interaction detection"]
 categories = []
 
 # Featured image
 # To use, add an image named `featured.jpg/png` to your page's folder. 
 [image]
   # Caption (optional)
-  caption = ""
+  caption = "from Chipman et al: Bayesian Regression Structure Discovery 2012"
 
   # Focal point (optional)
   # Options: Smart, Center, TopLeft, Top, TopRight, Left, Right, BottomLeft, Bottom, BottomRight
   focal_point = ""
+  preview_only = true
 +++
 
-
-# summary
-
-The idea is that comparing the predictions of an RF model with the predictions of an OLS model can inform us in what ways the OLS model fails to capture all non-linearities and interactions between the predictors. Subsequently, using partial dependence plots of the RF model can guide the modelling of the non-linearities in the OLS model. After this step, the discrepancies between the RF predictions and the OLS predictions should be caused by non-modeled interactions. Using an RF to predict the discrepancy itself can then be used to discover which predictors are involved in these interactions. We test this method on the classic `Boston Housing` dataset to predict median house values (`medv`). We indeed recover interactions that, as it turns, have already been found and documented in the literature.
+Comparing the predictions of a Random Forest model with the predictions of an Linear Regression model can inform us in what ways the OLS model can be improved.
+Here we explore the feasibility of this approach by modelling the classic **Boston Housing** dataset.
+<!--more--> 
+An OLS with only main variables fails to capture  all non-linearities and interactions between the predictors. 
+Subsequently, using partial dependence plots of the RF model can guide the modelling of the non-linearities in the OLS model. 
+After this step, the discrepancies between the RF predictions and the OLS predictions should be caused 
+by non-modeled interactions. Using an RF to predict the discrepancy itself can then be used to discover which predictors are involved in these interactions. We test this method on the classic `Boston Housing` dataset to predict median house values (`medv`). We indeed recover interactions that, as it turns, have already been found and documented in the literature.
   
 # Load packages
   
