@@ -1,0 +1,490 @@
+---
+title: "Interaction detection using Random Forest predictions"
+author: Gertjan Verhoeven
+date: September 2017
+output:
+  pdf_document: 
+  toc: true
+  toc_depth: 3
+ 
+---
+
+
+
+<div id="summary" class="section level1">
+<h1>summary</h1>
+<p>The idea is that comparing the predictions of an RF model with the predictions of an OLS model can inform us in what ways the OLS model fails to capture all non-linearities and interactions between the predictors. Subsequently, using partial dependence plots of the RF model can guide the modelling of the non-linearities in the OLS model. After this step, the discrepancies between the RF predictions and the OLS predictions should be caused by non-modeled interactions. Using an RF to predict the discrepancy itself can then be used to discover which predictors are involved in these interactions. We test this method on the classic <code>Boston Housing</code> dataset to predict median house values (<code>medv</code>). We indeed recover interactions that, as it turns, have already been found and documented in the literature.</p>
+</div>
+<div id="load-packages" class="section level1">
+<h1>Load packages</h1>
+<pre class="r"><code>rm(list=ls())
+#library(randomForest)
+#library(party)
+library(ranger)
+library(data.table)
+library(ggplot2)
+library(MASS)
+
+rdunif &lt;- function(n,k) sample(1:k, n, replace = T)</code></pre>
+</div>
+<div id="step-1-run-a-rf-on-the-boston-housing-set" class="section level1">
+<h1>Step 1: Run a RF on the Boston Housing set</h1>
+<pre class="r"><code>my_ranger &lt;- ranger(medv ~ ., data = Boston,
+                                  importance = &quot;permutation&quot;, num.trees = 500,
+                                  mtry = 5, replace = TRUE)</code></pre>
+<p>Extract the permutation importance measure.</p>
+<pre class="r"><code>myres_tmp &lt;- ranger::importance(my_ranger);
+myres &lt;- cbind(names(myres_tmp), myres_tmp,  i = 1)
+#my_rownames &lt;- row.names(myres)
+myres &lt;- data.table(myres)
+setnames(myres, &quot;V1&quot;, &quot;varname&quot;)
+setnames(myres, &quot;myres_tmp&quot;, &quot;MeanDecreaseAccuracy&quot;)
+myres &lt;- myres[, varname := as.factor(varname)]
+myres &lt;- myres[, MeanDecreaseAccuracy := as.numeric(MeanDecreaseAccuracy)]
+myres &lt;- myres[, i := as.integer(i)]</code></pre>
+<pre class="r"><code>ggplot(myres, 
+       aes(x = reorder(factor(varname), MeanDecreaseAccuracy), y = MeanDecreaseAccuracy)) + 
+  geom_point() + coord_flip()</code></pre>
+<p><img src="/post/interaction_detection/interaction-detection_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+</div>
+<div id="fit-an-ols-to-the-boston-housing" class="section level1">
+<h1>Fit an OLS to the Boston Housing</h1>
+<pre class="r"><code>my_glm &lt;- glm(medv ~., data = Boston, 
+              family = &quot;gaussian&quot;)</code></pre>
+</div>
+<div id="compare-predictions-of-both-models" class="section level1">
+<h1>Compare predictions of both models</h1>
+<pre class="r"><code>pred_RF &lt;- predict(my_ranger, data = Boston)
+#pred_RF$predictions
+pred_GLM &lt;- predict(my_glm, data = Boston)
+
+plot(pred_RF$predictions, pred_GLM)
+abline(0, 1)</code></pre>
+<p><img src="/post/interaction_detection/interaction-detection_files/figure-html/unnamed-chunk-6-1.png" width="672" /> # Run a RF on the discrepancy</p>
+<p>Discrepancy is defined as the difference between the predictions of both models for each observation.</p>
+<pre class="r"><code>pred_diff &lt;- pred_RF$predictions - pred_GLM
+
+my_ranger_diff &lt;- ranger(Ydiff ~ . - medv, data = data.table(Ydiff = pred_diff, Boston),
+                                  importance = &quot;permutation&quot;, num.trees = 500,
+                                  mtry = 5, replace = TRUE)
+my_ranger_diff</code></pre>
+<pre><code>## Ranger result
+## 
+## Call:
+##  ranger(Ydiff ~ . - medv, data = data.table(Ydiff = pred_diff,      Boston), importance = &quot;permutation&quot;, num.trees = 500, mtry = 5,      replace = TRUE) 
+## 
+## Type:                             Regression 
+## Number of trees:                  500 
+## Sample size:                      506 
+## Number of independent variables:  13 
+## Mtry:                             5 
+## Target node size:                 5 
+## Variable importance mode:         permutation 
+## Splitrule:                        variance 
+## OOB prediction error (MSE):       5.102866 
+## R squared (OOB):                  0.6619394</code></pre>
+<p>It turns out the RF can “explain” 67% of these discrepancies.</p>
+<pre class="r"><code>myres_tmp &lt;- ranger::importance(my_ranger_diff)
+myres &lt;- cbind(names(myres_tmp), myres_tmp,  i = 1)
+#my_rownames &lt;- row.names(myres)
+myres &lt;- data.table(myres)
+setnames(myres, &quot;V1&quot;, &quot;varname&quot;)
+setnames(myres, &quot;myres_tmp&quot;, &quot;MeanDecreaseAccuracy&quot;)
+myres &lt;- myres[, varname := as.factor(varname)]
+myres &lt;- myres[, MeanDecreaseAccuracy := as.numeric(MeanDecreaseAccuracy)]
+myres &lt;- myres[, i := as.integer(i)]</code></pre>
+<pre class="r"><code>ggplot(myres, 
+       aes(x = reorder(factor(varname), MeanDecreaseAccuracy), y = MeanDecreaseAccuracy)) + 
+  geom_point() + coord_flip()</code></pre>
+<p><img src="/post/interaction_detection/interaction-detection_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<p>It turns out that <code>rm</code> and <code>lstat</code> are the variables that best predict the discrepancy.</p>
+<pre class="r"><code>my_glm_int &lt;- glm(medv ~. + rm:lstat, data = Boston, 
+              family = &quot;gaussian&quot;)
+summary(my_glm_int)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = medv ~ . + rm:lstat, family = &quot;gaussian&quot;, data = Boston)
+## 
+## Deviance Residuals: 
+##      Min        1Q    Median        3Q       Max  
+## -21.5738   -2.3319   -0.3584    1.8149   27.9558  
+## 
+## Coefficients:
+##               Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)   6.073638   5.038175   1.206 0.228582    
+## crim         -0.157100   0.028808  -5.453 7.85e-08 ***
+## zn            0.027199   0.012020   2.263 0.024083 *  
+## indus         0.052272   0.053475   0.978 0.328798    
+## chas          2.051584   0.750060   2.735 0.006459 ** 
+## nox         -15.051627   3.324807  -4.527 7.51e-06 ***
+## rm            7.958907   0.488520  16.292  &lt; 2e-16 ***
+## age           0.013466   0.011518   1.169 0.242918    
+## dis          -1.120269   0.175498  -6.383 4.02e-10 ***
+## rad           0.320355   0.057641   5.558 4.49e-08 ***
+## tax          -0.011968   0.003267  -3.664 0.000276 ***
+## ptratio      -0.721302   0.115093  -6.267 8.06e-10 ***
+## black         0.003985   0.002371   1.681 0.093385 .  
+## lstat         1.844883   0.191833   9.617  &lt; 2e-16 ***
+## rm:lstat     -0.418259   0.032955 -12.692  &lt; 2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for gaussian family taken to be 16.98987)
+## 
+##     Null deviance: 42716  on 505  degrees of freedom
+## Residual deviance:  8342  on 491  degrees of freedom
+## AIC: 2886
+## 
+## Number of Fisher Scoring iterations: 2</code></pre>
+<p>The interaction we have added is indeed highly significant.</p>
+<p>Compare approximate out-of-sample prediction accuracy using AIC:</p>
+<pre class="r"><code>AIC(my_glm)</code></pre>
+<pre><code>## [1] 3027.609</code></pre>
+<pre class="r"><code>AIC(my_glm_int)</code></pre>
+<pre><code>## [1] 2886.043</code></pre>
+<p>Indeed, the addition of the interaction greatly increases the prediction accuracy.</p>
+</div>
+<div id="repeat-this-process" class="section level1">
+<h1>Repeat this process</h1>
+<pre class="r"><code>pred_RF &lt;- predict(my_ranger, data = Boston)
+#pred_RF$predictions
+pred_GLM &lt;- predict(my_glm_int, data = Boston)
+
+plot(pred_RF$predictions, pred_GLM)
+abline(0, 1)</code></pre>
+<p><img src="/post/interaction_detection/interaction-detection_files/figure-html/unnamed-chunk-12-1.png" width="672" /></p>
+<pre class="r"><code>pred_diff &lt;- pred_RF$predictions - pred_GLM
+
+my_ranger_diff2 &lt;- ranger(Ydiff ~ . - medv, data = data.table(Ydiff = pred_diff, Boston),
+                                  importance = &quot;permutation&quot;, num.trees = 500,
+                                  mtry = 5, replace = TRUE)
+my_ranger_diff2</code></pre>
+<pre><code>## Ranger result
+## 
+## Call:
+##  ranger(Ydiff ~ . - medv, data = data.table(Ydiff = pred_diff,      Boston), importance = &quot;permutation&quot;, num.trees = 500, mtry = 5,      replace = TRUE) 
+## 
+## Type:                             Regression 
+## Number of trees:                  500 
+## Sample size:                      506 
+## Number of independent variables:  13 
+## Mtry:                             5 
+## Target node size:                 5 
+## Variable importance mode:         permutation 
+## Splitrule:                        variance 
+## OOB prediction error (MSE):       5.565227 
+## R squared (OOB):                  0.4318305</code></pre>
+<pre class="r"><code>myres_tmp &lt;- ranger::importance(my_ranger_diff2)
+myres &lt;- cbind(names(myres_tmp), myres_tmp,  i = 1)
+#my_rownames &lt;- row.names(myres)
+myres &lt;- data.table(myres)
+setnames(myres, &quot;V1&quot;, &quot;varname&quot;)
+setnames(myres, &quot;myres_tmp&quot;, &quot;MeanDecreaseAccuracy&quot;)
+myres &lt;- myres[, varname := as.factor(varname)]
+myres &lt;- myres[, MeanDecreaseAccuracy := as.numeric(MeanDecreaseAccuracy)]
+myres &lt;- myres[, i := as.integer(i)]</code></pre>
+<pre class="r"><code>ggplot(myres, 
+       aes(x = reorder(factor(varname), MeanDecreaseAccuracy), y = MeanDecreaseAccuracy)) + 
+  geom_point() + coord_flip()</code></pre>
+<p><img src="/post/interaction_detection/interaction-detection_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
+<p>Now the variables that best predict the discrepancy are <code>lstat</code> and <code>dis</code>. Add these two variables as an interaction.</p>
+<pre class="r"><code>my_glm_int2 &lt;- glm(medv ~. + rm:lstat + lstat:dis, data = Boston, 
+              family = &quot;gaussian&quot;)
+summary(my_glm_int2)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = medv ~ . + rm:lstat + lstat:dis, family = &quot;gaussian&quot;, 
+##     data = Boston)
+## 
+## Deviance Residuals: 
+##      Min        1Q    Median        3Q       Max  
+## -23.3918   -2.2997   -0.4077    1.6475   27.6766  
+## 
+## Coefficients:
+##               Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)   1.552991   5.107295   0.304 0.761201    
+## crim         -0.139370   0.028788  -4.841 1.73e-06 ***
+## zn            0.042984   0.012550   3.425 0.000667 ***
+## indus         0.066690   0.052878   1.261 0.207834    
+## chas          1.760779   0.743688   2.368 0.018290 *  
+## nox         -11.544280   3.404577  -3.391 0.000753 ***
+## rm            8.640503   0.513593  16.824  &lt; 2e-16 ***
+## age          -0.002127   0.012067  -0.176 0.860140    
+## dis          -1.904982   0.268056  -7.107 4.22e-12 ***
+## rad           0.304689   0.057000   5.345 1.39e-07 ***
+## tax          -0.011220   0.003228  -3.476 0.000554 ***
+## ptratio      -0.641380   0.115418  -5.557 4.51e-08 ***
+## black         0.003756   0.002339   1.606 0.108924    
+## lstat         1.925223   0.190368  10.113  &lt; 2e-16 ***
+## rm:lstat     -0.466947   0.034897 -13.381  &lt; 2e-16 ***
+## dis:lstat     0.076716   0.020009   3.834 0.000143 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for gaussian family taken to be 16.52869)
+## 
+##     Null deviance: 42716.3  on 505  degrees of freedom
+## Residual deviance:  8099.1  on 490  degrees of freedom
+## AIC: 2873.1
+## 
+## Number of Fisher Scoring iterations: 2</code></pre>
+<pre class="r"><code>AIC(my_glm_int2)</code></pre>
+<pre><code>## [1] 2873.087</code></pre>
+<pre class="r"><code>AIC(my_glm_int)</code></pre>
+<pre><code>## [1] 2886.043</code></pre>
+<p>We conclude that the second interaction also results in significant model improvement.</p>
+</div>
+<div id="a-more-ambitious-goal-try-and-improve-harrison-rubinfelds-model-formula-for-boston-housing" class="section level1">
+<h1>A more ambitious goal: Try and improve Harrison &amp; Rubinfeld’s model formula for Boston housing</h1>
+<p>So far, we assumed that all relationships are linear. Harrison and Rubinfeld have created a model without interactions, but with transformations to correct for skewness, heteroskedasticity etc. Let’s see if we can improve upon this model equation by applying our method to search for interactions. Their formula predicts <code>log(medv)</code>.</p>
+<pre class="r"><code># Harrison and Rubinfeld (1978) model
+my_glm_hr &lt;- glm(log(medv) ~ I(rm^2) + age + log(dis) + log(rad) + tax + ptratio + 
+                     black + I(black^2) + log(lstat) + crim + zn + indus + chas + I(nox^2), data = Boston, 
+              family = &quot;gaussian&quot;)
+
+summary(my_glm_hr)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = log(medv) ~ I(rm^2) + age + log(dis) + log(rad) + 
+##     tax + ptratio + black + I(black^2) + log(lstat) + crim + 
+##     zn + indus + chas + I(nox^2), family = &quot;gaussian&quot;, data = Boston)
+## 
+## Deviance Residuals: 
+##      Min        1Q    Median        3Q       Max  
+## -0.73091  -0.09274  -0.00710   0.09800   0.78607  
+## 
+## Coefficients:
+##               Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  4.474e+00  1.579e-01  28.343  &lt; 2e-16 ***
+## I(rm^2)      6.634e-03  1.313e-03   5.053 6.15e-07 ***
+## age          3.491e-05  5.245e-04   0.067 0.946950    
+## log(dis)    -1.927e-01  3.325e-02  -5.796 1.22e-08 ***
+## log(rad)     9.613e-02  1.905e-02   5.047 6.35e-07 ***
+## tax         -4.295e-04  1.222e-04  -3.515 0.000481 ***
+## ptratio     -2.977e-02  5.024e-03  -5.926 5.85e-09 ***
+## black        1.520e-03  5.068e-04   3.000 0.002833 ** 
+## I(black^2)  -2.597e-06  1.114e-06  -2.331 0.020153 *  
+## log(lstat)  -3.695e-01  2.491e-02 -14.833  &lt; 2e-16 ***
+## crim        -1.157e-02  1.246e-03  -9.286  &lt; 2e-16 ***
+## zn           7.257e-05  5.034e-04   0.144 0.885430    
+## indus       -1.943e-04  2.360e-03  -0.082 0.934424    
+## chas         9.180e-02  3.305e-02   2.777 0.005690 ** 
+## I(nox^2)    -6.566e-01  1.129e-01  -5.815 1.09e-08 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for gaussian family taken to be 0.03299176)
+## 
+##     Null deviance: 84.376  on 505  degrees of freedom
+## Residual deviance: 16.199  on 491  degrees of freedom
+## AIC: -273.48
+## 
+## Number of Fisher Scoring iterations: 2</code></pre>
+<pre class="r"><code>my_ranger_log &lt;- ranger(log(medv) ~ ., data = Boston,
+                                  importance = &quot;permutation&quot;, num.trees = 500,
+                                  mtry = 5, replace = TRUE)</code></pre>
+<pre class="r"><code>pred_RF &lt;- predict(my_ranger_log, data = Boston)
+#pred_RF$predictions
+pred_GLM &lt;- predict(my_glm_hr, data = Boston)
+
+plot(pred_RF$predictions, pred_GLM)
+abline(0, 1)</code></pre>
+<p><img src="/post/interaction_detection/interaction-detection_files/figure-html/unnamed-chunk-18-1.png" width="672" /></p>
+<p>For low predicted values both models differ in a systematic way. This suggests that there exists a remaining pattern that is picked up by RF but not by the OLS model.</p>
+<pre class="r"><code>pred_diff &lt;- pred_RF$predictions - pred_GLM
+
+my_ranger_log_diff &lt;- ranger(Ydiff ~ . - medv, data = data.table(Ydiff = pred_diff, Boston),
+                                  importance = &quot;permutation&quot;, num.trees = 500,
+                                  mtry = 5, replace = TRUE)
+my_ranger_log_diff</code></pre>
+<pre><code>## Ranger result
+## 
+## Call:
+##  ranger(Ydiff ~ . - medv, data = data.table(Ydiff = pred_diff,      Boston), importance = &quot;permutation&quot;, num.trees = 500, mtry = 5,      replace = TRUE) 
+## 
+## Type:                             Regression 
+## Number of trees:                  500 
+## Sample size:                      506 
+## Number of independent variables:  13 
+## Mtry:                             5 
+## Target node size:                 5 
+## Variable importance mode:         permutation 
+## Splitrule:                        variance 
+## OOB prediction error (MSE):       0.009198278 
+## R squared (OOB):                  0.5253008</code></pre>
+<p>The RF indicates that 54% of the discrepancy can be “explained” by RF.</p>
+<pre class="r"><code>myres_tmp &lt;- ranger::importance(my_ranger_log_diff)
+myres &lt;- cbind(names(myres_tmp), myres_tmp,  i = 1)
+#my_rownames &lt;- row.names(myres)
+myres &lt;- data.table(myres)
+setnames(myres, &quot;V1&quot;, &quot;varname&quot;)
+setnames(myres, &quot;myres_tmp&quot;, &quot;MeanDecreaseAccuracy&quot;)
+myres &lt;- myres[, varname := as.factor(varname)]
+myres &lt;- myres[, MeanDecreaseAccuracy := as.numeric(MeanDecreaseAccuracy)]
+myres &lt;- myres[, i := as.integer(i)]</code></pre>
+<pre class="r"><code>ggplot(myres, 
+       aes(x = reorder(factor(varname), MeanDecreaseAccuracy), y = MeanDecreaseAccuracy)) + 
+  geom_point() + coord_flip()</code></pre>
+<p><img src="/post/interaction_detection/interaction-detection_files/figure-html/unnamed-chunk-21-1.png" width="672" /></p>
+<p>Add the top 2 vars as an interaction to their model equation.</p>
+<pre class="r"><code>my_glm_hr_int &lt;- glm(log(medv) ~ I(rm^2) + age + log(dis) + log(rad) + tax + ptratio + 
+                     black + I(black^2) + log(lstat) + crim + zn + indus + chas + I(nox^2) +
+                   lstat:nox, data = Boston, 
+              family = &quot;gaussian&quot;)
+summary(my_glm_hr_int)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = log(medv) ~ I(rm^2) + age + log(dis) + log(rad) + 
+##     tax + ptratio + black + I(black^2) + log(lstat) + crim + 
+##     zn + indus + chas + I(nox^2) + lstat:nox, family = &quot;gaussian&quot;, 
+##     data = Boston)
+## 
+## Deviance Residuals: 
+##      Min        1Q    Median        3Q       Max  
+## -0.70340  -0.09274  -0.00665   0.10068   0.75004  
+## 
+## Coefficients:
+##               Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  4.243e+00  1.613e-01  26.304  &lt; 2e-16 ***
+## I(rm^2)      7.053e-03  1.286e-03   5.484 6.66e-08 ***
+## age         -3.146e-04  5.174e-04  -0.608  0.54354    
+## log(dis)    -2.254e-01  3.317e-02  -6.795 3.15e-11 ***
+## log(rad)     9.829e-02  1.862e-02   5.278 1.96e-07 ***
+## tax         -4.589e-04  1.196e-04  -3.838  0.00014 ***
+## ptratio     -2.990e-02  4.910e-03  -6.089 2.30e-09 ***
+## black        1.445e-03  4.955e-04   2.917  0.00370 ** 
+## I(black^2)  -2.470e-06  1.089e-06  -2.268  0.02376 *  
+## log(lstat)  -2.143e-01  3.989e-02  -5.373 1.20e-07 ***
+## crim        -1.046e-02  1.238e-03  -8.448 3.40e-16 ***
+## zn           7.309e-04  5.099e-04   1.434  0.15234    
+## indus       -8.166e-05  2.307e-03  -0.035  0.97178    
+## chas         8.746e-02  3.231e-02   2.707  0.00704 ** 
+## I(nox^2)    -3.618e-01  1.256e-01  -2.880  0.00415 ** 
+## lstat:nox   -2.367e-02  4.819e-03  -4.911 1.24e-06 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for gaussian family taken to be 0.03150809)
+## 
+##     Null deviance: 84.376  on 505  degrees of freedom
+## Residual deviance: 15.439  on 490  degrees of freedom
+## AIC: -295.79
+## 
+## Number of Fisher Scoring iterations: 2</code></pre>
+<pre class="r"><code>AIC(my_glm_hr)</code></pre>
+<pre><code>## [1] -273.4788</code></pre>
+<pre class="r"><code>AIC(my_glm_hr_int)</code></pre>
+<pre><code>## [1] -295.7931</code></pre>
+<p>This results in a significant improvement!</p>
+</div>
+<div id="repeat-this-procedure" class="section level1">
+<h1>Repeat this procedure</h1>
+<pre class="r"><code>pred_RF &lt;- predict(my_ranger_log, data = Boston)
+#pred_RF$predictions
+pred_GLM &lt;- predict(my_glm_hr_int, data = Boston)
+
+plot(pred_RF$predictions, pred_GLM)
+abline(0, 1)</code></pre>
+<p><img src="/post/interaction_detection/interaction-detection_files/figure-html/unnamed-chunk-23-1.png" width="672" /></p>
+<pre class="r"><code>pred_diff &lt;- pred_RF$predictions - pred_GLM
+
+my_ranger_log_diff2 &lt;- ranger(Ydiff ~ . - medv, data = data.table(Ydiff = pred_diff, Boston),
+                                  importance = &quot;permutation&quot;, num.trees = 500,
+                                  mtry = 5, replace = TRUE)
+my_ranger_log_diff2</code></pre>
+<pre><code>## Ranger result
+## 
+## Call:
+##  ranger(Ydiff ~ . - medv, data = data.table(Ydiff = pred_diff,      Boston), importance = &quot;permutation&quot;, num.trees = 500, mtry = 5,      replace = TRUE) 
+## 
+## Type:                             Regression 
+## Number of trees:                  500 
+## Sample size:                      506 
+## Number of independent variables:  13 
+## Mtry:                             5 
+## Target node size:                 5 
+## Variable importance mode:         permutation 
+## Splitrule:                        variance 
+## OOB prediction error (MSE):       0.008642285 
+## R squared (OOB):                  0.5224037</code></pre>
+<pre class="r"><code>myres_tmp &lt;- ranger::importance(my_ranger_log_diff2)
+myres &lt;- cbind(names(myres_tmp), myres_tmp,  i = 1)
+#my_rownames &lt;- row.names(myres)
+myres &lt;- data.table(myres)
+setnames(myres, &quot;V1&quot;, &quot;varname&quot;)
+setnames(myres, &quot;myres_tmp&quot;, &quot;MeanDecreaseAccuracy&quot;)
+myres &lt;- myres[, varname := as.factor(varname)]
+myres &lt;- myres[, MeanDecreaseAccuracy := as.numeric(MeanDecreaseAccuracy)]
+myres &lt;- myres[, i := as.integer(i)]</code></pre>
+<pre class="r"><code>ggplot(myres, 
+       aes(x = reorder(factor(varname), MeanDecreaseAccuracy), y = MeanDecreaseAccuracy)) + 
+  geom_point() + coord_flip()</code></pre>
+<p><img src="/post/interaction_detection/interaction-detection_files/figure-html/unnamed-chunk-26-1.png" width="672" /></p>
+<p>Now we add lstat and dis as an interaction.</p>
+<pre class="r"><code>my_glm_hr_int2 &lt;- glm(log(medv) ~ I(rm^2) + age + log(dis) + log(rad) + tax + ptratio + 
+                     black + I(black^2) + log(lstat) + crim + zn + indus + chas + I(nox^2) +
+                   lstat:nox + lstat:dis, data = Boston, 
+              family = &quot;gaussian&quot;)
+summary(my_glm_hr_int2)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = log(medv) ~ I(rm^2) + age + log(dis) + log(rad) + 
+##     tax + ptratio + black + I(black^2) + log(lstat) + crim + 
+##     zn + indus + chas + I(nox^2) + lstat:nox + lstat:dis, family = &quot;gaussian&quot;, 
+##     data = Boston)
+## 
+## Deviance Residuals: 
+##      Min        1Q    Median        3Q       Max  
+## -0.70136  -0.08746  -0.00589   0.08857   0.76349  
+## 
+## Coefficients:
+##               Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  4.535e+00  1.712e-01  26.481  &lt; 2e-16 ***
+## I(rm^2)      7.498e-03  1.266e-03   5.924 5.94e-09 ***
+## age         -1.262e-03  5.504e-04  -2.293  0.02226 *  
+## log(dis)    -4.065e-01  5.203e-02  -7.813 3.43e-14 ***
+## log(rad)     9.668e-02  1.828e-02   5.290 1.85e-07 ***
+## tax         -4.622e-04  1.173e-04  -3.940 9.35e-05 ***
+## ptratio     -2.640e-02  4.881e-03  -5.409 9.93e-08 ***
+## black        1.313e-03  4.871e-04   2.696  0.00727 ** 
+## I(black^2)  -2.172e-06  1.071e-06  -2.029  0.04303 *  
+## log(lstat)  -3.181e-01  4.553e-02  -6.987 9.23e-12 ***
+## crim        -1.049e-02  1.215e-03  -8.635  &lt; 2e-16 ***
+## zn           9.078e-04  5.019e-04   1.809  0.07108 .  
+## indus       -2.733e-04  2.264e-03  -0.121  0.90395    
+## chas         7.166e-02  3.191e-02   2.246  0.02515 *  
+## I(nox^2)    -2.569e-01  1.255e-01  -2.048  0.04113 *  
+## lstat:nox   -2.729e-02  4.798e-03  -5.689 2.21e-08 ***
+## lstat:dis    3.906e-03  8.754e-04   4.462 1.01e-05 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for gaussian family taken to be 0.03033711)
+## 
+##     Null deviance: 84.376  on 505  degrees of freedom
+## Residual deviance: 14.835  on 489  degrees of freedom
+## AIC: -313.99
+## 
+## Number of Fisher Scoring iterations: 2</code></pre>
+<pre class="r"><code>AIC(my_glm_hr_int2)</code></pre>
+<pre><code>## [1] -313.9904</code></pre>
+<pre class="r"><code>AIC(my_glm_hr_int)</code></pre>
+<pre><code>## [1] -295.7931</code></pre>
+<p>And again we find an improvement in model fit.</p>
+</div>
+<div id="have-these-interactions-already-been-reported-on-in-the-literature" class="section level1">
+<h1>Have these interactions already been reported on in the literature?</h1>
+<p>Tom Minka reports on his website an analysis of interactions in the Boston Housing set:</p>
+<p>(<a href="http://alumni.media.mit.edu/~tpminka/courses/36-350.2001/lectures/day30/" class="uri">http://alumni.media.mit.edu/~tpminka/courses/36-350.2001/lectures/day30/</a>) <code>&gt; summary(fit3) Coefficients:                   Estimate Std. Error t value Pr(&gt;|t|)     (Intercept)      -227.5485    49.2363  -4.622 4.87e-06 *** lstat              50.8553    20.3184   2.503 0.012639 *   rm                 38.1245     7.0987   5.371 1.21e-07 *** dis               -16.8163     2.9174  -5.764 1.45e-08 *** ptratio            14.9592     2.5847   5.788 1.27e-08 *** lstat:rm           -6.8143     3.1209  -2.183 0.029475 *   lstat:dis           4.8736     1.3940   3.496 0.000514 *** lstat:ptratio      -3.3209     1.0345  -3.210 0.001412 **  rm:dis              2.0295     0.4435   4.576 5.99e-06 *** rm:ptratio         -1.9911     0.3757  -5.299 1.76e-07 *** lstat:rm:dis       -0.5216     0.2242  -2.327 0.020364 *   lstat:rm:ptratio    0.3368     0.1588   2.121 0.034423 *</code></p>
+<p>Rob mcCulloch, using BART (bayesian additive regression trees) also examines interactions in the Boston Housing data. There the co-occurence within trees is used to discover interactions:</p>
+<p><code>The second, interaction detection, uncovers which pairs of variables interact in analogous fashion by keeping track of the percentage of trees in the sum in which both variables occur.  This exploits the fact that a sum-of-trees model captures an interaction between xi and xj by using them both for splitting rules in the same tree.</code></p>
+<p><a href="http://www.rob-mcculloch.org/some_papers_and_talks/papers/working/cgm_as.pdf" class="uri">http://www.rob-mcculloch.org/some_papers_and_talks/papers/working/cgm_as.pdf</a></p>
+<div class="figure">
+<img src="boston_uit_bart_book.png" />
+
+</div>
+</div>
+<div id="conclusion" class="section level1">
+<h1>Conclusion</h1>
+<p>We conclude that this appears a fruitfull approach to at least discovering where a regression model can be improved.</p>
+</div>
