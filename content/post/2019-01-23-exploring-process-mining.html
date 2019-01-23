@@ -1,0 +1,48 @@
+---
+title: Exploring Process Mining in R
+author: Gertjan Verhoeven
+date: '2019-01-23'
+summary: In this post, we'll explore the BupaR suite of Process Mining packages created by Gert Janssenswillen of Hasselt University.
+slug: exploring-process-mining
+draft: TRUE
+categories:
+  - R
+tags:
+  - process mining
+header:
+  image: "headers/ceiling-clean-clinic-247786.jpg"
+  preview: FALSE
+
+---
+
+
+
+<p>In this post, we’ll explore the BupaR suite of Process Mining packages created by Jan Wijffels. After installing all required packages, we can load the whole “bupaverse” by loading the <code>bupaR</code> package.</p>
+<p>We start with exploring the <code>patients</code> dataset contained in the <code>eventdataR</code> package.</p>
+<pre class="r"><code>library(bupaR)
+
+df &lt;- eventdataR::patients</code></pre>
+<pre class="r"><code>str(df)</code></pre>
+<pre><code>## Classes &#39;eventlog&#39;, &#39;tbl_df&#39;, &#39;tbl&#39; and &#39;data.frame&#39;:    5442 obs. of  7 variables:
+##  $ handling         : Factor w/ 7 levels &quot;Blood test&quot;,&quot;Check-out&quot;,..: 5 5 5 5 5 5 5 5 5 5 ...
+##  $ patient          : chr  &quot;1&quot; &quot;2&quot; &quot;3&quot; &quot;4&quot; ...
+##  $ employee         : Factor w/ 7 levels &quot;r1&quot;,&quot;r2&quot;,&quot;r3&quot;,..: 1 1 1 1 1 1 1 1 1 1 ...
+##  $ handling_id      : chr  &quot;1&quot; &quot;2&quot; &quot;3&quot; &quot;4&quot; ...
+##  $ registration_type: Factor w/ 2 levels &quot;complete&quot;,&quot;start&quot;: 2 2 2 2 2 2 2 2 2 2 ...
+##  $ time             : POSIXct, format: &quot;2017-01-02 11:41:53&quot; &quot;2017-01-02 11:41:53&quot; ...
+##  $ .order           : int  1 2 3 4 5 6 7 8 9 10 ...
+##  - attr(*, &quot;spec&quot;)=
+##   .. cols(
+##   ..   handling = col_character(),
+##   ..   patient = col_integer(),
+##   ..   employee = col_character(),
+##   ..   handling_id = col_integer(),
+##   ..   registration_type = col_character(),
+##   ..   time = col_datetime(format = &quot;&quot;)
+##   .. )
+##  - attr(*, &quot;case_id&quot;)= chr &quot;patient&quot;
+##  - attr(*, &quot;activity_id&quot;)= chr &quot;handling&quot;
+##  - attr(*, &quot;activity_instance_id&quot;)= chr &quot;handling_id&quot;
+##  - attr(*, &quot;lifecycle_id&quot;)= chr &quot;registration_type&quot;
+##  - attr(*, &quot;resource_id&quot;)= chr &quot;employee&quot;
+##  - attr(*, &quot;timestamp&quot;)= chr &quot;time&quot;</code></pre>

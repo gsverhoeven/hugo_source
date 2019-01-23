@@ -1,0 +1,32 @@
+---
+title: Exploring Process Mining in R
+author: Gertjan Verhoeven
+date: '2019-01-23'
+summary: In this post, we'll explore the BupaR suite of Process Mining packages created by Gert Janssenswillen of Hasselt University.
+slug: exploring-process-mining
+draft: TRUE
+categories:
+  - R
+tags:
+  - process mining
+header:
+  image: "headers/ceiling-clean-clinic-247786.jpg"
+  preview: FALSE
+
+---
+
+In this post, we'll explore the BupaR suite of Process Mining packages created by Jan Wijffels.
+After installing all required packages, we can load the whole "bupaverse" by loading the `bupaR` package.
+
+We start with exploring the `patients` dataset contained in the `eventdataR` package.
+
+```{r warnings = FALSE, message = FALSE}
+library(bupaR)
+
+df <- eventdataR::patients
+```
+
+```{r}
+str(df)
+```
+
