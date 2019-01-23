@@ -4,7 +4,7 @@ author: Gertjan Verhoeven
 date: '2019-01-23'
 summary: In this post, we'll explore the BupaR suite of Process Mining packages created by Gert Janssenswillen of Hasselt University.
 slug: exploring-process-mining
-draft: TRUE
+draft: FALSE
 categories:
   - R
 tags:

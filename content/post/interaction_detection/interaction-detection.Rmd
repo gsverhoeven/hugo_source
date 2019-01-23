@@ -3,7 +3,7 @@ title: Improving a parametric regression model using machine learning
 author: Gertjan Verhoeven
 date: '2017-09-01'
 summary: In this post, I explore how we can improve a parametric regression model by comparing its predictions to those of a Random Forest model. This might informs us in what ways the OLS model fails to capture all non-linearities and interactions between the predictors.
-draft: TRUE
+draft: FALSE
 categories:
   - R
 tags:
