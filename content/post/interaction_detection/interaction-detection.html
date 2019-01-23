@@ -1,20 +1,21 @@
 ---
-title: "Interaction detection using Random Forest predictions"
+title: Improving a parametric regression model using machine learning
 author: Gertjan Verhoeven
-date: September 2017
-output:
-  pdf_document: 
-  toc: true
-  toc_depth: 3
- 
+date: '2017-09-01'
+summary: In this post, I explore how we can improve a parametric regression model by comparing its predictions to those of a Random Forest model. This might informs us in what ways the OLS model fails to capture all non-linearities and interactions between the predictors.
+draft: TRUE
+categories:
+  - R
+tags:
+  - interaction detection, random forest, ranger
+header:
+  image: "headers/abstract-black-and-white-dark-230659.jpg"
+  preview: FALSE
 ---
 
 
 
-<div id="summary" class="section level1">
-<h1>summary</h1>
 <p>The idea is that comparing the predictions of an RF model with the predictions of an OLS model can inform us in what ways the OLS model fails to capture all non-linearities and interactions between the predictors. Subsequently, using partial dependence plots of the RF model can guide the modelling of the non-linearities in the OLS model. After this step, the discrepancies between the RF predictions and the OLS predictions should be caused by non-modeled interactions. Using an RF to predict the discrepancy itself can then be used to discover which predictors are involved in these interactions. We test this method on the classic <code>Boston Housing</code> dataset to predict median house values (<code>medv</code>). We indeed recover interactions that, as it turns, have already been found and documented in the literature.</p>
-</div>
 <div id="load-packages" class="section level1">
 <h1>Load packages</h1>
 <pre class="r"><code>rm(list=ls())
@@ -81,8 +82,8 @@ my_ranger_diff</code></pre>
 ## Target node size:                 5 
 ## Variable importance mode:         permutation 
 ## Splitrule:                        variance 
-## OOB prediction error (MSE):       5.102866 
-## R squared (OOB):                  0.6619394</code></pre>
+## OOB prediction error (MSE):       5.310381 
+## R squared (OOB):                  0.6579774</code></pre>
 <p>It turns out the RF can “explain” 67% of these discrepancies.</p>
 <pre class="r"><code>myres_tmp &lt;- ranger::importance(my_ranger_diff)
 myres &lt;- cbind(names(myres_tmp), myres_tmp,  i = 1)
@@ -172,8 +173,8 @@ my_ranger_diff2</code></pre>
 ## Target node size:                 5 
 ## Variable importance mode:         permutation 
 ## Splitrule:                        variance 
-## OOB prediction error (MSE):       5.565227 
-## R squared (OOB):                  0.4318305</code></pre>
+## OOB prediction error (MSE):       5.555041 
+## R squared (OOB):                  0.4518728</code></pre>
 <pre class="r"><code>myres_tmp &lt;- ranger::importance(my_ranger_diff2)
 myres &lt;- cbind(names(myres_tmp), myres_tmp,  i = 1)
 #my_rownames &lt;- row.names(myres)
@@ -310,8 +311,8 @@ my_ranger_log_diff</code></pre>
 ## Target node size:                 5 
 ## Variable importance mode:         permutation 
 ## Splitrule:                        variance 
-## OOB prediction error (MSE):       0.009198278 
-## R squared (OOB):                  0.5253008</code></pre>
+## OOB prediction error (MSE):       0.009019332 
+## R squared (OOB):                  0.537869</code></pre>
 <p>The RF indicates that 54% of the discrepancy can be “explained” by RF.</p>
 <pre class="r"><code>myres_tmp &lt;- ranger::importance(my_ranger_log_diff)
 myres &lt;- cbind(names(myres_tmp), myres_tmp,  i = 1)
@@ -405,8 +406,8 @@ my_ranger_log_diff2</code></pre>
 ## Target node size:                 5 
 ## Variable importance mode:         permutation 
 ## Splitrule:                        variance 
-## OOB prediction error (MSE):       0.008642285 
-## R squared (OOB):                  0.5224037</code></pre>
+## OOB prediction error (MSE):       0.008684809 
+## R squared (OOB):                  0.523193</code></pre>
 <pre class="r"><code>myres_tmp &lt;- ranger::importance(my_ranger_log_diff2)
 myres &lt;- cbind(names(myres_tmp), myres_tmp,  i = 1)
 #my_rownames &lt;- row.names(myres)
