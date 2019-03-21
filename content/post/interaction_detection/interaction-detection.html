@@ -3,7 +3,7 @@ title: Improving a parametric regression model using machine learning
 author: Gertjan Verhoeven
 date: '2017-09-01'
 summary: In this post, I explore how we can improve a parametric regression model by comparing its predictions to those of a Random Forest model. This might informs us in what ways the OLS model fails to capture all non-linearities and interactions between the predictors.
-draft: TRUE
+draft: FALSE
 categories:
   - R
 tags:
@@ -82,8 +82,8 @@ my_ranger_diff</code></pre>
 ## Target node size:                 5 
 ## Variable importance mode:         permutation 
 ## Splitrule:                        variance 
-## OOB prediction error (MSE):       5.310381 
-## R squared (OOB):                  0.6579774</code></pre>
+## OOB prediction error (MSE):       5.023919 
+## R squared (OOB):                  0.6661671</code></pre>
 <p>It turns out the RF can “explain” 67% of these discrepancies.</p>
 <pre class="r"><code>myres_tmp &lt;- ranger::importance(my_ranger_diff)
 myres &lt;- cbind(names(myres_tmp), myres_tmp,  i = 1)
@@ -173,8 +173,8 @@ my_ranger_diff2</code></pre>
 ## Target node size:                 5 
 ## Variable importance mode:         permutation 
 ## Splitrule:                        variance 
-## OOB prediction error (MSE):       5.555041 
-## R squared (OOB):                  0.4518728</code></pre>
+## OOB prediction error (MSE):       5.445409 
+## R squared (OOB):                  0.4430861</code></pre>
 <pre class="r"><code>myres_tmp &lt;- ranger::importance(my_ranger_diff2)
 myres &lt;- cbind(names(myres_tmp), myres_tmp,  i = 1)
 #my_rownames &lt;- row.names(myres)
@@ -311,8 +311,8 @@ my_ranger_log_diff</code></pre>
 ## Target node size:                 5 
 ## Variable importance mode:         permutation 
 ## Splitrule:                        variance 
-## OOB prediction error (MSE):       0.009019332 
-## R squared (OOB):                  0.537869</code></pre>
+## OOB prediction error (MSE):       0.009105683 
+## R squared (OOB):                  0.5345414</code></pre>
 <p>The RF indicates that 54% of the discrepancy can be “explained” by RF.</p>
 <pre class="r"><code>myres_tmp &lt;- ranger::importance(my_ranger_log_diff)
 myres &lt;- cbind(names(myres_tmp), myres_tmp,  i = 1)
@@ -406,8 +406,8 @@ my_ranger_log_diff2</code></pre>
 ## Target node size:                 5 
 ## Variable importance mode:         permutation 
 ## Splitrule:                        variance 
-## OOB prediction error (MSE):       0.008684809 
-## R squared (OOB):                  0.523193</code></pre>
+## OOB prediction error (MSE):       0.00890021 
+## R squared (OOB):                  0.5112434</code></pre>
 <pre class="r"><code>myres_tmp &lt;- ranger::importance(my_ranger_log_diff2)
 myres &lt;- cbind(names(myres_tmp), myres_tmp,  i = 1)
 #my_rownames &lt;- row.names(myres)
