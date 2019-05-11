@@ -167,10 +167,10 @@ createRandomDataPartition &lt;- function(y, times, p) {
 
 createRandomDataPartition(1:10, times = 2, p = 0.5)</code></pre>
 <pre><code>## $Resample1
-## [1] 6 8 4 7 9
+## [1] 4 2 6 1 5
 ## 
 ## $Resample2
-## [1] 3 5 8 2 4</code></pre>
+## [1]  4 10  5  9  2</code></pre>
 </div>
 <div id="the-validation-set-approach-without-caret" class="section level1">
 <h1>The validation set approach without caret</h1>
@@ -365,4 +365,35 @@ ggplot(resamples, metric = &quot;RMSE&quot;) </code></pre>
 <p><img src="/post/2019-03-21-caret_validation_set_approach_files/figure-html/unnamed-chunk-13-1.png" width="672" /></p>
 <p>It does seems that stratified sampling paints a slightly more optimistic picture of the test error when compared to truly random sampling. However, we can also see that random sampling has somewhat higher variance when compared to stratified sampling.</p>
 <p>Based on these results, it seems like stratified sampling is indeed a reasonable default setting for <code>caret</code>.</p>
+</div>
+<div id="update-lgocv" class="section level1">
+<h1>Update: LGOCV</h1>
+<pre class="r"><code>set.seed(1234)
+
+
+ctrl &lt;- trainControl(method = &quot;LGOCV&quot;,  ## The method doesn&#39;t matter
+                     repeats = n_repeats,
+                     number = 1,
+                     p = 0.5,
+                     savePredictions = TRUE
+                     ) </code></pre>
+<pre><code>## Warning: `repeats` has no meaning for this resampling method.</code></pre>
+<pre class="r"><code>lgocv_res &lt;- train(medv ~ indus + chas, data = Boston, method = &quot;lm&quot;,
+             trControl = ctrl)
+
+lgocv_res</code></pre>
+<pre><code>## Linear Regression 
+## 
+## 506 samples
+##   2 predictor
+## 
+## No pre-processing
+## Resampling: Repeated Train/Test Splits Estimated (1 reps, 50%) 
+## Summary of sample sizes: 254 
+## Resampling results:
+## 
+##   RMSE     Rsquared   MAE     
+##   7.73795  0.2942766  5.606969
+## 
+## Tuning parameter &#39;intercept&#39; was held constant at a value of TRUE</code></pre>
 </div>
