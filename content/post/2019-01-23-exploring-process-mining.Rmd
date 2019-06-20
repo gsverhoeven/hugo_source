@@ -1,7 +1,7 @@
 ---
 title: Exploring Process Mining in R
 author: Gertjan Verhoeven
-date: '2019-01-23'
+date: '2019-06-20'
 summary: In this post, we'll explore the BupaR suite of Process Mining packages created by Gert Janssenswillen of Hasselt University.
 slug: exploring-process-mining
 draft: FALSE
@@ -9,24 +9,72 @@ categories:
   - R
 tags:
   - process mining
+baseurl: "https://gsverhoeven.github.io"
 header:
   image: "headers/ceiling-clean-clinic-247786.jpg"
   preview: FALSE
 
 ---
 
-In this post, we'll explore the BupaR suite of Process Mining packages created by Jan Wijffels.
+In this post, we'll explore the `BupaR` suite of *Process Mining* packages created by *Gert Janssenswillen* from Hasselt University.
+
+
+We start with exploring the `patients` dataset contained in the `eventdataR` package. According to the documentation, this is an "Artifical eventlog about patients".
+
+# Getting started
+
 After installing all required packages, we can load the whole "bupaverse" by loading the `bupaR` package.
 
-We start with exploring the `patients` dataset contained in the `eventdataR` package.
-
 ```{r warnings = FALSE, message = FALSE}
+library(ggplot2)
 library(bupaR)
+#library(eventdataR)
 
 df <- eventdataR::patients
 ```
 
+The data is already in `event log` format, let's check it out.
+
 ```{r}
-str(df)
+summary(df)
 ```
+So we learn that there are 500 "cases", i.e. patients. There are 7 different activities. 
+
+Let's check out the data for a single patient:
+
+```{r}
+df %>% filter(patient == 1) %>% 
+  arrange(handling_id) #%>% 
+ # select(handling, handling_id, registration_type) # does not work
+```
+We learn that each "handling" has a separate start and complete timestamp.
+
+# Traces
+
+The summary info of the event log also counts so-called "traces". A trace is defined a unique sequence of events in the event log. Apparently, there are only seven different traces (possible sequences). Let's visualize them.
+
+To visualize all traces, we set `coverage` to 1.0.
+
+```{r}
+df %>% trace_explorer(type = "frequent", coverage = 1.0)
+```
+So there are a few traces (0.6%) that do not end with a check-out.
+Ignoring these rare cases, we find that there are two types of cases:
+
+* Cases that get an X-ray
+* Cases that get a blood test followed by an MRI scan
+
+# The dotted chart
+
+A really powerful visualization in process mining comes in the form of a "dotted chart". The dotted chart function produces a `ggplot` graph, which is nice, because so we can actually tweak the graph as we can with regular ggplot objects.
+
+```{r}
+df %>% dotted_chart(x = "relative", sort = "duration") + ggtitle("All cases") +
+  theme_gray()
+```
+
+A nice pattern emerges, where all cases start with registration, then quickly proceed to triage and assessment, after that, a time varying period of 1-10 days follows where either the blood test + MRI scan, or the X-ray is performed, followed by discussing the results. Finally, check out occurs.
+
+
+
 
