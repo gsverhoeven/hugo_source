@@ -68,6 +68,18 @@ Ignoring these rare cases, we find that there are two types of cases:
 
 A really powerful visualization in process mining comes in the form of a "dotted chart". The dotted chart function produces a `ggplot` graph, which is nice, because so we can actually tweak the graph as we can with regular ggplot objects.
 
+It has two nice use cases.
+The first is when we plot actual time on the x-axis, and sort the cases by starting date.
+
+```{r}
+df %>% dotted_chart(x = "absolute", sort = "start") + ggtitle("All cases") +
+  theme_gray()
+```
+
+The slope of this graphs learns us the rate of new cases, and if this changes over time. Here it appears constant, with 500 cases divided over five quarter years.
+
+The second is to align all cases relative to the first event, and sort on duration of the whole sequence of events.
+
 ```{r}
 df %>% dotted_chart(x = "relative", sort = "duration") + ggtitle("All cases") +
   theme_gray()
@@ -76,5 +88,7 @@ df %>% dotted_chart(x = "relative", sort = "duration") + ggtitle("All cases") +
 A nice pattern emerges, where all cases start with registration, then quickly proceed to triage and assessment, after that, a time varying period of 1-10 days follows where either the blood test + MRI scan, or the X-ray is performed, followed by discussing the results. Finally, check out occurs.
 
 
+# Conclusion
 
+To conclude, the process mining approach to analyze time series event data appears highly promising. The dotted chart is a great addition to my data visualization repertoire, and the process mining folks appear to have at lot more goodies, such as Trace Alignment. 
 

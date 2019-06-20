@@ -1,6 +1,8 @@
 library(blogdown)
 setwd("C:/hugo/sites/gsverhoeven.github.io")
 
+blogdown::serve_site()
+
 blogdown::build_site()
 
 #Update: I realized what went wrong. 
