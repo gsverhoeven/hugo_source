@@ -16,7 +16,7 @@ header:
 
 ---
 
-In this post, we'll explore the `BupaR` suite of *Process Mining* packages created by *Gert Janssenswillen* from Hasselt University.
+In this post, we'll explore the [BupaR](https://www.bupar.net) suite of *Process Mining* packages created by *Gert Janssenswillen* from Hasselt University.
 
 
 We start with exploring the `patients` dataset contained in the `eventdataR` package. According to the documentation, this is an "Artifical eventlog about patients".
@@ -28,12 +28,26 @@ After installing all required packages, we can load the whole "bupaverse" by loa
 ```{r warnings = FALSE, message = FALSE}
 library(ggplot2)
 library(bupaR)
-#library(eventdataR)
-
-df <- eventdataR::patients
 ```
 
-The data is already in `event log` format, let's check it out.
+Now, our dataset is already in `eventlog` format, but typically this not the case.
+Here's how to turn a data.frame into an object of class `eventlog`:
+
+```{r}
+patients <- eventdataR::patients
+
+df <- eventlog(patients,
+               case_id = "patient",
+               activity_id = "handling",
+               activity_instance_id = "handling_id",
+               lifecycle_id = "registration_type",
+               timestamp = "time",
+               resource_id = "employee")
+```
+
+
+
+Let's check it out.
 
 ```{r}
 summary(df)
