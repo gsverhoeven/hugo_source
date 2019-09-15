@@ -1,0 +1,199 @@
+---
+title: Simulating Fake Data in R
+author: Gertjan Verhoeven
+date: '2019-08-18'
+summary: PM
+slug: simulating-fake-data
+draft: FALSE
+categories:
+  - R
+tags:
+  - process mining
+baseurl: "https://gsverhoeven.github.io"
+header:
+  image: "headers/fakedata.jpg"
+  preview: FALSE
+
+---
+
+In this post, we'll explore the [Simstudy](https://www.bupar.net) package created by *Keith Goldfeld* from New York University.
+
+```{r}
+library(data.table)
+```
+
+
+# Why simulate data?
+
+Simulating data, fake, synthetic, artificial, generative model, data generating process, 
+
+* Protecting privacy and being reproducible and transparant
+* Statistical Power analysis
+* Precommit to particular analysis
+* Testing new methods and algorithms
+* Check statistical intuition
+
+# What functionality do we need in a simulation package?
+
+* Different variable types (Binary, Continuous positive, Poisson, Likert )
+* Ability to specify marginal distributions
+* Ability to specify correlation matrix
+* Ability to specify particular functional forms between the variables, including link functions (i.e. logit to map continuous to 0/1)
+* Ability to simulate from a causal DAG (related to previous one)
+* Ability to simulate time series (sequential data)
+
+Simulating from a causal DAG requires a causal DAG, and distributions for the exogeneous variables, as well as functions 
+
+# What packages are out there?
+
+* Wakefield
+* Charlatan
+
+These both generate uncorrelated variables that are realistic, i.e. creditcard numbers, adresses, zipcodes etc. 
+
+* Simcausal
+
+Simpop, simframe, and gems appear specific to population survey data, and multistate models respectively.
+
+* Synthpop
+
+This uses a ''visit sequence'' where each variable is visited in sequence and synthesized, based on the original data and the already sequenced variables.
+
+# Test casus
+
+As a test casus, let's see what it takes to simulate data that has the following characteristics:
+
+* Five point Likert-scale for ten questions, with means uniformly distributed between 2 and 4, and correlation matrix uniformly distributed between -1 and 1.
+* A positive continuous predictor [gamma distributed](https://en.wikipedia.org/wiki/Gamma_distribution), with shape parameter 2 and scale parameter 20. 
+* A positive continuous dependent variable that is a function of the ten questions and the positive predictor. Coefficients are uniformly distributed between 0.1 and 2.
+
+
+# Simstudy
+
+
+```{r}
+library(simstudy)
+library(data.table)
+library(ggplot2)
+
+```
+
+## Defining the variables
+
+```{r}
+# fixed value and rowid nr
+def <- defData(varname = "nr", 
+               dist = "nonrandom", 
+               formula=7, 
+               id = "idnum")
+
+#######################################################
+# x1 uniform between 10 and 20
+def <- defData(def,varname="x1", 
+               dist="uniform", 
+               formula="10;20")
+
+#######################################################
+# outcomes all dependent on x1
+
+# normal dist, linear link function cnst + b x
+def <- defData(def,varname="y1", 
+               formula="nr + x1 * 2", 
+               variance=8)
+
+# Poisson count, log link function to transform to 0,Inf
+def <- defData(def,varname="y2", 
+               dist="poisson", 
+               formula="nr - 0.2 * x1",
+               link="log")
+
+def <- defData(def, varname = "xnb", 
+               dist = "negBinomial" , 
+               formula="nr - 0.2 * x1", 
+               variance = 0.05, 
+               link = "log")
+
+#####################################################
+# three categorical levels
+def <- defData(def,varname="xCat",
+               formula = "0.3;0.2;0.5", 
+               dist="categorical")
+
+
+####################################################
+# outcomes dependent on xCat
+
+# gamma distr (? why single parameter)
+def <- defData(def,varname="g1", 
+               dist="gamma", 
+               formula = "5+xCat", 
+               variance = 1, 
+               link = "log")
+
+# beta distr with logit link (p between 0 and 1)
+def <- defData(def,varname="b1", 
+               dist="beta", 
+               formula = "1+0.3*xCat", 
+               variance = 1, 
+               link = "logit")
+# bernoulli dist with logit link (0/1 with p function of xCat)
+def <- defData(def, varname = "a1", 
+               dist = "binary" , 
+               formula="-3 + xCat", 
+               link="logit")
+
+# binomial dist with logit link
+def <- defData(def, varname = "a2", 
+               dist = "binomial" , 
+               formula="-3 + xCat", 
+               variance = 100, 
+               link="logit")
+
+```
+
+```{r}
+dt <- genData(1000, def)
+dt
+```
+
+```{r}
+summary(dt)
+```
+
+
+# Lets make a synthetic BostonHousing!
+
+```{r}
+library(MASS)
+
+data(Boston)
+
+str(Boston)
+```
+
+```{r}
+summary(Boston$crim)
+
+ggplot(Boston, aes(x = crim)) + 
+  geom_histogram()
+```
+
+```{r}
+library(fitdistrplus)
+fit.gamma <- fitdist(Boston$crim, distr = "gamma", method = "mle")
+summary(fit.gamma)
+```
+
+
+
+```{r}
+hist(rgamma(1000, shape = 1, rate = 0.54))
+plot(fit.gamma)
+```
+
+The gamma function does not capture the high frequency of very large obs.
+
+Ok, so a two parameter distribution cannot fit all positive continuous variables.
+
+
+# MultiOrd package correlated ordinal data
