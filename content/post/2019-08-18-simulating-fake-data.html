@@ -1,0 +1,238 @@
+---
+title: Simulating Fake Data in R
+author: Gertjan Verhoeven
+date: '2019-08-18'
+summary: PM
+slug: simulating-fake-data
+draft: FALSE
+categories:
+  - R
+tags:
+  - process mining
+baseurl: "https://gsverhoeven.github.io"
+header:
+  image: "headers/fakedata.jpg"
+  preview: FALSE
+
+---
+
+
+
+<p>In this post, we’ll explore the <a href="https://www.bupar.net">Simstudy</a> package created by <em>Keith Goldfeld</em> from New York University.</p>
+<pre class="r"><code>library(data.table)</code></pre>
+<div id="why-simulate-data" class="section level1">
+<h1>Why simulate data?</h1>
+<p>Simulating data, fake, synthetic, artificial, generative model, data generating process,</p>
+<ul>
+<li>Protecting privacy and being reproducible and transparant</li>
+<li>Statistical Power analysis</li>
+<li>Precommit to particular analysis</li>
+<li>Testing new methods and algorithms</li>
+<li>Check statistical intuition</li>
+</ul>
+</div>
+<div id="what-functionality-do-we-need-in-a-simulation-package" class="section level1">
+<h1>What functionality do we need in a simulation package?</h1>
+<ul>
+<li>Different variable types (Binary, Continuous positive, Poisson, Likert )</li>
+<li>Ability to specify marginal distributions</li>
+<li>Ability to specify correlation matrix</li>
+<li>Ability to specify particular functional forms between the variables, including link functions (i.e. logit to map continuous to 0/1)</li>
+<li>Ability to simulate from a causal DAG (related to previous one)</li>
+<li>Ability to simulate time series (sequential data)</li>
+</ul>
+<p>Simulating from a causal DAG requires a causal DAG, and distributions for the exogeneous variables, as well as functions</p>
+</div>
+<div id="what-packages-are-out-there" class="section level1">
+<h1>What packages are out there?</h1>
+<ul>
+<li>Wakefield</li>
+<li>Charlatan</li>
+</ul>
+<p>These both generate uncorrelated variables that are realistic, i.e. creditcard numbers, adresses, zipcodes etc.</p>
+<ul>
+<li>Simcausal</li>
+</ul>
+<p>Simpop, simframe, and gems appear specific to population survey data, and multistate models respectively.</p>
+<ul>
+<li>Synthpop</li>
+</ul>
+<p>This uses a ‘’visit sequence’’ where each variable is visited in sequence and synthesized, based on the original data and the already sequenced variables.</p>
+</div>
+<div id="test-casus" class="section level1">
+<h1>Test casus</h1>
+<p>As a test casus, let’s see what it takes to simulate data that has the following characteristics:</p>
+<ul>
+<li>Five point Likert-scale for ten questions, with means uniformly distributed between 2 and 4, and correlation matrix uniformly distributed between -1 and 1.</li>
+<li>A positive continuous predictor <a href="https://en.wikipedia.org/wiki/Gamma_distribution">gamma distributed</a>, with shape parameter 2 and scale parameter 20.</li>
+<li>A positive continuous dependent variable that is a function of the ten questions and the positive predictor. Coefficients are uniformly distributed between 0.1 and 2.</li>
+</ul>
+</div>
+<div id="simstudy" class="section level1">
+<h1>Simstudy</h1>
+<pre class="r"><code>library(simstudy)
+library(data.table)
+library(ggplot2)</code></pre>
+<div id="defining-the-variables" class="section level2">
+<h2>Defining the variables</h2>
+<pre class="r"><code># fixed value and rowid nr
+def &lt;- defData(varname = &quot;nr&quot;, 
+               dist = &quot;nonrandom&quot;, 
+               formula=7, 
+               id = &quot;idnum&quot;)
+
+#######################################################
+# x1 uniform between 10 and 20
+def &lt;- defData(def,varname=&quot;x1&quot;, 
+               dist=&quot;uniform&quot;, 
+               formula=&quot;10;20&quot;)
+
+#######################################################
+# outcomes all dependent on x1
+
+# normal dist, linear link function cnst + b x
+def &lt;- defData(def,varname=&quot;y1&quot;, 
+               formula=&quot;nr + x1 * 2&quot;, 
+               variance=8)
+
+# Poisson count, log link function to transform to 0,Inf
+def &lt;- defData(def,varname=&quot;y2&quot;, 
+               dist=&quot;poisson&quot;, 
+               formula=&quot;nr - 0.2 * x1&quot;,
+               link=&quot;log&quot;)
+
+def &lt;- defData(def, varname = &quot;xnb&quot;, 
+               dist = &quot;negBinomial&quot; , 
+               formula=&quot;nr - 0.2 * x1&quot;, 
+               variance = 0.05, 
+               link = &quot;log&quot;)
+
+#####################################################
+# three categorical levels
+def &lt;- defData(def,varname=&quot;xCat&quot;,
+               formula = &quot;0.3;0.2;0.5&quot;, 
+               dist=&quot;categorical&quot;)
+
+
+####################################################
+# outcomes dependent on xCat
+
+# gamma distr (? why single parameter)
+def &lt;- defData(def,varname=&quot;g1&quot;, 
+               dist=&quot;gamma&quot;, 
+               formula = &quot;5+xCat&quot;, 
+               variance = 1, 
+               link = &quot;log&quot;)
+
+# beta distr with logit link (p between 0 and 1)
+def &lt;- defData(def,varname=&quot;b1&quot;, 
+               dist=&quot;beta&quot;, 
+               formula = &quot;1+0.3*xCat&quot;, 
+               variance = 1, 
+               link = &quot;logit&quot;)
+# bernoulli dist with logit link (0/1 with p function of xCat)
+def &lt;- defData(def, varname = &quot;a1&quot;, 
+               dist = &quot;binary&quot; , 
+               formula=&quot;-3 + xCat&quot;, 
+               link=&quot;logit&quot;)
+
+# binomial dist with logit link
+def &lt;- defData(def, varname = &quot;a2&quot;, 
+               dist = &quot;binomial&quot; , 
+               formula=&quot;-3 + xCat&quot;, 
+               variance = 100, 
+               link=&quot;logit&quot;)</code></pre>
+<pre class="r"><code>dt &lt;- genData(1000, def)
+dt</code></pre>
+<pre><code>##       idnum nr       x1       y1  y2 xnb xCat         g1        b1 a1 a2
+##    1:     1  7 12.66023 35.78961  84  88    3  1065.3174 0.7920595  1 53
+##    2:     2  7 16.08192 38.00659  49  34    3   899.2682 0.9999523  1 42
+##    3:     3  7 17.84644 43.78440  26  44    3  1521.1980 0.9998767  0 45
+##    4:     4  7 17.60392 42.06137  36  41    1   514.7504 0.9993967  1 13
+##    5:     5  7 14.73035 34.12520  52  36    1   384.8467 0.9998659  0 19
+##   ---                                                                   
+##  996:   996  7 12.17689 35.30732 115  82    3   159.1673 0.9954607  1 39
+##  997:   997  7 15.46872 32.13532  44  54    3 13529.8474 0.9980669  1 35
+##  998:   998  7 11.39861 30.49708  95  97    2  3035.8010 0.9145963  1 25
+##  999:   999  7 18.60873 40.80517  28  34    2   725.9122 0.9043262  1 23
+## 1000:  1000  7 11.39039 25.27801 117  96    2  1141.5504 0.9779888  0 26</code></pre>
+<pre class="r"><code>summary(dt)</code></pre>
+<pre><code>##      idnum              nr          x1              y1       
+##  Min.   :   1.0   Min.   :7   Min.   :10.00   Min.   :20.05  
+##  1st Qu.: 250.8   1st Qu.:7   1st Qu.:12.61   1st Qu.:31.68  
+##  Median : 500.5   Median :7   Median :15.20   Median :36.93  
+##  Mean   : 500.5   Mean   :7   Mean   :15.12   Mean   :36.92  
+##  3rd Qu.: 750.2   3rd Qu.:7   3rd Qu.:17.72   3rd Qu.:42.29  
+##  Max.   :1000.0   Max.   :7   Max.   :20.00   Max.   :57.65  
+##        y2              xnb              xCat             g1          
+##  Min.   : 10.00   Min.   :  9.00   Min.   :1.000   Min.   :    0.92  
+##  1st Qu.: 32.00   1st Qu.: 30.00   1st Qu.:1.000   1st Qu.:  279.96  
+##  Median : 52.00   Median : 51.00   Median :2.000   Median :  848.83  
+##  Mean   : 63.01   Mean   : 62.92   Mean   :2.167   Mean   : 1735.27  
+##  3rd Qu.: 88.00   3rd Qu.: 87.00   3rd Qu.:3.000   3rd Qu.: 2144.70  
+##  Max.   :169.00   Max.   :242.00   Max.   :3.000   Max.   :19203.26  
+##        b1                  a1              a2       
+##  Min.   :0.0000898   Min.   :0.000   Min.   : 5.00  
+##  1st Qu.:0.7828926   1st Qu.:0.000   1st Qu.:15.00  
+##  Median :0.9841744   Median :0.000   Median :33.00  
+##  Mean   :0.8364690   Mean   :0.333   Mean   :33.56  
+##  3rd Qu.:0.9997354   3rd Qu.:1.000   3rd Qu.:50.00  
+##  Max.   :1.0000000   Max.   :1.000   Max.   :64.00</code></pre>
+</div>
+</div>
+<div id="lets-make-a-synthetic-bostonhousing" class="section level1">
+<h1>Lets make a synthetic BostonHousing!</h1>
+<pre class="r"><code>library(MASS)
+
+data(Boston)
+
+str(Boston)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    506 obs. of  14 variables:
+##  $ crim   : num  0.00632 0.02731 0.02729 0.03237 0.06905 ...
+##  $ zn     : num  18 0 0 0 0 0 12.5 12.5 12.5 12.5 ...
+##  $ indus  : num  2.31 7.07 7.07 2.18 2.18 2.18 7.87 7.87 7.87 7.87 ...
+##  $ chas   : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ nox    : num  0.538 0.469 0.469 0.458 0.458 0.458 0.524 0.524 0.524 0.524 ...
+##  $ rm     : num  6.58 6.42 7.18 7 7.15 ...
+##  $ age    : num  65.2 78.9 61.1 45.8 54.2 58.7 66.6 96.1 100 85.9 ...
+##  $ dis    : num  4.09 4.97 4.97 6.06 6.06 ...
+##  $ rad    : int  1 2 2 3 3 3 5 5 5 5 ...
+##  $ tax    : num  296 242 242 222 222 222 311 311 311 311 ...
+##  $ ptratio: num  15.3 17.8 17.8 18.7 18.7 18.7 15.2 15.2 15.2 15.2 ...
+##  $ black  : num  397 397 393 395 397 ...
+##  $ lstat  : num  4.98 9.14 4.03 2.94 5.33 ...
+##  $ medv   : num  24 21.6 34.7 33.4 36.2 28.7 22.9 27.1 16.5 18.9 ...</code></pre>
+<pre class="r"><code>summary(Boston$crim)</code></pre>
+<pre><code>##     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+##  0.00632  0.08204  0.25651  3.61352  3.67708 88.97620</code></pre>
+<pre class="r"><code>ggplot(Boston, aes(x = crim)) + 
+  geom_histogram()</code></pre>
+<pre><code>## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
+<p><img src="/post/2019-08-18-simulating-fake-data_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+<pre class="r"><code>library(fitdistrplus)</code></pre>
+<pre><code>## Warning: package &#39;fitdistrplus&#39; was built under R version 3.5.3</code></pre>
+<pre><code>## Loading required package: survival</code></pre>
+<pre><code>## Loading required package: npsurv</code></pre>
+<pre><code>## Loading required package: lsei</code></pre>
+<pre class="r"><code>fit.gamma &lt;- fitdist(Boston$crim, distr = &quot;gamma&quot;, method = &quot;mle&quot;)
+summary(fit.gamma)</code></pre>
+<pre><code>## Fitting of the distribution &#39; gamma &#39; by maximum likelihood 
+## Parameters : 
+##         estimate  Std. Error
+## shape 0.32897884 0.016452240
+## rate  0.09105509 0.008397767
+## Loglikelihood:  -805.9694   AIC:  1615.939   BIC:  1624.392 
+## Correlation matrix:
+##           shape      rate
+## shape 1.0000000 0.5421384
+## rate  0.5421384 1.0000000</code></pre>
+<pre class="r"><code>hist(rgamma(1000, shape = 1, rate = 0.54))</code></pre>
+<p><img src="/post/2019-08-18-simulating-fake-data_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<pre class="r"><code>plot(fit.gamma)</code></pre>
+<p><img src="/post/2019-08-18-simulating-fake-data_files/figure-html/unnamed-chunk-9-2.png" width="672" /></p>
+<p>The gamma function does not capture the high frequency of very large obs.</p>
+<p>Ok, so a two parameter distribution cannot fit all positive continuous variables.</p>
+</div>
+<div id="multiord-package-correlated-ordinal-data" class="section level1">
+<h1>MultiOrd package correlated ordinal data</h1>
+</div>

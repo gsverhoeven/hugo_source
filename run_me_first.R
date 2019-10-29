@@ -1,7 +1,7 @@
 library(blogdown)
-setwd("C:/hugo/sites/gsverhoeven.github.io")
+setwd("C:/hugo/sites/hugo_source")
 
-#blogdown::serve_site()
+blogdown::serve_site()
 
 blogdown::build_site()
 

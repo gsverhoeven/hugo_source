@@ -8,7 +8,7 @@ draft: FALSE
 categories:
   - R
 tags:
-  - R, fake data, simulation
+  - R, fake data, simulation, copula, tetrachoric correlation
 baseurl: "https://gsverhoeven.github.io"
 header:
   image: "headers/bright-chart-data-210607.jpg"
@@ -18,21 +18,19 @@ header:
 
 This blog post is on simulating fake data. I'm interested in mimicking real datasets as close as possible. For example if the data is too sensitive to be shared, or we only have summary statistics available (for example tables from a published research paper).
 
-If we want to mimic an existing dataset, we need to 
+If we want to mimic an existing dataset, it is desirable to
 
-* Make sure that the simulated variables have the proper data type and distribution of values and
+* Make sure that the simulated variables have the proper data type and comparable distribution of values and
 * correlations between the variables in the real dataset are taken into account.
 
-In addition, it would be nice if such functionality is available in a standard R package. After reviewing several R packages that can simulate data, I picked the [simstudy](https://www.rdatagen.net/page/simstudy/) package as most promising to explore in more detail. ``Simstudy`` is created by *Keith Goldfeld* from New York University.
+In addition, it would be nice if such functionality is available in a standard R package. After reviewing several R packages that can simulate data, I picked the [simstudy](https://www.rdatagen.net/page/simstudy/) package as most promising to explore in more detail. ``simstudy`` is created by **Keith Goldfeld** from New York University.
 
-In this blog post, I explain how `simstudy` is able to generate correlated variables. Along the way, we learn about fancy statistical slang such as copula's and tetrachoric correlations. It turns out there is a close connection with psychometrics, which we'll briefly discuss.
+In this blog post, I explain how `simstudy` is able to generate correlated variables, having either continuous or binary values. Along the way, we learn about fancy statistical slang such as copula's and tetrachoric correlations. It turns out there is a close connection with psychometrics, which we'll briefly discuss.
 
-So let's get started.
-
-# Loading required packages
-
+Let's start with correlated continuous variables.
 
 ```{r}
+# Loading required packages
 library(simstudy)
 library(data.table)
 library(ggplot2)
@@ -43,35 +41,42 @@ library(ggplot2)
 
 Copulas are a fancy word for correlated ("coupled") variables that each have a uniform distribution between 0 and 1.
 
-Using copulas, we can convert correlated multivariate normal data to data from any known continuous probability distribution, while keeping exactly the same correlation matrix.
+Using copulas, we can convert correlated multivariate normal data to data from any known continuous probability distribution, while keeping exactly the same correlation matrix. The normal data is something we can easily simulate, and by choosing appropriate probability distributions, we can approximate the variables in real datasets.
 
 Ok let's do it!
 
 ## Step 1: correlated multivariate normal data
 
-The workhorse for our simulated data is a function to simulate multivariate normal data.
+The workhorse for our simulated data is a function to simulate multivariate normal data. We'll use the `MASS` package function `mvrnorm()`. Other slightly faster (factor 3-4) implementations exist, see e.g. `mvnfast`.
 
-The trick is to first generate multivariate normal data with the required correlation structure, with mean 0 and sigma 1. This gives us correlated data, where each variable is marginally normal distributed. 
+The trick is to first generate multivariate normal data with the required correlation structure, with mean 0 and standard deviation 1. This gives us correlated data, where each variable is marginally (by itself) normal distributed. 
 
-We'll use the `MASS` package function `mvrnorm()`. Other slightly faster (factor 3-4) implementations exist, see e.g. `mvnfast`.
-
+Here I simulate two variables, but the same procedure holds for N variables. The Pearson correlation is set at `0.7`.
 
 ```{r}
 set.seed(123)
-cov.mat <- matrix(c(1, 0.7, 
-                  0.7, 1), nrow = 2)
 
-df <- data.frame(MASS::mvrnorm(n = 10000, 
+corr <- 0.7
+
+cov.mat <- matrix(c(1, corr, 
+                  corr, 1), nrow = 2)
+
+df <- data.frame(MASS::mvrnorm(n = 1e4, 
                                mu = c(0, 0), 
                                Sigma = cov.mat))
 ```
 
+(The diagonal of `1` makes sure the variables have SD of 1.
+The off diagonal value of 0.7 gives us a Pearson correlation of 0.7)
+
 Did it work?
 
-```{r}
+```{r fig.width = 5, fig.height = 5}
 ggplot(df, aes(x = X1, y = X2)) +
   geom_point(alpha = 0.3)
 ```
+
+
 
 ```{r}
 cor(df$X1, df$X2)
@@ -90,12 +95,12 @@ df$X2_U <- pnorm(df$X2)
 ggplot(df, aes(x = X1_U)) + geom_histogram(boundary = 0)
 ```
 
-```{r}
+```{r, fig.width = 5, fig.height = 5}
 ggplot(df, aes(x = X1_U, y = X2_U)) +
   geom_point(alpha = 0.3)
 ```
 
-And here's our copula! Two variables, each marginally uniform, but with pre-specified correlation.
+And here's our copula! Two variables, each marginally (by itself) uniform, but with pre-specified correlation intact!
 
 ```{r}
 cor(df$X1_U, df$X2_U)
@@ -103,22 +108,24 @@ cor(df$X1_U, df$X2_U)
 
 ## Step 3: from uniform to any standard probability distribution we like
 
-Now, if we plug in uniformly distributed data in a **quantile function** of any arbitrary probability distribution, we can make the variables have any distribution we like.
+Now, if we plug in uniformly distributed data in a **quantile function** of any arbitrary (known) probability distribution, we can make the variables have any distribution we like.
 
-Let's pick for example a **Gamma** distribution (Continuous, positive) with mean 3 for X1, and Let's pick a **Normal** distribution (Continuous, symmetric) with mean 10 and sd 2 for X2.
+Let's pick for example a **Gamma** distribution (Continuous, positive) with shape 4 and rate 1 for X1, and Let's pick a **Normal** distribution (Continuous, symmetric) with mean 10 and sd 2 for X2.
 
 ```{r}
-df$X1_GAM <- qgamma(df$X1_U, shape = 3)
+df$X1_GAM <- qgamma(df$X1_U, shape = 4, rate =1)
 df$X2_NORM <- qnorm(df$X2_U, mean = 10, sd = 2)
 ```
 
 
 ```{r}
-ggplot(df, aes(x = X1_GAM)) + geom_histogram(boundary = 0) +
-  geom_vline(xintercept = 3, col = "red")
+ggplot(df, aes(x = X1_GAM)) + 
+  geom_histogram(boundary = 0) +
+  geom_vline(xintercept = 4, col = "red")
 ```
 ```{r}
-ggplot(df, aes(x = X2_NORM)) + geom_histogram(boundary = 0) +
+ggplot(df, aes(x = X2_NORM)) + 
+  geom_histogram(boundary = 0) +
   geom_vline(xintercept = 10, col = "red")
 ```
 
@@ -128,8 +135,46 @@ Ok, that worked nicely. But what about their correlation?
 cor(df$X1_GAM, df$X2_NORM)
 ```
 
-Whoa!! Magic!! They still have the correlation we started out with in the beginning.
+Whoa!! They still have (almost) the same correlation we started out with before all our transformation magic.
 
+# Simstudy in action
+
+Now let's see how ``simstudy`` helps us generating this type of simulated data. Simstudy works with "definition tables" that allow us to specify, for each variable, which distribution and parameters to use, as well as the desired correlations between the variables.
+
+After specifing a definition table, we can call one of its workhorse functions `genCorFlex()` to generate the data.
+
+N.b. Simstudy uses different parameters for the Gamma distribution, compared to R's `rgamma()` function. Under water, it uses the `gammaGetShapeRate()` to transform the "mean" and "variance/ dispersion" to the more conventional "shape" and  "rate" parameters.
+
+```{r}
+set.seed(123)
+
+corr <- 0.7
+
+corr.mat <- matrix(c(1, corr, 
+                  corr, 1), nrow = 2)
+
+# check that gamma parameters correspond to same shape and rate pars as used above
+#simstudy::gammaGetShapeRate(mean = 4, dispersion = 0.25)
+
+
+def <- defData(varname = "X1_GAM", 
+               formula = 4, variance = 0.25, dist = "gamma")
+
+def <- defData(def, varname = "X2_NORM", 
+               formula = 10, variance = 2, dist = "normal")
+
+
+
+dt <- genCorFlex(1e4, def, corMatrix = corr.mat)
+
+cor(dt[,-"id"])
+
+```
+```{r}
+ggplot(dt, aes(x = X1_GAM)) + 
+  geom_histogram(boundary = 0) +
+  geom_vline(xintercept = 4, col = "red")
+```
 
 # Generate correlated binary variables
 
@@ -188,7 +233,7 @@ This confirms our example above.
 
 Note that if we want to mimic a real dataset with binary correlated variables, the correlations are a given, and are obviously all feasible because we obtain them from actual data.
 
-## A model for 2 correlated binary variables
+## A model for two correlated binary variables
 
 Ok let's suppose we want a two binary vectors `B1` and `B2` , with means `p1 = 0.2` and `p2 = 0.8` and (feasible) Pearson correlation 0.1.
 
@@ -196,11 +241,11 @@ How? How?
 
 The idea is that to get two binary variables to have an exact particular correlation, we imagine an underlying ("latent") bivariate (2D) normal distribution. This normal distribution has the means fixed to 0, and the standard deviations fixed to 1. 
 
-Why? Because a) we know it very well theoretically and b) we know how to simulate efficiently from such a distribution, using `rmvnorm()`.
+Why? Because  a) we know it very well theoretically and b) we know how to simulate efficiently from such a distribution, using `mvrnorm()`.
 
 In this bivariate normal distribution, we draw a quadrant (i.e. two thresholds). The thresholds define transformations to binary variables. Below the threshold, the binary value is 0, above it is 1. We have to pick the thresholds such that the resulting binary variables have the desired mean (i.e. percentage of 1's).
 
-This approach reduces the problem to finding the right values of three parameters: multivariate normal correlation, and the two thresholds.
+This approach reduces the problem to finding the right values of three parameters: multivariate normal correlation, and the two thresholds (above, we already fixed the means and variance to zero and one respectively).
 
 For now, we'll just pick some value for the correlation in the bivariate normal, say 0.5, and focus on where to put the threshholds.
 
@@ -266,7 +311,8 @@ But that would be very unpractical.
 Fortunately, Emrich and Piedmonte (1991) published an iterative method to solve this puzzle. And this method has been implemented in ``simstudy``.
 
 ```{r}
-simstudy:::.findRhoBin(p1 = 0.2, p2 = 0.8, d = 0.1)
+simstudy:::.findRhoBin(p1 = 0.2, 
+                       p2 = 0.8, d = 0.1)
 ```
 
 Let's see if it works:
@@ -306,7 +352,7 @@ We can model this by assuming that the (imaginary) variable "intelligence" of ea
 
 Officially, the Pearson correlation between two binary vectors is called the [Phi coefficient](https://en.wikipedia.org/wiki/Phi_coefficient). This name was actually chosen by Karl Pearson himself.
 
-The **psych** packages contains a set of convenient functions for calculating Phi coefficients from empirical two by two tables (of two binary vectors), and finding the corresponding Pearson coefficient for the 2d normal. This coefficient is called the **tetrachoric correlation**. Again a fine archaic slang word for again a basic concept. 
+The **psych** packages contains a set of convenient functions for calculating Phi coefficients from empirical two by two tables (of two binary vectors), and finding the corresponding Pearson coefficient for the 2d (latent) normal. This coefficient is called the **tetrachoric correlation**. Again a fine archaic slang word for again a basic concept. 
 
 ```{r}
 library(psych)
@@ -315,11 +361,12 @@ library(psych)
 twobytwo <- table(df$B1, df$B2)/nrow(df)
 
 phi(twobytwo, digits = 6)
-
 cor(df$B1, df$B2)
+
+# both give the same result
 ```
 
- We can use **phi2tetra** to input a "Phi", i.e. the correlation between the two binary vectors, as well as their marginals.  This is a wrapper that builds the two by two frequency table and then calls ``tetrachoric()`` . This in turn uses `optimize` (Maximum Likelihood method?) to find the tetrachoric correlation.
+ We can use **phi2tetra** to find the tetrachoric correlation that corresponds to the combination of a "Phi coefficient", i.e. the correlation between the two binary vectors, as well as their marginals.  This is a wrapper that builds the two by two frequency table and then calls ``tetrachoric()`` . This in turn uses `optimize` (Maximum Likelihood method?) to find the tetrachoric correlation.
 
 ```{r}
 phi2tetra(0.1, c(0.2, 0.8))
@@ -329,9 +376,9 @@ simstudy:::.findRhoBin(0.2, 0.8, 0.1)
 
 Comparing with the Emrich and Piedmonte method, we find that they give identical answers. Great, case closed!
 
-# Simstudy in action
+# Simstudy in action II
 
-Now that we feel confident in our method and assumptions, let's see ``simstudy`` in action.
+Now that we feel confident in our methods and assumptions, let's see ``simstudy`` in action.
 
 Let's generate two binary variables, that have marginals of 20% and 80% respectively, and a Pearson correlation coefficient of 0.1.
 
