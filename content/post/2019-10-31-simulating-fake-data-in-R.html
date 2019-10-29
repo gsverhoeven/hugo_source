@@ -55,7 +55,7 @@ df &lt;- data.frame(MASS::mvrnorm(n = 1e4,
 <p>Did it work?</p>
 <pre class="r"><code>ggplot(df, aes(x = X1, y = X2)) +
   geom_point(alpha = 0.3)</code></pre>
-<p><img src="/post/2019-09-14-copulas_files/figure-html/unnamed-chunk-3-1.png" width="480" /></p>
+<p><img src="/post/2019-10-31-simulating-fake-data-in-R_files/figure-html/unnamed-chunk-3-1.png" width="480" /></p>
 <pre class="r"><code>cor(df$X1, df$X2)</code></pre>
 <pre><code>## [1] 0.6985089</code></pre>
 <p>Great!</p>
@@ -68,10 +68,10 @@ df$X2_U &lt;- pnorm(df$X2)
 
 ggplot(df, aes(x = X1_U)) + geom_histogram(boundary = 0)</code></pre>
 <pre><code>## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
-<p><img src="/post/2019-09-14-copulas_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+<p><img src="/post/2019-10-31-simulating-fake-data-in-R_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
 <pre class="r"><code>ggplot(df, aes(x = X1_U, y = X2_U)) +
   geom_point(alpha = 0.3)</code></pre>
-<p><img src="/post/2019-09-14-copulas_files/figure-html/unnamed-chunk-6-1.png" width="480" /></p>
+<p><img src="/post/2019-10-31-simulating-fake-data-in-R_files/figure-html/unnamed-chunk-6-1.png" width="480" /></p>
 <p>And here’s our copula! Two variables, each marginally (by itself) uniform, but with pre-specified correlation intact!</p>
 <pre class="r"><code>cor(df$X1_U, df$X2_U)</code></pre>
 <pre><code>## [1] 0.677868</code></pre>
@@ -86,12 +86,12 @@ df$X2_NORM &lt;- qnorm(df$X2_U, mean = 10, sd = 2)</code></pre>
   geom_histogram(boundary = 0) +
   geom_vline(xintercept = 4, col = &quot;red&quot;)</code></pre>
 <pre><code>## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
-<p><img src="/post/2019-09-14-copulas_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<p><img src="/post/2019-10-31-simulating-fake-data-in-R_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
 <pre class="r"><code>ggplot(df, aes(x = X2_NORM)) + 
   geom_histogram(boundary = 0) +
   geom_vline(xintercept = 10, col = &quot;red&quot;)</code></pre>
 <pre><code>## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
-<p><img src="/post/2019-09-14-copulas_files/figure-html/unnamed-chunk-10-1.png" width="672" /></p>
+<p><img src="/post/2019-10-31-simulating-fake-data-in-R_files/figure-html/unnamed-chunk-10-1.png" width="672" /></p>
 <p>Ok, that worked nicely. But what about their correlation?</p>
 <pre class="r"><code>cor(df$X1_GAM, df$X2_NORM)</code></pre>
 <pre><code>## [1] 0.682233</code></pre>
@@ -132,7 +132,7 @@ cor(dt[,-&quot;id&quot;])</code></pre>
   geom_histogram(boundary = 0) +
   geom_vline(xintercept = 4, col = &quot;red&quot;)</code></pre>
 <pre><code>## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
-<p><img src="/post/2019-09-14-copulas_files/figure-html/unnamed-chunk-13-1.png" width="672" /></p>
+<p><img src="/post/2019-10-31-simulating-fake-data-in-R_files/figure-html/unnamed-chunk-13-1.png" width="672" /></p>
 </div>
 <div id="generate-correlated-binary-variables" class="section level1">
 <h1>Generate correlated binary variables</h1>
@@ -199,7 +199,7 @@ df &lt;- data.frame(MASS::mvrnorm(n = 10000,
 <p>(The diagonal of <code>1</code> makes sure the variables have SD of 1. The off diagonal value of 0.7 gives us a Pearson correlation of 0.7)</p>
 <pre class="r"><code>ggplot(df, aes(x = X1, y = X2)) +
   geom_point(alpha = 0.3)</code></pre>
-<p><img src="/post/2019-09-14-copulas_files/figure-html/unnamed-chunk-17-1.png" width="480" /></p>
+<p><img src="/post/2019-10-31-simulating-fake-data-in-R_files/figure-html/unnamed-chunk-17-1.png" width="480" /></p>
 <p>Ok, where to put the thresholds? That’s simple, we just need to use the <code>quantile distribution function</code> to partition the marginal normal variables into 0 and 1 portions.</p>
 <pre class="r"><code>df$B1 &lt;- ifelse(df$X1 &lt; qnorm(0.2), 1, 0)
 df$B2 &lt;- ifelse(df$X2 &lt; qnorm(0.8), 1, 0)
@@ -213,7 +213,7 @@ mean(df$B1)</code></pre>
   geom_point(alpha = 0.3) + 
   geom_vline(xintercept = qnorm(0.2), col = &quot;red&quot;) +
   geom_hline(yintercept = qnorm(0.8), col = &quot;red&quot;)</code></pre>
-<p><img src="/post/2019-09-14-copulas_files/figure-html/unnamed-chunk-19-1.png" width="480" /></p>
+<p><img src="/post/2019-10-31-simulating-fake-data-in-R_files/figure-html/unnamed-chunk-19-1.png" width="480" /></p>
 <p>Nice.</p>
 <p>Ok, so now what is the correlation for these two binary variables?</p>
 <pre class="r"><code>cor(df$B1, df$B2)</code></pre>
@@ -271,7 +271,7 @@ phi(twobytwo, digits = 6)</code></pre>
 <pre class="r"><code>cor(df$B1, df$B2)</code></pre>
 <pre><code>## [1] 0.09957392</code></pre>
 <pre class="r"><code># both give the same result</code></pre>
-<p>We can use <strong>phi2tetra</strong> to input a “Phi”, i.e. the correlation between the two binary vectors, as well as their marginals. This is a wrapper that builds the two by two frequency table and then calls <code>tetrachoric()</code> . This in turn uses <code>optimize</code> (Maximum Likelihood method?) to find the tetrachoric correlation.</p>
+<p>We can use <strong>phi2tetra</strong> to find the tetrachoric correlation that corresponds to the combination of a “Phi coefficient”, i.e. the correlation between the two binary vectors, as well as their marginals. This is a wrapper that builds the two by two frequency table and then calls <code>tetrachoric()</code> . This in turn uses <code>optimize</code> (Maximum Likelihood method?) to find the tetrachoric correlation.</p>
 <pre class="r"><code>phi2tetra(0.1, c(0.2, 0.8))</code></pre>
 <pre><code>## [1] 0.2217801</code></pre>
 <pre class="r"><code># compare with EP method

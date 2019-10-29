@@ -4,7 +4,7 @@ author: Gertjan Verhoeven
 date: '2019-08-18'
 summary: PM
 slug: simulating-fake-data
-draft: FALSE
+draft: true
 categories:
   - R
 tags:
@@ -144,40 +144,52 @@ def &lt;- defData(def, varname = &quot;a2&quot;,
                link=&quot;logit&quot;)</code></pre>
 <pre class="r"><code>dt &lt;- genData(1000, def)
 dt</code></pre>
-<pre><code>##       idnum nr       x1       y1  y2 xnb xCat         g1        b1 a1 a2
-##    1:     1  7 12.66023 35.78961  84  88    3  1065.3174 0.7920595  1 53
-##    2:     2  7 16.08192 38.00659  49  34    3   899.2682 0.9999523  1 42
-##    3:     3  7 17.84644 43.78440  26  44    3  1521.1980 0.9998767  0 45
-##    4:     4  7 17.60392 42.06137  36  41    1   514.7504 0.9993967  1 13
-##    5:     5  7 14.73035 34.12520  52  36    1   384.8467 0.9998659  0 19
+<pre><code>##       idnum nr       x1       y1  y2 xnb xCat          g1          b1 a1
+##    1:     1  7 10.32952 31.21219 135 191    3  971.703006 0.999999835  0
+##    2:     2  7 14.50541 37.31854  62  70    2   88.450510 0.891300192  0
+##    3:     3  7 17.97887 45.99214  21  28    1    4.387713 0.997478282  0
+##    4:     4  7 10.12611 26.08550 123 135    2  264.747651 0.758335375  0
+##    5:     5  7 15.28607 41.02284  55  62    3 3038.552688 1.000000000  0
 ##   ---                                                                   
-##  996:   996  7 12.17689 35.30732 115  82    3   159.1673 0.9954607  1 39
-##  997:   997  7 15.46872 32.13532  44  54    3 13529.8474 0.9980669  1 35
-##  998:   998  7 11.39861 30.49708  95  97    2  3035.8010 0.9145963  1 25
-##  999:   999  7 18.60873 40.80517  28  34    2   725.9122 0.9043262  1 23
-## 1000:  1000  7 11.39039 25.27801 117  96    2  1141.5504 0.9779888  0 26</code></pre>
+##  996:   996  7 14.37792 34.39384  51  47    1  283.233943 0.002478652  0
+##  997:   997  7 13.12657 34.86618  81  51    2 2680.983844 1.000000000  0
+##  998:   998  7 12.96856 36.57913  87 111    3 3667.835812 0.838764140  0
+##  999:   999  7 13.59650 31.14447  69  59    3 2078.511586 0.279690996  1
+## 1000:  1000  7 12.41895 23.62516  82  78    1  185.001510 0.180733434  0
+##       a2
+##    1: 62
+##    2: 24
+##    3: 10
+##    4: 19
+##    5: 44
+##   ---   
+##  996: 16
+##  997: 26
+##  998: 56
+##  999: 44
+## 1000: 13</code></pre>
 <pre class="r"><code>summary(dt)</code></pre>
 <pre><code>##      idnum              nr          x1              y1       
-##  Min.   :   1.0   Min.   :7   Min.   :10.00   Min.   :20.05  
-##  1st Qu.: 250.8   1st Qu.:7   1st Qu.:12.61   1st Qu.:31.68  
-##  Median : 500.5   Median :7   Median :15.20   Median :36.93  
-##  Mean   : 500.5   Mean   :7   Mean   :15.12   Mean   :36.92  
-##  3rd Qu.: 750.2   3rd Qu.:7   3rd Qu.:17.72   3rd Qu.:42.29  
-##  Max.   :1000.0   Max.   :7   Max.   :20.00   Max.   :57.65  
-##        y2              xnb              xCat             g1          
-##  Min.   : 10.00   Min.   :  9.00   Min.   :1.000   Min.   :    0.92  
-##  1st Qu.: 32.00   1st Qu.: 30.00   1st Qu.:1.000   1st Qu.:  279.96  
-##  Median : 52.00   Median : 51.00   Median :2.000   Median :  848.83  
-##  Mean   : 63.01   Mean   : 62.92   Mean   :2.167   Mean   : 1735.27  
-##  3rd Qu.: 88.00   3rd Qu.: 87.00   3rd Qu.:3.000   3rd Qu.: 2144.70  
-##  Max.   :169.00   Max.   :242.00   Max.   :3.000   Max.   :19203.26  
+##  Min.   :   1.0   Min.   :7   Min.   :10.00   Min.   :19.18  
+##  1st Qu.: 250.8   1st Qu.:7   1st Qu.:12.36   1st Qu.:31.60  
+##  Median : 500.5   Median :7   Median :14.78   Median :36.53  
+##  Mean   : 500.5   Mean   :7   Mean   :14.87   Mean   :36.61  
+##  3rd Qu.: 750.2   3rd Qu.:7   3rd Qu.:17.30   3rd Qu.:41.34  
+##  Max.   :1000.0   Max.   :7   Max.   :19.99   Max.   :53.51  
+##        y2              xnb              xCat             g1           
+##  Min.   : 12.00   Min.   :  7.00   Min.   :1.000   Min.   :    1.026  
+##  1st Qu.: 34.00   1st Qu.: 34.00   1st Qu.:1.000   1st Qu.:  294.867  
+##  Median : 56.00   Median : 56.00   Median :2.000   Median :  908.430  
+##  Mean   : 65.81   Mean   : 65.97   Mean   :2.175   Mean   : 1822.016  
+##  3rd Qu.: 92.00   3rd Qu.: 90.00   3rd Qu.:3.000   3rd Qu.: 2264.883  
+##  Max.   :176.00   Max.   :205.00   Max.   :3.000   Max.   :21992.593  
 ##        b1                  a1              a2       
-##  Min.   :0.0000898   Min.   :0.000   Min.   : 5.00  
-##  1st Qu.:0.7828926   1st Qu.:0.000   1st Qu.:15.00  
-##  Median :0.9841744   Median :0.000   Median :33.00  
-##  Mean   :0.8364690   Mean   :0.333   Mean   :33.56  
-##  3rd Qu.:0.9997354   3rd Qu.:1.000   3rd Qu.:50.00  
-##  Max.   :1.0000000   Max.   :1.000   Max.   :64.00</code></pre>
+##  Min.   :0.0000628   Min.   :0.000   Min.   : 4.00  
+##  1st Qu.:0.8214385   1st Qu.:0.000   1st Qu.:15.00  
+##  Median :0.9898104   Median :0.000   Median :34.00  
+##  Mean   :0.8523265   Mean   :0.361   Mean   :33.45  
+##  3rd Qu.:0.9998925   3rd Qu.:1.000   3rd Qu.:50.00  
+##  Max.   :1.0000000   Max.   :1.000   Max.   :65.00</code></pre>
 </div>
 </div>
 <div id="lets-make-a-synthetic-bostonhousing" class="section level1">
@@ -208,7 +220,7 @@ str(Boston)</code></pre>
 <pre class="r"><code>ggplot(Boston, aes(x = crim)) + 
   geom_histogram()</code></pre>
 <pre><code>## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
-<p><img src="/post/2019-08-18-simulating-fake-data_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+<p><img src="/post/2019-08-18-simulating-fake-data-pt2_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
 <pre class="r"><code>library(fitdistrplus)</code></pre>
 <pre><code>## Warning: package &#39;fitdistrplus&#39; was built under R version 3.5.3</code></pre>
 <pre><code>## Loading required package: survival</code></pre>
@@ -227,9 +239,9 @@ summary(fit.gamma)</code></pre>
 ## shape 1.0000000 0.5421384
 ## rate  0.5421384 1.0000000</code></pre>
 <pre class="r"><code>hist(rgamma(1000, shape = 1, rate = 0.54))</code></pre>
-<p><img src="/post/2019-08-18-simulating-fake-data_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<p><img src="/post/2019-08-18-simulating-fake-data-pt2_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
 <pre class="r"><code>plot(fit.gamma)</code></pre>
-<p><img src="/post/2019-08-18-simulating-fake-data_files/figure-html/unnamed-chunk-9-2.png" width="672" /></p>
+<p><img src="/post/2019-08-18-simulating-fake-data-pt2_files/figure-html/unnamed-chunk-9-2.png" width="672" /></p>
 <p>The gamma function does not capture the high frequency of very large obs.</p>
 <p>Ok, so a two parameter distribution cannot fit all positive continuous variables.</p>
 </div>

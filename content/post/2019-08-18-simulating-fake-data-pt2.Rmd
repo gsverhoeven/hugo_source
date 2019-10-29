@@ -4,7 +4,7 @@ author: Gertjan Verhoeven
 date: '2019-08-18'
 summary: PM
 slug: simulating-fake-data
-draft: FALSE
+draft: true
 categories:
   - R
 tags:
