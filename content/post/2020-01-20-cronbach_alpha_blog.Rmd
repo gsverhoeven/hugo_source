@@ -16,6 +16,8 @@ Working for the first time with questionnaire data, I felt i needed some basic u
 
 # Measurement Theories
 
+There are four measurement theories.
+Classical test theory, Latent variable theory, Operationalism and Representationalism.
 
 # Classical Test Theory and Cronbach's alpha
 
