@@ -1,0 +1,57 @@
+---
+title: "Cronbach's alpha, measurement theory and the Big Five questionnaire"
+output: pdf_document
+---
+
+```{r}
+library(qgraph)
+library(tidyverse)
+library(data.table)
+```
+
+
+# Summary
+
+Working for the first time with questionnaire data, I felt i needed some basic understanding of measurement theory, and the various approaches regarding reliability and validity of questionnaires.
+
+# Measurement Theories
+
+
+# Classical Test Theory and Cronbach's alpha
+
+# Scientific progress vs proprietary instruments
+
+On the other hand, most broad-bandwidth personality inventories (like the MMPI, CPI, 16PF, and NEO-PI) are proprietary instruments, whose items are copyrighted by the test authors. As a consequence, the instruments cannot be used freely by other scientists, who thus cannot contribute to their further development and refinement. Indeed, broad-bandwidth inventories are rarely revised. At most, after many decades of commercial use, some of the most dated items might be changed and/or new norms established. For many inventories, nothing is ever done at all.
+
+ inventory is from Johnson's (2014) 120-item IPIP NEO-PI-R.
+
+http://www.personal.psu.edu/faculty/j/5/j5j/papers/JRP2014.pdf
+
+In regard to personality-trait measurement however, Goldberg (1999a) attributed the seeming lack of progress in part to the policies and practices of commercial inventory publishers who could regard certain scientific activities as detrimental to their pecuniary interests (an issue also raised by Eber, 2005).There are at least four kinds of scientific activities that are disallowed or discouraged by test publishers [...]
+
+# Application: Big Five personality tests
+
+This is a dataset of the Big 5 personality traits that will be used in talks and the paper. It is a measurement of the Dutch translation of the NEO-PI-R on 500 first year psychology students (Dolan, Oort, Stoel, Wicherts, 2009).
+
+De NEO-Personality Inventory-revised meet de vijf eigenschappen die worden onderscheiden door het Big Five model, dit model kent de volgende vijf dimensies:
+
+* Extraversie
+* Emotionele onbekommerdheid
+* Gewetensvolheid
+* Vriendelijkheid
+* Openheid
+
+
+De NEO-PI-R bevat in totaal 240 items. De items krijgen scores op een 5-puntschaal (1 = helemaal oneens, 5 = helemaal eens). Bij de NEO-PI-r kunnen de 5 schalen elk weer worden onderverdeeld in 6 subschalen. Het duurt zo’n 40 tot 50 minuten om de NEO-PI-r in te vullen.
+
+```{r}
+data(big5)
+
+big5 <- data.table(big5)
+```
+
+# PM PAK DE BIG5 van openpsychometrics.org
+
+# References
+
+* (Dolan, Oort, Stoel, Wicherts, 2009)
