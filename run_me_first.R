@@ -1,28 +1,16 @@
 library(blogdown)
-setwd("C:/hugo/sites/hugo_source")
+#setwd("~/Documents/Gertjan_MASTER_18gb/Hugo website/hugo_source")
+#setwd("~/Documents/Gertjan_MASTER_18gb/Hugo website/My_Website")
 
-#blogdown::serve_site()
+blogdown::serve_site()
 
-blogdown::build_site()
+#blogdown::build_site()
 
-#Update: I realized what went wrong. 
-# I used build_site() followed by serve_site(). Shouldn't do that before publishing. Thanks!
+#This function recompiles all R Markdown files by default, even if the output files are newer than the source files. 
+#If you want to build the site without rebuilding all R Markdown files, you should use hugo_build() instead.
 
 
-#blogdown::serve_site() DIT FUCKT THE URLS, DOE BUILD_SITE() ALLEEN
 
-# Doe het builden van de site met commando "hugo" in cmd.exe
-
-# blogdown:::new_post_addin()
-#blogdown::new_post("newrmd", ext = '.Rmd')
-
-#build_site()
-
-# does not compile Rmds
-#hugo_build()
-
-# only runs hugo_build()
-#serve_site()
 
 # After compilation, go to public folder repo. delete all current contents, except .git
 

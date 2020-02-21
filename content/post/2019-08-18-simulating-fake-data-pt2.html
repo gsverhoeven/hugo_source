@@ -145,39 +145,39 @@ def &lt;- defData(def, varname = &quot;a2&quot;,
 <pre class="r"><code>dt &lt;- genData(1000, def)
 dt</code></pre>
 <pre><code>##       idnum nr       x1       y1  y2 xnb xCat        g1        b1 a1 a2
-##    1:     1  7 16.65930 39.79657  36  28    3  951.5124 0.9992680  0 53
-##    2:     2  7 13.87490 32.21439  63  50    3  723.2670 0.9939550  0 45
-##    3:     3  7 10.83492 26.35841 101  81    3 2084.2887 0.9999994  0 48
-##    4:     4  7 14.12762 29.56107  60  65    1  511.7911 0.9350114  0 15
-##    5:     5  7 18.37770 39.62601  26  27    1  464.1429 0.9862026  0 17
+##    1:     1  7 13.10838 31.29797  75  93    3 2859.8692 0.0283578  1 61
+##    2:     2  7 15.04198 38.13669  76  36    1  467.1655 0.9918114  1 12
+##    3:     3  7 19.58491 48.03362  20  18    1  194.1183 0.9895318  0 14
+##    4:     4  7 13.15697 27.60409  69  67    1  768.3977 0.9871056  0  9
+##    5:     5  7 16.80721 38.65989  36  34    3 1352.3661 1.0000000  0 52
 ##   ---                                                                  
-##  996:   996  7 12.72231 31.08567  87  77    1  575.9067 0.7250089  0  9
-##  997:   997  7 10.16707 26.04227 148 169    3 8411.7162 0.9999980  0 54
-##  998:   998  7 11.64440 32.71086 105 129    3 6626.4328 0.9999537  0 59
-##  999:   999  7 11.08822 29.01607 114 105    3 1587.8327 0.7265813  1 58
-## 1000:  1000  7 15.25894 37.51200  53  58    1  397.4058 0.9985548  0  5</code></pre>
+##  996:   996  7 13.98285 32.77628  59  77    3 1741.5779 0.8645578  0 43
+##  997:   997  7 17.64677 43.87377  32  40    3 2212.3542 0.9997090  1 53
+##  998:   998  7 10.11481 27.96165 124 120    1  388.5894 0.4922455  0 11
+##  999:   999  7 13.94649 28.73391  78  67    1  411.0115 0.9999945  0 10
+## 1000:  1000  7 14.82294 33.99525  58  59    3 2452.3534 0.2450187  1 54</code></pre>
 <pre class="r"><code>summary(dt)</code></pre>
-<pre><code>##      idnum              nr          x1              y1       
-##  Min.   :   1.0   Min.   :7   Min.   :10.01   Min.   :19.32  
-##  1st Qu.: 250.8   1st Qu.:7   1st Qu.:12.45   1st Qu.:31.81  
-##  Median : 500.5   Median :7   Median :14.97   Median :36.82  
-##  Mean   : 500.5   Mean   :7   Mean   :14.94   Mean   :36.92  
-##  3rd Qu.: 750.2   3rd Qu.:7   3rd Qu.:17.38   3rd Qu.:42.07  
-##  Max.   :1000.0   Max.   :7   Max.   :19.99   Max.   :52.65  
-##        y2              xnb              xCat             g1           
-##  Min.   :  8.00   Min.   :  8.00   Min.   :1.000   Min.   :    1.066  
-##  1st Qu.: 33.00   1st Qu.: 32.00   1st Qu.:1.000   1st Qu.:  273.636  
-##  Median : 55.00   Median : 52.50   Median :2.500   Median :  881.459  
-##  Mean   : 64.85   Mean   : 64.84   Mean   :2.216   Mean   : 1821.444  
-##  3rd Qu.: 92.00   3rd Qu.: 88.00   3rd Qu.:3.000   3rd Qu.: 2460.854  
-##  Max.   :179.00   Max.   :233.00   Max.   :3.000   Max.   :25024.749  
-##        b1                  a1              a2       
-##  Min.   :0.0000108   Min.   :0.000   Min.   : 2.00  
-##  1st Qu.:0.7755993   1st Qu.:0.000   1st Qu.:15.00  
-##  Median :0.9819583   Median :0.000   Median :37.50  
-##  Mean   :0.8402519   Mean   :0.329   Mean   :34.18  
-##  3rd Qu.:0.9999028   3rd Qu.:1.000   3rd Qu.:50.00  
-##  Max.   :1.0000000   Max.   :1.000   Max.   :64.00</code></pre>
+<pre><code>##      idnum              nr          x1              y1              y2        
+##  Min.   :   1.0   Min.   :7   Min.   :10.01   Min.   :21.88   Min.   : 13.00  
+##  1st Qu.: 250.8   1st Qu.:7   1st Qu.:12.63   1st Qu.:32.16   1st Qu.: 32.00  
+##  Median : 500.5   Median :7   Median :15.07   Median :37.27   Median : 53.00  
+##  Mean   : 500.5   Mean   :7   Mean   :15.11   Mean   :37.25   Mean   : 62.84  
+##  3rd Qu.: 750.2   3rd Qu.:7   3rd Qu.:17.61   3rd Qu.:42.33   3rd Qu.: 88.00  
+##  Max.   :1000.0   Max.   :7   Max.   :19.99   Max.   :54.79   Max.   :169.00  
+##       xnb              xCat            g1                  b1          
+##  Min.   :  7.00   Min.   :1.00   Min.   :    1.404   Min.   :0.001182  
+##  1st Qu.: 32.00   1st Qu.:1.00   1st Qu.:  317.604   1st Qu.:0.750514  
+##  Median : 51.00   Median :3.00   Median :  858.642   Median :0.981584  
+##  Mean   : 62.42   Mean   :2.24   Mean   : 1809.803   Mean   :0.829481  
+##  3rd Qu.: 84.00   3rd Qu.:3.00   3rd Qu.: 2307.715   3rd Qu.:0.999879  
+##  Max.   :211.00   Max.   :3.00   Max.   :17243.986   Max.   :1.000000  
+##        a1              a2       
+##  Min.   :0.000   Min.   : 2.00  
+##  1st Qu.:0.000   1st Qu.:16.00  
+##  Median :0.000   Median :42.00  
+##  Mean   :0.346   Mean   :34.73  
+##  3rd Qu.:1.000   3rd Qu.:50.00  
+##  Max.   :1.000   Max.   :65.00</code></pre>
 </div>
 </div>
 <div id="lets-make-a-synthetic-bostonhousing" class="section level1">
@@ -210,7 +210,6 @@ str(Boston)</code></pre>
 <pre><code>## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
 <p><img src="/post/2019-08-18-simulating-fake-data-pt2_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
 <pre class="r"><code>library(fitdistrplus)</code></pre>
-<pre><code>## Warning: package &#39;fitdistrplus&#39; was built under R version 3.5.3</code></pre>
 <pre><code>## Loading required package: survival</code></pre>
 <pre><code>## Loading required package: npsurv</code></pre>
 <pre><code>## Loading required package: lsei</code></pre>

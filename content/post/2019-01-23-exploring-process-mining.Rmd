@@ -28,6 +28,7 @@ After installing all required packages, we can load the whole "bupaverse" by loa
 ```{r warnings = FALSE, message = FALSE}
 library(ggplot2)
 library(bupaR)
+library(processmapR)
 ```
 
 Now, our dataset is already in `eventlog` format, but typically this not the case.
@@ -70,7 +71,7 @@ The summary info of the event log also counts so-called "traces". A trace is def
 To visualize all traces, we set `coverage` to 1.0.
 
 ```{r}
-df %>% trace_explorer(type = "frequent", coverage = 1.0)
+df %>% processmapR::trace_explorer(type = "frequent", coverage = 1.0)
 ```
 So there are a few traces (0.6%) that do not end with a check-out.
 Ignoring these rare cases, we find that there are two types of cases:
