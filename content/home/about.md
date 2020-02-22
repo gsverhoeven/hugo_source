@@ -1,30 +1,14 @@
 +++
-# About/Biography widget.
-widget = "about"
-active = true
-date = 2016-04-20T00:00:00
+# About widget.
+widget = "about"  # See https://sourcethemes.com/academic/docs/page-builder/
+headless = true  # This file represents a page section.
+active = true  # Activate this widget? true/false
+weight = 20  # Order that this section will appear in.
 
-# Order that this section will appear in.
-weight = 5 
+title = "Biography"
 
-# List your academic interests.
-[interests]
-  interests = [
-    "Bayesian Statistics",
-    "Health Policy",
-    "Causal Inference",
-"Machine Learning"
-  ]
-
-# List your qualifications (such as academic degrees).
-[[education.courses]]
-  course = "PhD in Biophysics"
-  institution = "Leiden University"
-  year = 2008
- 
+# Choose the user profile to display
+# This should be the username of a profile in your `content/authors/` folder.
+# See https://sourcethemes.com/academic/docs/get-started/#introduce-yourself
+author = "admin"
 +++
-
-# Biography
-
-I am a research scientist at the Dutch Healthcare Authority, working on health policy and statistical methods.
-I have a background in experimental physics, with a PhD in Biophysics.
