@@ -1,0 +1,79 @@
+---
+title: "Reinforcement learning"
+author: "GS Verhoeven"
+date: "16 april 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ReinforcementLearning)
+```
+
+So recently I’ve been doing a lot of reading on reinforcement learning and watching David Silver’s Introduction to Reinforcement Learning video series, which by the way are phenomenal and I highly recommend them! 
+
+Our goal is to use reinforcement learning to play the game Mancala.
+Mancala is a game with perfect information, i.e. there is no information that is private to one of the two players, or unknown to both.
+
+# A random agent
+
+# Maximizing agent
+
+THis agent picks the action that maximizes the current turn.
+This is called an expert agent (i.e. expert system) since it is rule-based.
+
+A classic example of a rule-based system is the domain-specific expert system that uses rules to make deductions or choices. For example, an expert system might help a doctor choose the correct diagnosis based on a cluster of symptoms, or select tactical moves to play a game. This approach to AI became feasible in the 1970s.
+
+
+# Q-learning (1992)
+
+The R package ReinforcementLearning implements the Q-learning algorithm.
+One of the most important breakthroughs in reinforcement learning was the development of an off-policy TD (Temporal difference) control algorithm known as Q-learning (Watkins, 1989). 
+
+(from the paper of the package):
+As opposed to a model-based approach, Q-learning has no explicit knowledge of either the reward function or the state transition function. Alternatives are, for instance, SARSA or temporal-difference (TD) learning, but these are less common
+in practice nowadays.
+
+# Load training data (experience sample)
+
+```{r}
+data("tictactoe")
+
+# 18% of moves gives reward -1 or 1
+mean(abs(tictactoe$Reward))
+```
+
+```{r}
+# Define reinforcement learning parameters
+control <- list(alpha = 0.2, gamma = 0.4, epsilon = 0.1)
+```
+
+This takes a minute or two. It uses only one core.
+
+
+```{r}
+# Perform reinforcement learning
+model <- ReinforcementLearning(tictactoe, s = "State", a = "Action", r = "Reward", 
+                               s_new = "NextState", iter = 1, control = control)
+```
+
+```{r}
+# Print optimal policy
+#policy(model)
+```
+
+# Problems with Q-learning
+
+It works with a table of all state-action combinations.
+
+We need NN to learn a continous state-action function representation.
+
+This requires a switch towards python.
+
+# Deep Q learning
+
+
+# A3C learning
+
+
+
