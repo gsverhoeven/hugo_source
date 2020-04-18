@@ -1,0 +1,470 @@
+---
+title: 'Open source psychometrics: The IPIP Big Five questionnaire'
+author: Gertjan Verhoeven
+date: '2019-06-20'
+summary: Working for the first time with questionnaire data, I felt i needed some basic understanding of measurement theory, and the various approaches regarding reliability and validity of questionnaires.
+slug: cronbach-alpha-measurement-theory
+draft: TRUE
+categories:
+  - R
+tags:
+  - cronbach's alpha, validity
+baseurl: "https://gsverhoeven.github.io"
+header:
+  image: "headers/ceiling-clean-clinic-247786.jpg"
+  preview: FALSE
+
+---
+
+
+
+<!-- https://www.personality-project.org/r/book/Chapter7.pdf -->
+
+
+# Summary
+
+Working for the first time with questionnaire data, I felt i needed some basic understanding of measurement theory, and the various approaches regarding reliability and validity of questionnaires.
+
+The big five personality traits are the best accepted and most commonly used model of personality in academic psychology. If you take a college course in personality psychology, this is what you will learn about.
+
+# Measurement Theories
+
+Measurement theories concern themselves with the question: What does it mean to "measure" something? What types of measurement exist? And what statistical analysises are appropropriate for different types of measurement? According to a recent paper by Matt Williams, at least four measurement theories exist.
+There also exists a book by **Denny Borsboom** and **Keith Markus**, called "Frontiers of Test Validity Theory: Measurement, Causation, and Meaning", which contains an extended review of the various measurement theories, and their implications for pyschological measurement. Another book on the same topic is "Measuring the mind" by **Denny Borsboom**. Borsboom has been influenced by **Joel Michell**, who wrote a book in 1995 on the topic, and was reviewed by my hero Cosma Shalizi! http://bactra.org/reviews/michell-measurement.html
+
+* Classical test theory (Operationalism, is operationalist, prescribes many items to reduce random error)
+* Latent variable theory (where do the scores come from, hypothesis, substantive theory that can be falsified, realist theory of science)
+* Representationalism (constructivist / restricted, "the scale " )
+
+# Measuring the mind
+
+Difference between measurement theories and scientific theories.
+Scientific theory we can use experiments to make progress.
+Measurement theory we only have "plausible" of  "absurd" consequences.
+Conceptual, theory of science.
+CTT defective philosophical foundations.
+
+# Representationalism
+
+Representationalism is associated with the analysis of Stevens (1946), that resulted in the famous taxonomy of measurement *scales*  (nominal, ordinal, interval, and ratio), and from these scales, what type of statistical analysis is appropriate.
+
+Williams explains *Representationalism* with an example, using a well-known scale of *Rock hardness*, the Mohs scale (https://en.wikipedia.org/wiki/Mohs_scale_of_mineral_hardness). 
+Rocks exist, and we can measure a relationship between them, i.e. whether rocks can scratch each other.
+If a piece of unknown rock can be scratched by diamond, but not by Quartz, it's hardness must be somewhere inbetween. It is thus a purely ordinal scale.
+
+So what statistical analyses are appropriate on ordinal data? Stevens reasons that we can change the numbers on a purely ordinal scale without changing the order. We could transform a set of numbers {1,2,3,4} into {1, 5, 20, 396} and the order would still hold. However, some statistical procedures give different answers (i.e. a Pearson correlation), and therefore are not appropriate for an ordinal scale. Another example of an ordinal scale is the Likert scale.
+
+*Operationalism* avoids assumptions by defining what we have measured by the operation we performed to measure it. So if we use a particular psychometric test, say the "Revised NEO Personality Inventory" (NEO-PI-R), to measure personality of a subject, if we subsequently talk about the subject's personality, we mean nothing more than the score as measured with the NEO-PI-R. 
+
+This has several consequences that make this measurement theory not very useful. It means that we cannot compare tests, even if they purport to measure the same thing. There is also no concept of measurement error, because there is no underlying "true attribute" to measure with error.
+
+Then we have the *classical theory of measurement*. The classical theory of measurement should not be confused with classical test theory (a.k.a. true score theory). CTM is about concatenation, and requires a realist stance on the existence of attributes. This measurement theory also brings us trouble for psychometric tests, because it follows that there must exist some "unit" of personality, that allows us to compare "levels" of personality between subjects. 
+
+From Wikipedia:
+>Psychological attributes, like temperature, are considered to be intensive as no way of concatenating such
+>attributes has been found. But this is not to say that such attributes are not quantifiable. The theory of
+>conjoint measurement provides a theoretical means of doing this. 
+
+PM apgar score.
+
+# Latent variable theory
+
+This leaves us with *latent variable theory*. It appears that this is what all current/modern/standard psychometrics is about. For example, the starting sentence on measurement on the "personality-project.org" website by Prof. William Revelle states:
+
+> All scientific theories require measurement of the constructs underlying the field. 
+
+My impression: Both Classical Test Theory and Item response theory fall under the umbrella of latent variable theory. They vary in the amount and type of assumptions made.
+
+Unfortunately, with rare exceptions, we normally are faced with just one test, not two, three or four. How then to estimate the reliability of that one test? 
+
+It has been proposed that α {\displaystyle \alpha } \alpha can be viewed as the expected correlation of two tests that measure the same construct. By using this definition, it is implicitly assumed that the average correlation of a set of items is an accurate estimate of the average correlation of all items that pertain to a certain construct.
+
+The term item is used throughout this article, but items could be anything—questions, raters, indicators- for all of which, one might ask, to what extent they "measure the same thing." Items that are manipulated are commonly referred to as variables. 
+
+# Revelle:
+
+Although defined in terms of the correlation of a test with a test just like it, reliability can be estimated by the characteristics of the items *within the test*. The desire for an easy to use “magic bullet” based upon the *domain sampling model* has led to a number of solutions for estimating the reliability of a test based upon characteristics of the covariances of the items. All of these estimates are based upon *classical test theory* and assume that the covariances between items represents true covariance, but that the variances of the items reflect an unknown sum of true and unique variance.
+
+A *tau-equivalent* measurement model is a special case of a *congeneric* measurement model, hereby assuming all factor loadings to be the same.
+
+The most important difference between CTT and IRT is that in CTT, one uses a common estimate of the measurement precision that is assumed to be equal for all individuals irrespective of their attribute levels. In IRT, however, the measurement precision depends on the latent-attribute value. This can result in differences between CTT and IRT with respect to their conclusions about statistical significance of change.
+
+Cho 2016: This study proves that various reliability coefficients are generated from measurement
+models nested within the bi-factor measurement model.
+
+# Measurement models
+
+Before proceeding with the discussion, let us explain the measurement models used in this study
+starting from unidimensional models (i.e. models that have a single latent variable).
+
+* unidimensional parallel 
+* tau-equivalent 
+* congeneric 
+
+```{r}
+library(ggraph)
+library(tidygraph)
+
+param_nodes <- data.frame(name = c("Item 1", "Item 2", "Item 3", "Intelligence"))
+
+param_nodes$latent <- c(F, F, F, T)
+
+param_nodes$x <- c(0, 0, 0, 1)
+
+param_nodes$y <- c(0, 1, 2, 1)
+
+param_nodes$hjust <- c(1, 1, 1, 0)
+
+param_edges <- data.frame(from = c( 4, 4, 4), 
+                            to = c( 1, 2, 3))
+
+param_graph <- tidygraph::tbl_graph(param_nodes, param_edges)
+
+```
+
+```{r fig.width= 5, fig.height = 5}
+ggraph(param_graph, 
+       layout = "manual", x = param_nodes$x, y = param_nodes$y) +
+    # Observed Nodes
+    geom_node_point(aes(filter = !latent),
+                    shape = 0, 
+                    size = 3, 
+                    col = "black") +
+    geom_node_point(aes(filter = latent), 
+                    shape = 1, 
+                    size = 4, 
+                    color = "black") +
+    # Regression Paths (and text)
+    geom_edge_link(alpha = 1,
+                   linetype = 1, 
+                   angle_calc = "along",
+                   start_cap = circle(1.5, 'mm'),
+                   end_cap = circle(1, 'mm'),
+                   arrow = arrow(angle = 45, 
+                                 length = unit(2, "mm"), 
+                                 type = "closed",
+                                 ends = "last")
+                   ) +
+    # Node names
+    geom_node_text(aes(label = name, hjust = hjust), size = 3) +
+  ggtitle('An example') +
+    theme_graph()
+ #theme_graph( plot_margin = margin(6, 6, 6, 6))
+```
+
+For example, an *essentially tau-equivalent model* includes a constant, whereas a strictly tau-equivalent model does not. Although the addition of a constant has an effect on the mean, it does not affect the
+variances, covariances or the value of reliability. 
+
+To determine the scale, the variance of the latent variable is set to 1. 
+
+* The congeneric model does not have additional constraints. 
+* The tau-equivalent model is the same as the congeneric model, only with the constraint that all the factor loadings are equal, but allows the error variances to vary from item to item. 
+* The parallel model is the tau-equivalent model with the constraint that the error variances are all equal.
+  
+# Cronbach's alpha
+
+# Calculate Cronbach's Alpha for subgroup A
+
+https://rameliaz.github.io/mg-sem-workshop/cho2016.pdf
+
+Classical Test Theory (CTT) considers four or more tests to be congenerically equivalent if all tests may be expressed in terms of one factor and a residual error. (N.b. we need at least four tests to identify all free parameters of the model). 
+
+* Parallel tests are the special case where (usually two) tests have equal factor loadings. 
+
+* Tau equivalent tests have equal factor loadings but may have unequal errors. 
+
+* Congeneric tests may differ in both factor loading and error variances.
+
+```{r}
+library(ggplot2)
+library(psych)
+set.seed(42) #keep the same starting values
+#four congeneric measures
+
+loadings <- rep(1, 4)
+loadings <- c(0.8, 0.7, 0.6, 0.5)
+
+errors <- c(0.8, 0.7, 0.6, 0.5)
+
+errors <- sqrt(1 - loadings^2)
+errors <- rep(0.1, 4)
+
+r4 <- psych::sim.congeneric(loads = loadings,
+                            err = errors, #A vector of error variances 
+                            low = -3, # values less than low are forced to low (when cat = T)
+                            high = 3, # values greater than high are forced to high
+                            short = FALSE, 
+                            categorical = FALSE,
+                            N = 10000)
+```
+
+Now we have less noise on the item with the lower factor loadings.
+$\theta$ is the (common) latent variable.
+
+```{r}
+my.df <- data.frame(r4$latent, r4$observed)
+
+# Check factor loadings
+fit1 <- lm(V1 ~ theta, data = my.df)
+fit2 <- lm(V2 ~ theta, data = my.df)
+fit3 <- lm(V3 ~ theta, data = my.df)
+fit4 <- lm(V4 ~ theta, data = my.df)
+
+sd(fit1$residuals)
+sd(fit2$residuals)
+sd(fit3$residuals)
+sd(fit4$residuals)
+
+errors <- my.df[, colnames(my.df) %in% c("e1", "e2", "e3", "e4")]
+
+cor(errors)
+# errors are uncorrelated with each other
+cov(errors)
+var(my.df$e1)
+var(my.df$theta)
+```
+
+Ok, let's have it. The cronbach alpha.
+
+
+```{r}
+# r4 population correlation matrix
+psych::alpha(r4$observed)
+```
+
+Check with ground truth:
+
+```{r}
+# calculate total score
+my.df$sumV <- with(my.df, V1+V2+V3+V4)
+
+my.df$sumE <- with(my.df, e1+e2+e3+e4)
+
+plot(my.df$sumV, my.df$theta)
+
+# raw alpha
+(1-sum(diag(cov(r4$observed)))/var(my.df$sumV))*4/3
+```
+
+```{r}
+cov(r4$observed)
+
+```
+
+
+And why does this measure "reliability" of a test?
+
+The resulting α coefficient of reliability ranges from 0 to 1 in providing this overall assessment of a measure’s reliability. If all of the scale items are entirely independent from one another (i.e., are not correlated or share no covariance), then α = 0; and, if all of the items have high covariances, then α will approach 1 as the number of items in the scale approaches infinity. 
+
+Cronbach's α {\displaystyle \alpha } \alpha assumes that all factor loadings are equal. In reality this is rarely the case, and hence it systematically underestimates the reliability. An alternative to Cronbach's α {\displaystyle \alpha } \alpha that does not rely on this assumption is congeneric reliability ( ρ C {\displaystyle \rho _{C}} \rho _{C})
+
+
+# Two independent (orthogonal) factors
+
+```{r}
+# examples of two independent factors that produce reasonable alphas
+#this is a case where alpha is a poor indicator of unidimensionality
+set.seed(123)
+two.f <- data.frame(sim.item(nvar = 8,
+                             nsub = 10000))
+
+with(two.f, plot(V1, V3))
+#sim.item(nvar = 72, nsub = 500, circum = FALSE, xloading = 0.6, yloading = 0.6, 
+# gloading = 0, xbias = 0, ybias = 0, categorical = FALSE, low = -3, high = 3, 
+# truncate = FALSE, cutpoint = 0)
+
+#specify which items to reverse key by name
+alpha(two.f, keys = c("V1","V2","V7","V8"))
+
+```
+
+# Intermezzo: Scientific progress vs proprietary instruments
+
+Something that always puzzled me is that psychometric research often makes use of non-free measurement instruments (questionnaires), with access controlled by test publishers. How can science progress optimally when such barriers to reproducibility exist? It appears I am not alone in this viewpoint.
+
+Exactly because of this reason, the *International Personality Item Pool* was created.
+
+From https://ipip.ori.org/newRationale.htm: 
+
+> On the other hand, most broad-bandwidth personality inventories (like the MMPI, CPI, 16PF, and NEO-PI) are > proprietary instruments, whose items are copyrighted by the test authors. As a consequence, the
+> instruments cannot be used freely by other scientists, who thus cannot contribute to their further
+> development and refinement. Indeed, broad-bandwidth inventories are rarely revised. At most, after many
+> decades of commercial use, some of the most dated items might be changed and/or new norms established. For
+> many inventories, nothing is ever done at all.
+
+And from Goldberg 2006:
+
+> In regard to personality-trait measurement however, Goldberg (1999a) attributed the seeming lack of 
+> progress in part to the policies and practices of commercial inventory publishers who could regard certain
+> scientific activities as detrimental to their pecuniary interests (an issue also raised by Eber,2005).
+> There are at least four kinds of scientific activities that are disallowed or discouraged by test
+> publishers [...]
+
+
+# Application: Big Five personality tests
+
+We use a Big Five personality traits dataset. It has 50 items and was developed by Goldberg (1992).
+
+https://ipip.ori.org/newBigFive5broadTable.htm
+
+The documentation provides the following information:
+
+> This data was collected (c. 2012) through an interactive online personality test. Participants were
+> informed that their responses would be recorded and used for research at the begining of the test and
+> asked to confirm their consent at the end of the test.
+
+The following items were rated on a five point scale where 1=Disagree, 3=Neutral, 5=Agree (0=missed). All were presented on one page in the order E1, N2, A1, C1, O1, E2...... 
+
+```{r}
+library(tidyverse)
+library(data.table)
+library(psych)
+```
+# Read data
+
+```{r}
+big5 <- read.csv("BIG5/data.csv", sep = "\t")
+
+big5 <- big5[, c(8:ncol(big5))]
+
+big5$id <- 1:nrow(big5)
+
+big5 <- data.table(big5)
+
+mbig5 <- melt(big5, id.vars = "id")
+
+mbig5 <- mbig5[, factor_label := substr(variable, 1, 1)]
+
+```
+
+# Make some plots
+
+Let us plot the variation for each separate item.
+```{r}
+ggplot(mbig5, aes(x = variable, y = value, col = factor_label)) +
+  geom_boxplot() + coord_flip()
+```
+
+Lets sort them by value.
+
+```{r}
+ggplot(mbig5, aes(x = reorder(variable, value), y = value, col = factor_label)) +
+  geom_boxplot() + coord_flip()
+```
+
+# Make network plot of ALL correlations
+
+Output a network plot of a correlation data frame in which variables that are more highly correlated appear closer together and are joined by stronger paths. Paths are also colored by their sign (blue for positive and red for negative). The proximity of the points are determined using multidimensional clustering.
+It uses the `cmdscale` function. Multidimensional scaling takes a set of dissimilarities and returns a set of points such that the distances between the points are approximately equal to the dissimilarities. This function follows the analysis of Mardia (1978), and returns the best-fitting 2-dimensional representation.
+
+```{r}
+library(corrr)
+
+rdf <- correlate(big5[, -c("id")],  method = "spearman")
+corrr::network_plot(rdf, curved = FALSE, min_cor = 0.3)
+
+```
+
+Note that we do NOT calculate a partial correlation plot, i.e. the correlation between two items after "controlling" for all the other items.
+
+Surprisingly, "factor alpha" (N, A and C) and "factor beta" (E and O) are not visible here.
+
+# Plot a few individual correlations
+
+lets pick two questions from "Agreeableness". These are close together, so highly correlated.
+
+A4	I sympathize with others' feelings.
+A6	I have a soft heart.
+
+
+```{r}
+ggplot(big5, aes(x = A4, y = A6)) + geom_jitter(alpha = 0.1)
+```
+
+A1	I feel little concern for others.
+A3	I insult people.
+
+These are questions to which the answer other than 1 are socially undesirable.
+We would expect most answers to lie at (1,1). Indeed this is the case.
+
+```{r}
+ggplot(big5, aes(x = A1, y = A3)) + geom_jitter(alpha = 0.1)
+```
+
+Let ' s move on to Extraversion.
+
+* E1	I am the life of the party.
+* E2	I don't talk a lot.
+
+```{r}
+ggplot(big5, aes(x = E1, y = E2)) + geom_jitter(alpha = 0.1)
+```
+
+E9	I don't mind being the center of attention.
+E10	I am quiet around strangers.
+
+If you are quiet around strangers, it is difficult to imagine someone liking to be the center of attention.
+If you are NOT quiet around strangers, it is still possible to not liking to be the center of attention.
+
+Interestingly, it is the other way around. So if you are very quiet around strangers, you can still like to be the center of attention!
+But if you are not quiet around strangers (so you are very talkative) you have a high probability of wanting to be at the center of attention.
+
+
+```{r}
+ggplot(big5, aes(x = E9, y = E10)) + geom_jitter(alpha = 0.1)
+```
+
+These two questions appear highly correlated, although they "belong" to different latent factors.
+
+E10	I am quiet around strangers.
+N10	I often feel blue.
+
+```{r}
+ggplot(big5, aes(x = E10, y = N10)) + geom_jitter(alpha = 0.1)
+```
+
+Ok that makes sense. If you often feel blue, you are very likely to be quiet around strangers.
+However, if you do not often feel blue, you can still have widly varying attitudes towards talking to strangers. So it makes sense here that N10 provides a lower bound for E10.
+
+  
+# Calculate Cronbach's alpha for the five factors
+
+```{r}
+factor_labels <- unique(mbig5$factor_label)
+
+c_alphas <- c()
+i <- 1
+
+for(l in factor_labels){
+  sub_big <- mbig5[factor_label == l]
+  
+  sub_big <- dcast(sub_big, id ~ variable, value.var = "value")
+  sub_big$id <- NULL
+  
+  tmp <- psych::alpha(sub_big, check.keys = T)
+  c_alphas[i] <- tmp[[1]]$raw_alpha
+  i <- i + 1
+}
+
+res <- data.frame(factor_labels, raw_alpha = c_alphas)
+
+res
+```
+
+Here we have summed (after reversing) all scores per label.
+
+# References
+
+* International Personality Item Pool: A Scientific Collaboratory for the Development of Advanced Measures of Personality Traits and Other Individual Differences (http://ipip.ori.org/). Internet Web Site.
+
+* Goldberg, L. R. (1992). The development of markers for the Big-Five factor structure. Psychological Assessment, 4, 26-42.
+
+* Goldberg, L. R. (1999). A broad-bandwidth, public domain, personality inventory measuring the lower-level facets of several five-factor models. In I. Mervielde, I. Deary, F. De Fruyt, & F. Ostendorf (Eds.), Personality Psychology in Europe, Vol. 7 (pp. 7-28). Tilburg, The Netherlands: Tilburg University Press.
+
+* Goldberg, L. R., Johnson, J. A., Eber, H. W., Hogan, R., Ashton, M. C., Cloninger, C. R., & Gough, H. C. (2006). The International Personality Item Pool and the future of public-domain personality measures. Journal of Research in Personality, 40, 84-96.
+
+* Johnson 2014, Measuring thirty facets of the Five Factor Model with a 120-item public domain inventory: Development of the IPIP-NEO-120 http://www.personal.psu.edu/faculty/j/5/j5j/papers/JRP2014.pdf
+
+* Cho, E (2016). "Making Reliability Reliable". Organizational Research Methods. 19 (4): 651–682
+
+

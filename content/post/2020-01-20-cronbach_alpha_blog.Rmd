@@ -1,5 +1,5 @@
 ---
-title: Cronbach's alpha, measurement theory and the Big Five questionnaire
+title: Cronbach's alpha and its models
 author: Gertjan Verhoeven
 date: '2019-06-20'
 summary: Working for the first time with questionnaire data, I felt i needed some basic understanding of measurement theory, and the various approaches regarding reliability and validity of questionnaires.
@@ -16,57 +16,168 @@ header:
 
 ---
 
-```{r}
-library(qgraph)
-library(tidyverse)
-library(data.table)
-```
-
-
 # Summary
 
 Working for the first time with questionnaire data, I felt i needed some basic understanding of measurement theory, and the various approaches regarding reliability and validity of questionnaires.
 
-# Measurement Theories
+Cronbach's alpha was something I already associated with the social sciences before I knew any stats. 
+So I was curious to find out what it is, and how it can be useful.
 
-There are four measurement theories.
-Classical test theory, Latent variable theory, Operationalism and Representationalism.
+As always, we use simulated data. Fortunately, the `psych` package by Hugh Revelle contains functions to simulate data with the appropriate structure.
 
-# Classical Test Theory and Cronbach's alpha
+Before getting busy, let us explain the statistical models that underlie Cronbach 's alpha.
+In this I follow Cho (2016).   This study proves that various reliability coefficients are generated from measurement models nested within the bi-factor measurement model.
 
-# Scientific progress vs proprietary instruments
+Unfortunately, with rare exceptions, we normally are faced with just one test, not two, three or four. How then to estimate the reliability of that one test? 
 
-On the other hand, most broad-bandwidth personality inventories (like the MMPI, CPI, 16PF, and NEO-PI) are proprietary instruments, whose items are copyrighted by the test authors. As a consequence, the instruments cannot be used freely by other scientists, who thus cannot contribute to their further development and refinement. Indeed, broad-bandwidth inventories are rarely revised. At most, after many decades of commercial use, some of the most dated items might be changed and/or new norms established. For many inventories, nothing is ever done at all.
+It has been proposed that α {\displaystyle \alpha } \alpha can be viewed as the expected correlation of two tests that measure the same construct. By using this definition, it is implicitly assumed that the average correlation of a set of items is an accurate estimate of the average correlation of all items that pertain to a certain construct.
 
- inventory is from Johnson's (2014) 120-item IPIP NEO-PI-R.
+The term item is used throughout this article, but items could be anything—questions, raters, indicators- for all of which, one might ask, to what extent they "measure the same thing." Items that are manipulated are commonly referred to as variables. 
 
-http://www.personal.psu.edu/faculty/j/5/j5j/papers/JRP2014.pdf
+# Revelle:
 
-In regard to personality-trait measurement however, Goldberg (1999a) attributed the seeming lack of progress in part to the policies and practices of commercial inventory publishers who could regard certain scientific activities as detrimental to their pecuniary interests (an issue also raised by Eber, 2005).There are at least four kinds of scientific activities that are disallowed or discouraged by test publishers [...]
+Although defined in terms of the correlation of a test with a test just like it, reliability can be estimated by the characteristics of the items *within the test*. The desire for an easy to use “magic bullet” based upon the *domain sampling model* has led to a number of solutions for estimating the reliability of a test based upon characteristics of the covariances of the items. All of these estimates are based upon *classical test theory* and assume that the covariances between items represents true covariance, but that the variances of the items reflect an unknown sum of true and unique variance.
 
-# Application: Big Five personality tests
+A *tau-equivalent* measurement model is a special case of a *congeneric* measurement model, hereby assuming all factor loadings to be the same.
 
-This is a dataset of the Big 5 personality traits that will be used in talks and the paper. It is a measurement of the Dutch translation of the NEO-PI-R on 500 first year psychology students (Dolan, Oort, Stoel, Wicherts, 2009).
+The most important difference between CTT and IRT is that in CTT, one uses a common estimate of the measurement precision that is assumed to be equal for all individuals irrespective of their attribute levels. In IRT, however, the measurement precision depends on the latent-attribute value. This can result in differences between CTT and IRT with respect to their conclusions about statistical significance of change.
 
-De NEO-Personality Inventory-revised meet de vijf eigenschappen die worden onderscheiden door het Big Five model, dit model kent de volgende vijf dimensies:
+# Cronbach 's alpha and its measurement models
 
-* Extraversie
-* Emotionele onbekommerdheid
-* Gewetensvolheid
-* Vriendelijkheid
-* Openheid
+Cronbach's alpha is meant for single latent variables / factors / traits.
+
+Classical Test Theory (CTT) considers four or more tests to be congenerically equivalent if all tests may be expressed in terms of one factor and a residual error. (N.b. we need at least four tests to identify all free parameters of the model). 
+
+To determine the scale, the variance of the latent variable is set to 1. 
+
+* Congeneric tests may differ in both factor loading and error variances.
+The congeneric model does not have additional constraints. 
+
+* The tau-equivalent model is the same as the congeneric model, only with the constraint that all the factor loadings are equal, but allows the error variances to vary from item to item. 
+Tau equivalent tests have equal factor loadings but may have unequal errors. 
+
+For example, an *essentially tau-equivalent model* includes a constant, whereas a *strictly tau-equivalent model* does not. Although the addition of a constant has an effect on the mean, it does not affect the
+variances, covariances or the value of reliability. 
+
+* The (unidimensional) parallel model is the tau-equivalent model with the constraint that the error variances are all equal. Parallel tests are the special case where (usually two) tests have equal factor loadings. 
 
 
-De NEO-PI-R bevat in totaal 240 items. De items krijgen scores op een 5-puntschaal (1 = helemaal oneens, 5 = helemaal eens). Bij de NEO-PI-r kunnen de 5 schalen elk weer worden onderverdeeld in 6 subschalen. Het duurt zo’n 40 tot 50 minuten om de NEO-PI-r in te vullen.
-
+# Step one: simulate data for a congeneric model
+  
 ```{r}
-data(big5)
+library(ggplot2)
+library(psych)
+set.seed(42) #keep the same starting values
+#four congeneric measures
 
-big5 <- data.table(big5)
+loadings <- rep(1, 4)
+loadings <- c(0.8, 0.7, 0.6, 0.5)
+
+errors <- c(0.8, 0.7, 0.6, 0.5)
+
+errors <- sqrt(1 - loadings^2)
+errors <- rep(0.1, 4)
+
+r4 <- psych::sim.congeneric(loads = loadings,
+                            err = errors, #A vector of error variances 
+                            low = -3, # values less than low are forced to low (when cat = T)
+                            high = 3, # values greater than high are forced to high
+                            short = FALSE, 
+                            categorical = FALSE,
+                            N = 10000)
 ```
 
-# PM PAK DE BIG5 van openpsychometrics.org
+Now we have less noise on the item with the lower factor loadings.
+$\theta$ is the (common) latent variable.
+
+# Step two: describe simulated data
+
+```{r}
+my.df <- data.frame(r4$latent, r4$observed)
+
+# Check factor loadings
+fit1 <- lm(V1 ~ theta, data = my.df)
+fit2 <- lm(V2 ~ theta, data = my.df)
+fit3 <- lm(V3 ~ theta, data = my.df)
+fit4 <- lm(V4 ~ theta, data = my.df)
+
+sd(fit1$residuals)
+sd(fit2$residuals)
+sd(fit3$residuals)
+sd(fit4$residuals)
+
+errors <- my.df[, colnames(my.df) %in% c("e1", "e2", "e3", "e4")]
+
+cor(errors)
+# errors are uncorrelated with each other
+cov(errors)
+var(my.df$e1)
+var(my.df$theta)
+```
+
+# Step three: Calculate Cronbach's Alpha 
+
+Ok, let's have it. The cronbach alpha.
+
+
+```{r}
+# r4 population correlation matrix
+psych::alpha(r4$observed)
+```
+
+Check with ground truth:
+
+```{r}
+# calculate total score
+my.df$sumV <- with(my.df, V1+V2+V3+V4)
+
+my.df$sumE <- with(my.df, e1+e2+e3+e4)
+
+plot(my.df$sumV, my.df$theta)
+
+# raw alpha
+(1-sum(diag(cov(r4$observed)))/var(my.df$sumV))*4/3
+```
+
+```{r}
+cov(r4$observed)
+
+```
+
+
+# And why does this measure "reliability" of a test?
+
+The resulting α coefficient of reliability ranges from 0 to 1 in providing this overall assessment of a measure’s reliability. If all of the scale items are entirely independent from one another (i.e., are not correlated or share no covariance), then α = 0; and, if all of the items have high covariances, then α will approach 1 as the number of items in the scale approaches infinity. 
+
+Cronbach's α {\displaystyle \alpha } \alpha assumes that all factor loadings are equal. In reality this is rarely the case, and hence it systematically underestimates the reliability. An alternative to Cronbach's α {\displaystyle \alpha } \alpha that does not rely on this assumption is congeneric reliability ( ρ C {\displaystyle \rho _{C}} \rho _{C})
+
+
+# Does it measure unidimensionality?
+
+Let 's simulate data that has TWO factors,  that are fully independent (uncorrelated).
+So that's two independent (orthogonal) factors.
+
+```{r}
+# examples of two independent factors that produce reasonable alphas
+#this is a case where alpha is a poor indicator of unidimensionality
+set.seed(123)
+two.f <- data.frame(sim.item(nvar = 8,
+                             nsub = 10000))
+
+with(two.f, plot(V1, V3))
+#sim.item(nvar = 72, nsub = 500, circum = FALSE, xloading = 0.6, yloading = 0.6, 
+# gloading = 0, xbias = 0, ybias = 0, categorical = FALSE, low = -3, high = 3, 
+# truncate = FALSE, cutpoint = 0)
+
+#specify which items to reverse key by name
+alpha(two.f, keys = c("V1","V2","V7","V8"))
+
+```
 
 # References
 
-* (Dolan, Oort, Stoel, Wicherts, 2009)
+
+* Cho, E (2016). "Making Reliability Reliable". Organizational Research Methods. 19 (4): 651–682
+https://rameliaz.github.io/mg-sem-workshop/cho2016.pdf
+
+* Revelle, W The Personality Project: https://www.personality-project.org/r/book/Chapter7.pdf

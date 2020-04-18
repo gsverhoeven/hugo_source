@@ -1,0 +1,96 @@
+---
+title: ggraph: Nodes and edges in ggplot
+author: Gertjan Verhoeven
+date: '2019-06-20'
+summary: A recurring need in statistics is to plot nodes and edges, e.g. for structural causal models, but also for psychometrics this same need arises. here is how to do it.
+slug: cronbach-alpha-measurement-theory
+draft: TRUE
+categories:
+  - R
+tags:
+  - cronbach's alpha, validity
+baseurl: "https://gsverhoeven.github.io"
+header:
+  image: "headers/ceiling-clean-clinic-247786.jpg"
+  preview: FALSE
+
+---
+
+# Plotting SEM models using ggraph
+
+A recurring need in statistics is to plot nodes and edges, e.g. for structural causal models, network analyses but also for psychometric latent factor models this same need arises.
+
+I try to do all my visualizations in `ggplot`. This allows me to build on what I learned previously, and increase my productivity with this tool. The grammar of graphics has been adapted to work with networks /graphs in the tidygraph / ggraph packages, so let's give them a go!
+
+# Prep data to plot
+
+Let 's try to make a simple model for a Structural Equation Model (SEM) of a latent trait "Intelligence". 
+This trait is measured by three questions (items), that are observed.
+
+```{r }
+library(ggraph)
+library(tidygraph)
+
+# nodes
+param_nodes <- data.frame(name = c("Item 1", "Item 2", "Item 3", "Intelligence"))
+
+# circle or square symbol
+param_nodes$latent <- c(F, F, F, T)
+
+# positions
+param_nodes$x <- c(0, 0, 0, 1)
+
+param_nodes$y <- c(0, 1, 2, 1)
+
+param_nodes$nsize <- c(16, 16, 16, 32)
+
+param_nodes$label_hjust <- c(1, 1, 1, 1)*0.5
+
+param_nodes$label_vjust <- c(0, 0, 0, 1)*0.5
+
+# edges
+param_edges <- data.frame(from = c( 4, 4, 4), 
+                            to = c( 1, 2, 3))
+
+# create tidygraph objects
+param_graph <- tidygraph::tbl_graph(param_nodes, 
+                                    param_edges)
+
+# fig.width= 5, fig.height = 5
+
+#set_graph_style(plot_margin = margin(1,1,1,1, "cm"))
+
+hp <- ggraph(param_graph, 
+       layout = "manual", x = x, y = y) +
+  geom_node_point(aes(shape = as.factor(latent), size = nsize),
+                  color = "grey") +
+  # Regression Paths (and text)
+  geom_edge_link(alpha = 1,
+                 linetype = 1, 
+                 angle_calc = "along",
+                 start_cap = circle(1.2, 'cm'),
+                 end_cap = circle(0.8, 'cm'),
+                 arrow = arrow(angle = 45, 
+                               length = unit(0.2, "cm"), 
+                               type = "closed",
+                               ends = "last")
+                 ) +
+  # Node names
+  geom_node_text(aes(label = name,  hjust = label_hjust,
+                 vjust = label_vjust), size = 3) +
+  scale_x_continuous(limits = c(-0.1, 1.1)) +
+  scale_y_continuous(limits = c(-0.1, 2.1)) +
+  geom_point(x = 1.0, y = 0, col = "red") + 
+  scale_size_continuous(range = c(16, 32)) +
+  scale_shape_manual(values = c(15, 19), guide = FALSE) +
+  theme(legend.position = "none") 
+  #ggtitle('An example') + 
+  #theme_graph()
+
+```
+```{r fig.width = 5, fig.height = 5}
+hp
+```
+
+
+Hmmm, that does not look very nice.
