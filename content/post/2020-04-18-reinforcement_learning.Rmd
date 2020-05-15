@@ -1,8 +1,18 @@
 ---
-title: "Reinforcement learning"
-author: "GS Verhoeven"
-date: "16 april 2019"
-output: pdf_document
+title: 'Reinforcement learning'
+author: Gertjan Verhoeven
+date: '2019-04-16'
+summary: Our goal is to use reinforcement learning to play the game Mancala.
+slug: reinforcement-learning
+draft: TRUE
+categories:
+  - R
+tags:
+  - reinforcement learning
+baseurl: "https://gsverhoeven.github.io"
+header:
+  image: "headers/ceiling-clean-clinic-247786.jpg"
+  preview: FALSE
 ---
 
 ```{r setup, include=FALSE}
@@ -51,7 +61,7 @@ control <- list(alpha = 0.2, gamma = 0.4, epsilon = 0.1)
 This takes a minute or two. It uses only one core.
 
 
-```{r}
+```{r eval = FALSE}
 # Perform reinforcement learning
 model <- ReinforcementLearning(tictactoe, s = "State", a = "Action", r = "Reward", 
                                s_new = "NextState", iter = 1, control = control)

@@ -4,14 +4,14 @@ author: Gertjan Verhoeven
 date: '2020-05-15'
 summary: With the commoditization of deep learning in the form of Keras, I felt it was about time that I jumped on the Deep Learning bandwagon.
 slug: deep-learning-tensorflow-keras
-draft: TRUE
+draft: FALSE
 categories:
   - R
 tags:
   - tensorflow, keras, neural networks
 baseurl: "https://gsverhoeven.github.io"
 header:
-  image: "headers/ceiling-clean-clinic-247786.jpg"
+  image: "headers/monolith.png"
   preview: FALSE
 ---
 
@@ -20,46 +20,40 @@ header:
 I don't change computers often. The fun for me is to make the most out of sparse resources.
 Linux fits nicely into this philosophy, because it can be adapted to run on really tiny computers (e.g. http://www.picotux.com/), as well as huge supercomputers (https://itsfoss.com/linux-runs-top-supercomputers/). 
 I do like to keep up with new tech developments.
-And with the commoditization of deep learning in the form of Keras, I felt it was about time that I jumped on the Deep Learning bandwagon.
+And with the commoditization of deep learning in the form of Keras, I felt it was about time that I finally jumped on the Deep Learning bandwagon.
 
 And the nice thing about lagging behind: The choice for deep learning is now extremely simple.
-I need Keras with Tensorflow as a computational backend.
+I need ["Keras"](https://keras.io/) with ["Tensorflow"](https://www.tensorflow.org/) as a computational backend.
 
-Then i ran into  a problem: Tensorflow is all about computation.
-And therefore they lean heavily on all hardware features that speed up computation.
-This means of course utilizing GPU's and TPU's to do the number crunching.
+# Tensorflow and AVX
 
-But even for CPU's, they like to make use of all the computational features that modern CPU's offer.
-One of these is the "Advanced Vector Instruction Set" , aka AVX ( https://en.wikipedia.org/wiki/Advanced_Vector_Extensions).
-Most CPU's from 2011 or later support AVX. 
-Now, all precompiled Tensorflow software that you can download online requires a CPU with AVX.
+Then I ran into  a problem: Tensorflow is all about FAST computation.
+And therefore it tries to exploit all hardware features that speed up computation.
+One obvious way to do so is utilizing specialized hardware such as GPU's and TPU's to do the number crunching. But even for CPU's, TensorFlow likes to make use of all the computational features that modern CPU's offer. One of these is the "Advanced Vector Instruction Set" , aka ["AVX"](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions).
+As most CPU's from 2011 or later support AVX, the TensorFlow folks decided to only make binaries available that require a CPU with AVX. Bummer for me: as my CPU is from 2010, I needed to compile Tensorflow myself.
 
-As my CPU is from 2010, I needed to compile Tensorflow myself.
-What better rite of passage into the Deep Learning AI age is to compile Tensorflow from source on your own machine??? [Ref to Space Odyssey here]
+But come to think of it: What better rite of passage into the Deep Learning AI age is to compile Tensorflow from source on your own machine??? (Opening music of Space Odyssey 2001 in the background)
 
-## Building Tensorflow on a really old computer
+# Building Tensorflow on a really old computer
 
-I followed the tutorial from Tensorflow to build from source.
+I followed the tutorial from Tensorflow to build from source on a Linux system (Ubuntu 18.04 LTS).
 (https://www.tensorflow.org/install/source)
+Therefore, these notes are most useful to other Linux users, and my future self of course.
 
 Roughly this consisted of:
 
-* Creating virtual environment for Python 3.6.9
-* Checking my GCC version (7.5.0 on Ubuntu 18.04LTS)
-* Install Bazel (Google's Make program), version 3.1
-* CLone Tensorflow repository from github
-* Checkout Release TF 2.2
+* Creating a virtual environment for Python 3.6.9
+* Checking my GCC version (7.5.0, which is greater than 7.3 that is used for the official TF packages) 
+* Install ["Bazel"](https://docs.bazel.build/versions/master/install-ubuntu.html#install-with-installer-ubuntu) (Google's Make program), version 3.1
+* Clone the Tensorflow ["repository from GitHub"](https://github.com/tensorflow/tensorflow)
+* Checkout the latest official TensorFlow release (v2.2)
 
 Then came the hard part, the final step:
 
-* Tweak arguments endlessly to reduce resource usage
+* Tweak Bazel arguments endlessly to reduce resource usage to be able to complete the build process succesfully
 
-In the end, I removed the -c opt optimize, so no special optimization.
-And asked for ONE CPU, ONE JOB, and 2GB of RAM usage.
-
-I ran the build process in a terminal on the Ubuntu 18.04 Desktop, without any other programs loaded.
-The Ubuntu Desktop + OS consumes about 1 GB on my system. This leave about 2.5 GB for bazel.
-Now as it turns out, according to `htop` memory consumption went up to 3.6 GB (of my 3.9GB max), but it succeeded in the end. This was after 10 hours of compiling! (I let it run overnight)
+In the end, I removed the `-c opt`, so no special optimization for my CPU.
+And asked for **one CPU** (I have two cores :-), **one job**, and **max 2GB of RAM usage**.
 
 ```{bash eval = FALSE}
 cd tf_build_env/
@@ -69,18 +63,25 @@ bazel build --config=opt --local_ram_resources=2048 --local_cpu_resources=HOST_C
   //tensorflow/tools/pip_package:build_pip_package
 ```
 
-PM make wheel
-PM install wheel in venv
+I ran the build process in a terminal on the Ubuntu 18.04 Desktop, without any other programs loaded.
+As the Ubuntu Desktop + OS consumes about 1 GB on my system. This leave about 2.5 GB for bazel.
+Now as it turns out, according to `htop` memory consumption went up to 3.6 GB (of my 3.9GB max), but it succeeded in the end. This was after 10 hours of compiling! (I let it run overnight)
 
-I started out testing in a python virtualenv with jupyter notebook installed.
-To my delight it ran the Fashion MNIST classification with Keras example from the tensorflow website (https://www.tensorflow.org/tutorials/keras/classification)  flawlessly.
-Even on my ancient PC performance was quite good, training the model took around 1 minute.
+The final step was to turn the compiled TensorFlow into a Python Wheel package ready to install using `pip`.
 
-## Keras in R with the classic MNIST
+```{bash eval = FALSE}
+./bazel-bin/tensorflow/tools/pip_package/build_pip_package /tmp/tensorflow_pkg
+# creates a 'wheel' file called tensorflow-2.2.0-cp36-cp36m-linux_x86_64.whl
+```
 
-After our succes in Python, it was time to move on to R.
+To try it out, I created a new empty Python 3 virtual environment with only TensorFlow and Jupyter Notebook installed. To my delight it ran the ["Fashion MNIST classification with Keras"](https://www.tensorflow.org/tutorials/keras/classification) example flawlessly.
 
-Because I chose TF 2.2 (latest release) I had to install the development version of the R package `keras` from GitHub to fix a bug that prevented Keras in R from working.
+And even on my ancient PC performance was quite good, training the model took around 1 minute.
+So, after glorious succes in Python, it was time to move on to R.
+
+# Keras in R with the classic MNIST
+
+I had to install the development version of the R package `keras` from GitHub to fix a bug that prevented Keras in R from working with TF v2.2.
 
 From the release notes: (https://github.com/rstudio/keras/blob/master/NEWS.md)
 
@@ -97,7 +98,7 @@ First load all the required packages.
 ```{r}
 library(tensorflow)
 
-use_virtualenv("~/keras_env", required = TRUE)
+use_virtualenv("~/venvs/keras_env", required = TRUE)
 # this was the same environment that I tested TensorFlow with Python
 
 library(keras)
@@ -116,6 +117,24 @@ mnist$train$x <- mnist$train$x/255
 mnist$test$x <- mnist$test$x/255
 ```
 
+Plot the data.
+
+```{r}
+x_train <- mnist$train$x
+y_train <- mnist$train$y
+
+# visualize the digits
+par(mfcol=c(6,6))
+par(mar=c(0, 0, 3, 0), xaxs='i', yaxs='i')
+for (idx in 1:12) { 
+    im <- x_train[idx,,]
+    im <- t(apply(im, 2, rev)) 
+    image(1:28, 1:28, im, col=gray((0:255)/255), 
+          xaxt='n', main=paste(y_train[idx]))
+}
+```
+
+
 # Keras model
 
 ```{r}
@@ -132,7 +151,20 @@ summary(model)
 ```
 It has over 100.000 parameters!!
 
-# Compile  the model
+Python has a nice `plot_model()` function, in R we can use the `deepviz` package.
+
+```{r eval = FALSE}
+devtools::install_github("andrie/deepviz")
+```
+```{r}
+library(deepviz)
+library(magrittr)
+
+model %>% plot_model()
+```
+
+
+# Compile the model
 
 ```{r}
 model %>% 
@@ -160,26 +192,27 @@ model %>%
 
 ```{r}
 predictions <- predict(model, mnist$test$x)
-head(predictions, 2)
 ```
 
-# Check model performance
+Visualize a single prediction:
+
+```{r}
+library(ggplot2)
+
+id <- 9
+
+ggplot(data.frame(digit = 0:9, prob = predictions[id,]), 
+       aes(x = factor(digit), y = prob)) + geom_col() +
+  ggtitle(paste0("prediction for true value of ", mnist$test$y[id]))
+```
+
+# Check model performance on the test set
 
 ```{r}
 model %>% 
   evaluate(mnist$test$x, mnist$test$y, verbose = 0)
 ```
 
-Our model achieved ~90% accuracy on the test set.
+Our model achieved ~98% accuracy on the test set.
 
-```{r}
-save_model_tf(object = model, filepath = "model")
-```
-
-# Reload the model
-
-```{r}
-reloaded_model <- load_model_tf("model")
-all.equal(predict(model, mnist$test$x), predict(reloaded_model, mnist$test$x))
-```
-
+Awesome.

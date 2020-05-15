@@ -1,5 +1,5 @@
 ---
-title: ggraph: Nodes and edges in ggplot
+title: 'ggraph: Nodes and edges in ggplot'
 author: Gertjan Verhoeven
 date: '2019-06-20'
 summary: A recurring need in statistics is to plot nodes and edges, e.g. for structural causal models, but also for psychometrics this same need arises. here is how to do it.
