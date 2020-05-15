@@ -1,0 +1,133 @@
+---
+title: 'ggraph: Nodes and edges in ggplot'
+author: Gertjan Verhoeven
+date: '2019-06-20'
+summary: A recurring need in statistics is to plot nodes and edges, e.g. for structural causal models, but also for psychometrics this same need arises. here is how to do it.
+slug: ggplot-ggraph-sem-models
+draft: TRUE
+categories:
+  - R
+tags:
+  - ggraph, tidygraph, sem
+baseurl: "https://gsverhoeven.github.io"
+header:
+  image: "headers/ceiling-clean-clinic-247786.jpg"
+  preview: FALSE
+
+---
+
+
+
+<div id="plotting-sem-models-using-ggraph" class="section level1">
+<h1>Plotting SEM models using ggraph</h1>
+<p>A recurring need in statistics is to create plots composed of nodes and edges.
+This need arises for structural causal models, network analyses but also for psychometric latent factor models.</p>
+<p>I try to do all my visualizations in <code>ggplot</code>. This allows me to build on what I learned previously, and increase my productivity with this tool. The grammar of graphics has been adapted to work with networks /graphs in the tidygraph / ggraph packages, so let’s give them a go!</p>
+</div>
+<div id="how-can-network-relational-data-be-tidy" class="section level1">
+<h1>How can network / relational data be tidy?</h1>
+<p>In the words of <strong>Thomas Lin Pedersen</strong>, the creator of tidygraph and ggraph:</p>
+<blockquote>
+<p>Both node and edge data by itself fits very well within the tidy concept as each node and edge is, in a &gt;sense, a single observation. Thus, a close approximation of tidyness for relational data is two tidy data &gt;frames, one describing the node data and one describing the edge data.</p>
+</blockquote>
+<p>Let ’s try to make a simple model for a Structural Equation Model (SEM) of a latent trait “Intelligence”.
+This trait is measured by three questions (items), that are observed.
+The three items have different “factor loadings”, numbers that we want to plot in the graph.</p>
+</div>
+<div id="prep-data-to-plot" class="section level1">
+<h1>Prep data to plot</h1>
+<p>We begin with loading the required R packages.
+We need both <strong>tidygraph</strong> (for the tidy object to hold the data) as well as <strong>ggraph</strong> (to plot the data).</p>
+<pre class="r"><code>library(ggraph)</code></pre>
+<pre><code>## Loading required package: ggplot2</code></pre>
+<pre class="r"><code>library(tidygraph)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;tidygraph&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:stats&#39;:
+## 
+##     filter</code></pre>
+<p>We start with defining the nodes.
+We want a specific layout, so we define all positions manually.</p>
+<p>For SEM models, the convention is to represent latent traits as circles, and measured (observed) variables as squares. We encode each nodes type as a variable “latent” (TRUE or FALSE).</p>
+<pre class="r"><code># nodes
+param_nodes &lt;- data.frame(name = c(&quot;Item 1&quot;, 
+                                   &quot;Item 2&quot;, 
+                                   &quot;Item 3&quot;, 
+                                   &quot;Intelligence&quot;))
+
+# circle or square symbol
+param_nodes$latent &lt;- c(F, F, F, T)
+
+# positions (ggplot drawing surface scales from 0 to 1 in both dimensions)
+param_nodes$x &lt;- c(0, 0, 0, 1)
+
+param_nodes$y &lt;- c(0, 0.5, 1, 0.5)
+
+param_nodes$nsize &lt;- c(24, 24, 24, 36)
+
+# shift the labels to be at the center of the node location
+param_nodes$label_hjust &lt;- c(1, 1, 1, 1)*0.5
+
+param_nodes$label_vjust &lt;- c(1, 1, 1, 1)*0.5</code></pre>
+<p>The edges define the connections between the nodes. They all originate from the latent node.</p>
+<pre class="r"><code># edges
+param_edges &lt;- data.frame(from = c( 4, 4, 4), 
+                            to = c( 1, 2, 3))
+
+param_edges$coef &lt;- c(0.5, 0.6, 0.7)</code></pre>
+<p>We use <code>tbl_graph()</code> to combine both the node and edge datasets into a tidygraph object.</p>
+<pre class="r"><code># create tidygraph object
+my_tidygraph &lt;- tidygraph::tbl_graph(param_nodes, 
+                                    param_edges)</code></pre>
+</div>
+<div id="make-the-plot" class="section level1">
+<h1>Make the plot</h1>
+<p>Now we are ready to make the plot. We use the <code>manual</code> layout to make ggraph use our predefined x- and y positions. <code>geom_edge_link()</code> and <code>geom_node_point()</code> do most of the work.</p>
+<p>I needed to use four <code>scale_*()</code> calls to get all the scales right.</p>
+<ul>
+<li>Two to expand the drawing area to avoid the nodes from falling partly outside the drawing area,</li>
+<li>One to get the symbol sizes right,</li>
+<li>And one two manually specify the symbol shapes</li>
+</ul>
+<pre class="r"><code>hp &lt;- ggraph(my_tidygraph,
+             layout = &quot;manual&quot;, 
+             x = x, y = y) +
+  geom_edge_link(aes(label = coef),
+                 label_dodge = unit(2.5, &#39;mm&#39;),
+                 alpha = 1,
+                 linetype = 1, 
+                 angle_calc = &quot;along&quot;,
+                 start_cap = circle(1.2, &#39;cm&#39;),
+                 end_cap = circle(1.0, &#39;cm&#39;),
+                 arrow = arrow(angle = 45, 
+                               length = unit(0.5, &quot;cm&quot;), 
+                               type = &quot;closed&quot;,
+                               ends = &quot;last&quot;)
+                 ) +
+  geom_node_point(aes(shape = as.factor(latent), size = nsize),
+                  color = &quot;grey&quot;) +
+  # Node names
+  geom_node_text(aes(label = name,  hjust = label_hjust,
+                 vjust = label_vjust), size = 5) + 
+  # Get the scaling right
+  scale_x_continuous(expand = expand_scale(0.2)) +
+  scale_y_continuous(expand = expand_scale(0.2)) +
+  # geom_point(x = 0, y = 0, col = &quot;red&quot;) + 
+  # geom_point(x = 0, y = 1, col = &quot;red&quot;) + 
+  # geom_point(x = 1, y = 0, col = &quot;red&quot;) + 
+  # geom_point(x = 1, y = 1, col = &quot;red&quot;) + 
+  # geom_point(x = 1.2, y = 1.2, col = &quot;red&quot;) + 
+  scale_size_continuous(range = c(24, 36)) +
+  scale_shape_manual(values = c(15, 19), guide = FALSE) +
+  ggtitle(&#39;Single latent factor model&#39;) + 
+  theme_graph() +
+  theme(legend.position = &quot;none&quot;)</code></pre>
+<p>Finally, display the plot.</p>
+<pre class="r"><code>hp</code></pre>
+<p><img src="/post/2020-02-20-ggraph_for_sem_blog_files/figure-html/unnamed-chunk-6-1.png" width="480" /></p>
+<p>Hell yeah!</p>
+<p>PM add error correlation structure.</p>
+</div>
+<div id="references-related-blog-posts" class="section level1">
+<h1>References / related blog posts</h1>
+</div>

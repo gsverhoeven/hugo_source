@@ -1,0 +1,67 @@
+---
+title: 'Reinforcement learning'
+author: Gertjan Verhoeven
+date: '2019-04-16'
+summary: Our goal is to use reinforcement learning to play the game Mancala.
+slug: reinforcement-learning
+draft: TRUE
+categories:
+  - R
+tags:
+  - reinforcement learning
+baseurl: "https://gsverhoeven.github.io"
+header:
+  image: "headers/ceiling-clean-clinic-247786.jpg"
+  preview: FALSE
+---
+
+
+
+<p>So recently I’ve been doing a lot of reading on reinforcement learning and watching David Silver’s Introduction to Reinforcement Learning video series, which by the way are phenomenal and I highly recommend them!</p>
+<p>Our goal is to use reinforcement learning to play the game Mancala.
+Mancala is a game with perfect information, i.e. there is no information that is private to one of the two players, or unknown to both.</p>
+<div id="a-random-agent" class="section level1">
+<h1>A random agent</h1>
+</div>
+<div id="maximizing-agent" class="section level1">
+<h1>Maximizing agent</h1>
+<p>THis agent picks the action that maximizes the current turn.
+This is called an expert agent (i.e. expert system) since it is rule-based.</p>
+<p>A classic example of a rule-based system is the domain-specific expert system that uses rules to make deductions or choices. For example, an expert system might help a doctor choose the correct diagnosis based on a cluster of symptoms, or select tactical moves to play a game. This approach to AI became feasible in the 1970s.</p>
+</div>
+<div id="q-learning-1992" class="section level1">
+<h1>Q-learning (1992)</h1>
+<p>The R package ReinforcementLearning implements the Q-learning algorithm.
+One of the most important breakthroughs in reinforcement learning was the development of an off-policy TD (Temporal difference) control algorithm known as Q-learning (Watkins, 1989).</p>
+<p>(from the paper of the package):
+As opposed to a model-based approach, Q-learning has no explicit knowledge of either the reward function or the state transition function. Alternatives are, for instance, SARSA or temporal-difference (TD) learning, but these are less common
+in practice nowadays.</p>
+</div>
+<div id="load-training-data-experience-sample" class="section level1">
+<h1>Load training data (experience sample)</h1>
+<pre class="r"><code>data(&quot;tictactoe&quot;)
+
+# 18% of moves gives reward -1 or 1
+mean(abs(tictactoe$Reward))</code></pre>
+<pre><code>## [1] 0.1760388</code></pre>
+<pre class="r"><code># Define reinforcement learning parameters
+control &lt;- list(alpha = 0.2, gamma = 0.4, epsilon = 0.1)</code></pre>
+<p>This takes a minute or two. It uses only one core.</p>
+<pre class="r"><code># Perform reinforcement learning
+model &lt;- ReinforcementLearning(tictactoe, s = &quot;State&quot;, a = &quot;Action&quot;, r = &quot;Reward&quot;, 
+                               s_new = &quot;NextState&quot;, iter = 1, control = control)</code></pre>
+<pre class="r"><code># Print optimal policy
+#policy(model)</code></pre>
+</div>
+<div id="problems-with-q-learning" class="section level1">
+<h1>Problems with Q-learning</h1>
+<p>It works with a table of all state-action combinations.</p>
+<p>We need NN to learn a continous state-action function representation.</p>
+<p>This requires a switch towards python.</p>
+</div>
+<div id="deep-q-learning" class="section level1">
+<h1>Deep Q learning</h1>
+</div>
+<div id="a3c-learning" class="section level1">
+<h1>A3C learning</h1>
+</div>
