@@ -3,12 +3,12 @@ title: ggraph: Nodes and edges in ggplot
 author: Gertjan Verhoeven
 date: '2019-06-20'
 summary: A recurring need in statistics is to plot nodes and edges, e.g. for structural causal models, but also for psychometrics this same need arises. here is how to do it.
-slug: cronbach-alpha-measurement-theory
+slug: ggplot-ggraph-sem-models
 draft: TRUE
 categories:
   - R
 tags:
-  - cronbach's alpha, validity
+  - ggraph, tidygraph, sem
 baseurl: "https://gsverhoeven.github.io"
 header:
   image: "headers/ceiling-clean-clinic-247786.jpg"
@@ -18,79 +18,135 @@ header:
 
 # Plotting SEM models using ggraph
 
-A recurring need in statistics is to plot nodes and edges, e.g. for structural causal models, network analyses but also for psychometric latent factor models this same need arises.
+A recurring need in statistics is to create plots composed of nodes and edges.
+This need arises for structural causal models, network analyses but also for psychometric latent factor models.
 
 I try to do all my visualizations in `ggplot`. This allows me to build on what I learned previously, and increase my productivity with this tool. The grammar of graphics has been adapted to work with networks /graphs in the tidygraph / ggraph packages, so let's give them a go!
 
-# Prep data to plot
+# How can network / relational data be tidy?
+
+In the words of **Thomas Lin Pedersen**, the creator of tidygraph and ggraph:
+
+>Both node and edge data by itself fits very well within the tidy concept as each node and edge is, in a >sense, a single observation. Thus, a close approximation of tidyness for relational data is two tidy data >frames, one describing the node data and one describing the edge data.
 
 Let 's try to make a simple model for a Structural Equation Model (SEM) of a latent trait "Intelligence". 
 This trait is measured by three questions (items), that are observed.
+The three items have different "factor loadings", numbers that we want to plot in the graph.
+
+# Prep data to plot
+
+We begin with loading the required R packages.
+We need both **tidygraph** (for the tidy object to hold the data) as well as **ggraph** (to plot the data).
 
 ```{r }
 library(ggraph)
 library(tidygraph)
+```
 
+We start with defining the nodes.
+We want a specific layout, so we define all positions manually.
+
+For SEM models, the convention is to represent latent traits as circles, and measured (observed) variables as squares. We encode each nodes type as a variable "latent" (TRUE or FALSE).
+
+```{r}
 # nodes
-param_nodes <- data.frame(name = c("Item 1", "Item 2", "Item 3", "Intelligence"))
+param_nodes <- data.frame(name = c("Item 1", 
+                                   "Item 2", 
+                                   "Item 3", 
+                                   "Intelligence"))
 
 # circle or square symbol
 param_nodes$latent <- c(F, F, F, T)
 
-# positions
+# positions (ggplot drawing surface scales from 0 to 1 in both dimensions)
 param_nodes$x <- c(0, 0, 0, 1)
 
-param_nodes$y <- c(0, 1, 2, 1)
+param_nodes$y <- c(0, 0.5, 1, 0.5)
 
-param_nodes$nsize <- c(16, 16, 16, 32)
+param_nodes$nsize <- c(24, 24, 24, 36)
 
+# shift the labels to be at the center of the node location
 param_nodes$label_hjust <- c(1, 1, 1, 1)*0.5
 
-param_nodes$label_vjust <- c(0, 0, 0, 1)*0.5
+param_nodes$label_vjust <- c(1, 1, 1, 1)*0.5
+```
 
+The edges define the connections between the nodes. They all originate from the latent node.
+
+```{r}
 # edges
 param_edges <- data.frame(from = c( 4, 4, 4), 
                             to = c( 1, 2, 3))
 
-# create tidygraph objects
-param_graph <- tidygraph::tbl_graph(param_nodes, 
+param_edges$coef <- c(0.5, 0.6, 0.7)
+```
+
+We use `tbl_graph()` to combine both the node and edge datasets into a tidygraph object.
+
+```{r}
+# create tidygraph object
+my_tidygraph <- tidygraph::tbl_graph(param_nodes, 
                                     param_edges)
+```
 
-# fig.width= 5, fig.height = 5
+# Make the plot
 
-#set_graph_style(plot_margin = margin(1,1,1,1, "cm"))
+Now we are ready to make the plot. We use the `manual` layout to make ggraph use our predefined x- and y positions. `geom_edge_link()` and `geom_node_point()` do most of the work.
 
-hp <- ggraph(param_graph, 
-       layout = "manual", x = x, y = y) +
-  geom_node_point(aes(shape = as.factor(latent), size = nsize),
-                  color = "grey") +
-  # Regression Paths (and text)
-  geom_edge_link(alpha = 1,
+I needed to use four `scale_*()` calls to get all the scales right.
+
+* Two to expand the drawing area to avoid the nodes from falling partly outside the drawing area,
+* One to get the symbol sizes right,
+* And one two manually specify the symbol shapes
+
+```{r fig.width= 5, fig.height = 5}
+
+hp <- ggraph(my_tidygraph,
+             layout = "manual", 
+             x = x, y = y) +
+  geom_edge_link(aes(label = coef),
+                 label_dodge = unit(2.5, 'mm'),
+                 alpha = 1,
                  linetype = 1, 
                  angle_calc = "along",
                  start_cap = circle(1.2, 'cm'),
-                 end_cap = circle(0.8, 'cm'),
+                 end_cap = circle(1.0, 'cm'),
                  arrow = arrow(angle = 45, 
-                               length = unit(0.2, "cm"), 
+                               length = unit(0.5, "cm"), 
                                type = "closed",
                                ends = "last")
                  ) +
+  geom_node_point(aes(shape = as.factor(latent), size = nsize),
+                  color = "grey") +
   # Node names
   geom_node_text(aes(label = name,  hjust = label_hjust,
-                 vjust = label_vjust), size = 3) +
-  scale_x_continuous(limits = c(-0.1, 1.1)) +
-  scale_y_continuous(limits = c(-0.1, 2.1)) +
-  geom_point(x = 1.0, y = 0, col = "red") + 
-  scale_size_continuous(range = c(16, 32)) +
+                 vjust = label_vjust), size = 5) + 
+  # Get the scaling right
+  scale_x_continuous(expand = expand_scale(0.2)) +
+  scale_y_continuous(expand = expand_scale(0.2)) +
+  # geom_point(x = 0, y = 0, col = "red") + 
+  # geom_point(x = 0, y = 1, col = "red") + 
+  # geom_point(x = 1, y = 0, col = "red") + 
+  # geom_point(x = 1, y = 1, col = "red") + 
+  # geom_point(x = 1.2, y = 1.2, col = "red") + 
+  scale_size_continuous(range = c(24, 36)) +
   scale_shape_manual(values = c(15, 19), guide = FALSE) +
-  theme(legend.position = "none") 
-  #ggtitle('An example') + 
-  #theme_graph()
+  ggtitle('Single latent factor model') + 
+  theme_graph() +
+  theme(legend.position = "none")
 
 ```
+
+Finally, display the plot.
+
 ```{r fig.width = 5, fig.height = 5}
 hp
 ```
 
 
-Hmmm, that does not look very nice.
+Hell yeah! 
+
+PM add error correlation structure.
+
+# References / related blog posts
+

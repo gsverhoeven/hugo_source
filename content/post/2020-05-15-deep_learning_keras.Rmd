@@ -1,0 +1,185 @@
+---
+title: Building Tensorflow 2.2 on an old PC
+author: Gertjan Verhoeven
+date: '2020-05-15'
+summary: With the commoditization of deep learning in the form of Keras, I felt it was about time that I jumped on the Deep Learning bandwagon.
+slug: deep-learning-tensorflow-keras
+draft: TRUE
+categories:
+  - R
+tags:
+  - tensorflow, keras, neural networks
+baseurl: "https://gsverhoeven.github.io"
+header:
+  image: "headers/ceiling-clean-clinic-247786.jpg"
+  preview: FALSE
+---
+
+# Introduction
+
+I don't change computers often. The fun for me is to make the most out of sparse resources.
+Linux fits nicely into this philosophy, because it can be adapted to run on really tiny computers (e.g. http://www.picotux.com/), as well as huge supercomputers (https://itsfoss.com/linux-runs-top-supercomputers/). 
+I do like to keep up with new tech developments.
+And with the commoditization of deep learning in the form of Keras, I felt it was about time that I jumped on the Deep Learning bandwagon.
+
+And the nice thing about lagging behind: The choice for deep learning is now extremely simple.
+I need Keras with Tensorflow as a computational backend.
+
+Then i ran into  a problem: Tensorflow is all about computation.
+And therefore they lean heavily on all hardware features that speed up computation.
+This means of course utilizing GPU's and TPU's to do the number crunching.
+
+But even for CPU's, they like to make use of all the computational features that modern CPU's offer.
+One of these is the "Advanced Vector Instruction Set" , aka AVX ( https://en.wikipedia.org/wiki/Advanced_Vector_Extensions).
+Most CPU's from 2011 or later support AVX. 
+Now, all precompiled Tensorflow software that you can download online requires a CPU with AVX.
+
+As my CPU is from 2010, I needed to compile Tensorflow myself.
+What better rite of passage into the Deep Learning AI age is to compile Tensorflow from source on your own machine??? [Ref to Space Odyssey here]
+
+## Building Tensorflow on a really old computer
+
+I followed the tutorial from Tensorflow to build from source.
+(https://www.tensorflow.org/install/source)
+
+Roughly this consisted of:
+
+* Creating virtual environment for Python 3.6.9
+* Checking my GCC version (7.5.0 on Ubuntu 18.04LTS)
+* Install Bazel (Google's Make program), version 3.1
+* CLone Tensorflow repository from github
+* Checkout Release TF 2.2
+
+Then came the hard part, the final step:
+
+* Tweak arguments endlessly to reduce resource usage
+
+In the end, I removed the -c opt optimize, so no special optimization.
+And asked for ONE CPU, ONE JOB, and 2GB of RAM usage.
+
+I ran the build process in a terminal on the Ubuntu 18.04 Desktop, without any other programs loaded.
+The Ubuntu Desktop + OS consumes about 1 GB on my system. This leave about 2.5 GB for bazel.
+Now as it turns out, according to `htop` memory consumption went up to 3.6 GB (of my 3.9GB max), but it succeeded in the end. This was after 10 hours of compiling! (I let it run overnight)
+
+```{bash eval = FALSE}
+cd tf_build_env/
+source bin/activate
+cd ~/Github/tensorflow/
+bazel build --config=opt --local_ram_resources=2048 --local_cpu_resources=HOST_CPUS-1 --jobs=1
+  //tensorflow/tools/pip_package:build_pip_package
+```
+
+PM make wheel
+PM install wheel in venv
+
+I started out testing in a python virtualenv with jupyter notebook installed.
+To my delight it ran the Fashion MNIST classification with Keras example from the tensorflow website (https://www.tensorflow.org/tutorials/keras/classification)  flawlessly.
+Even on my ancient PC performance was quite good, training the model took around 1 minute.
+
+## Keras in R with the classic MNIST
+
+After our succes in Python, it was time to move on to R.
+
+Because I chose TF 2.2 (latest release) I had to install the development version of the R package `keras` from GitHub to fix a bug that prevented Keras in R from working.
+
+From the release notes: (https://github.com/rstudio/keras/blob/master/NEWS.md)
+
+`Fixed issue regarding the KerasMetricsCallback with TF v2.2 (#1020)`
+
+```{r eval = FALSE}
+devtools::install_github("rstudio/keras")
+```
+
+For my first deep learning in R, I followed the tutorial from https://tensorflow.rstudio.com/tutorials/beginners/
+
+First load all the required packages.
+
+```{r}
+library(tensorflow)
+
+use_virtualenv("~/keras_env", required = TRUE)
+# this was the same environment that I tested TensorFlow with Python
+
+library(keras)
+```
+
+Read in the dataset.
+
+```{r}
+mnist <- dataset_mnist()
+```
+
+Rescale pixel values to be between 0 and 1.
+
+```{r}
+mnist$train$x <- mnist$train$x/255
+mnist$test$x <- mnist$test$x/255
+```
+
+# Keras model
+
+```{r}
+model <- keras_model_sequential() %>% 
+  layer_flatten(input_shape = c(28, 28)) %>% 
+  layer_dense(units = 128, activation = "relu") %>% 
+  layer_dropout(0.2) %>% 
+  layer_dense(10, activation = "softmax")
+
+```
+
+```{r}
+summary(model)
+```
+It has over 100.000 parameters!!
+
+# Compile  the model
+
+```{r}
+model %>% 
+  compile(
+    loss = "sparse_categorical_crossentropy",
+    optimizer = "adam",
+    metrics = "accuracy"
+  )
+```
+
+# Fit the model
+
+```{r}
+model %>% 
+  fit(
+    x = mnist$train$x, 
+    y = mnist$train$y,
+    epochs = 5,
+    validation_split = 0.3,
+    verbose = 1
+  )
+```
+ 
+# Make predictions
+
+```{r}
+predictions <- predict(model, mnist$test$x)
+head(predictions, 2)
+```
+
+# Check model performance
+
+```{r}
+model %>% 
+  evaluate(mnist$test$x, mnist$test$y, verbose = 0)
+```
+
+Our model achieved ~90% accuracy on the test set.
+
+```{r}
+save_model_tf(object = model, filepath = "model")
+```
+
+# Reload the model
+
+```{r}
+reloaded_model <- load_model_tf("model")
+all.equal(predict(model, mnist$test$x), predict(reloaded_model, mnist$test$x))
+```
+
