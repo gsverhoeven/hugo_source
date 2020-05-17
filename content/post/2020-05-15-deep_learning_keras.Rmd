@@ -1,5 +1,5 @@
 ---
-title: Building Tensorflow 2.2 on an old PC
+title: Building TensorFlow 2.2 on an old PC
 author: Gertjan Verhoeven
 date: '2020-05-15'
 summary: With the commoditization of deep learning in the form of Keras, I felt it was about time that I jumped on the Deep Learning bandwagon.
@@ -8,7 +8,7 @@ draft: FALSE
 categories:
   - R
 tags:
-  - tensorflow, keras, neural networks
+  - tensorflow, keras, neural networks, deep learning
 baseurl: "https://gsverhoeven.github.io"
 header:
   image: "headers/monolith.png"
@@ -23,30 +23,29 @@ I do like to keep up with new tech developments.
 And with the commoditization of deep learning in the form of Keras, I felt it was about time that I finally jumped on the Deep Learning bandwagon.
 
 And the nice thing about lagging behind: The choice for deep learning is now extremely simple.
-I need ["Keras"](https://keras.io/) with ["Tensorflow"](https://www.tensorflow.org/) as a computational backend.
+I need [Keras](https://keras.io/) with [TensorFlow](https://www.tensorflow.org/) as a computational backend.
+Which nowadays means installing TensorFlow since the Keras API has been incorporated into the TensorFlow project.
 
-# Tensorflow and AVX
+# TensorFlow and AVX
 
-Then I ran into  a problem: Tensorflow is all about FAST computation.
+Then I ran into  a problem: TensorFlow is all about FAST computation.
 And therefore it tries to exploit all hardware features that speed up computation.
-One obvious way to do so is utilizing specialized hardware such as GPU's and TPU's to do the number crunching. But even for CPU's, TensorFlow likes to make use of all the computational features that modern CPU's offer. One of these is the "Advanced Vector Instruction Set" , aka ["AVX"](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions).
-As most CPU's from 2011 or later support AVX, the TensorFlow folks decided to only make binaries available that require a CPU with AVX. Bummer for me: as my CPU is from 2010, I needed to compile Tensorflow myself.
+One obvious way to do so is utilizing specialized hardware such as GPU's and TPU's to do the number crunching. But even for CPU's, TensorFlow likes to make use of all the computational features that modern CPU's offer. One of these is the "Advanced Vector Instruction Set" , aka [AVX](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions).
+As most CPU's from 2011 or later support AVX, the TensorFlow folks decided to only make binaries available that require a CPU with AVX. Bummer for me: as my CPU is from 2010, I needed to compile TensorFlow myself.
 
-But come to think of it: What better rite of passage into the Deep Learning AI age is to compile Tensorflow from source on your own machine??? (Opening music of Space Odyssey 2001 in the background)
+But come to think of it: What better rite of passage into the Deep Learning AI age is to compile TensorFlow from source on your own machine??? (Opening music of Space Odyssey 2001 in the background)
 
-# Building Tensorflow on a really old computer
+# Building TensorFlow on a really old computer
 
-I followed the tutorial from Tensorflow to build from source on a Linux system (Ubuntu 18.04 LTS).
-(https://www.tensorflow.org/install/source)
-Therefore, these notes are most useful to other Linux users, and my future self of course.
+I followed the [tutorial from TensorFlow](https://www.tensorflow.org/install/source) to build from source on a Linux system (Ubuntu 18.04 LTS). Therefore, these notes are most useful to other Linux users, and my future self of course.
 
 Roughly this consisted of:
 
 * Creating a virtual environment for Python 3.6.9
 * Checking my GCC version (7.5.0, which is greater than 7.3 that is used for the official TF packages) 
-* Install ["Bazel"](https://docs.bazel.build/versions/master/install-ubuntu.html#install-with-installer-ubuntu) (Google's Make program), version 3.1
-* Clone the Tensorflow ["repository from GitHub"](https://github.com/tensorflow/tensorflow)
-* Checkout the latest official TensorFlow release (v2.2)
+* Install [Bazel](https://docs.bazel.build/versions/master/install-ubuntu.html#install-with-installer-ubuntu) (Google's Make program), version 3.1
+* Clone the [TensorFlow repository](https://github.com/tensorflow/tensorflow) from GitHub
+* Git checkout the latest official TensorFlow release (v2.2)
 
 Then came the hard part, the final step:
 
@@ -63,8 +62,7 @@ bazel build --config=opt --local_ram_resources=2048 --local_cpu_resources=HOST_C
   //tensorflow/tools/pip_package:build_pip_package
 ```
 
-I ran the build process in a terminal on the Ubuntu 18.04 Desktop, without any other programs loaded.
-As the Ubuntu Desktop + OS consumes about 1 GB on my system. This leave about 2.5 GB for bazel.
+I ran the build process in a terminal on the Ubuntu 18.04 Desktop, without any other programs loaded. My 2010 PC has in total 4 GB of RAM. As the Ubuntu Desktop + OS consumes about 1-1.5 GB on my system, this leaves about 2.5-3.0 GB for bazel.
 Now as it turns out, according to `htop` memory consumption went up to 3.6 GB (of my 3.9GB max), but it succeeded in the end. This was after 10 hours of compiling! (I let it run overnight)
 
 The final step was to turn the compiled TensorFlow into a Python Wheel package ready to install using `pip`.
@@ -74,7 +72,7 @@ The final step was to turn the compiled TensorFlow into a Python Wheel package r
 # creates a 'wheel' file called tensorflow-2.2.0-cp36-cp36m-linux_x86_64.whl
 ```
 
-To try it out, I created a new empty Python 3 virtual environment with only TensorFlow and Jupyter Notebook installed. To my delight it ran the ["Fashion MNIST classification with Keras"](https://www.tensorflow.org/tutorials/keras/classification) example flawlessly.
+To try it out, I created a new empty Python 3 virtual environment with only TensorFlow and Jupyter Notebook installed. To my delight it ran the [Fashion MNIST classification with Keras](https://www.tensorflow.org/tutorials/keras/classification) example flawlessly.
 
 And even on my ancient PC performance was quite good, training the model took around 1 minute.
 So, after glorious succes in Python, it was time to move on to R.
