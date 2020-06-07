@@ -43,9 +43,9 @@ Roughly this consisted of:
 
 * Creating a virtual environment for Python 3.6.9
 * Checking my GCC version (7.5.0, which is greater than 7.3 that is used for the official TF packages) 
-* Install [Bazel](https://docs.bazel.build/versions/master/install-ubuntu.html#install-with-installer-ubuntu) (Google's Make program), version 3.1
 * Clone the [TensorFlow repository](https://github.com/tensorflow/tensorflow) from GitHub
 * Git checkout the latest official TensorFlow release (v2.2)
+* Installed the latest release of [Bazel](https://docs.bazel.build/versions/master/install-ubuntu.html#install-with-installer-ubuntu) (Google's Make program), version 3.1. Then install exactly the right version needed for TF2.2 (2.0.0, as specified by MIN_BAZEL_VERSION in `tensorflow/configure.py`, use `.baselversion` to easily install multiple bazel versions side by side)
 
 Then came the hard part, the final step:
 

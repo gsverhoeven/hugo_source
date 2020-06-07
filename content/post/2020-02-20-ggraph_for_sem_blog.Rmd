@@ -2,7 +2,7 @@
 title: 'ggraph: Nodes and edges in ggplot'
 author: Gertjan Verhoeven
 date: '2019-06-20'
-summary: A recurring need in statistics is to plot nodes and edges, e.g. for structural causal models, but also for psychometrics this same need arises. here is how to do it.
+summary: A recurring need in statistics is to plot nodes and edges, e.g. for structural causal models, but also for psychometrics this same need arises. here is how to do it with ggplot.
 slug: ggplot-ggraph-sem-models
 draft: TRUE
 categories:
@@ -27,13 +27,11 @@ I try to do all my visualizations in `ggplot`. This allows me to build on what I
 
 In the words of **Thomas Lin Pedersen**, the creator of tidygraph and ggraph:
 
->Both node and edge data by itself fits very well within the tidy concept as each node and edge is, in a >sense, a single observation. Thus, a close approximation of tidyness for relational data is two tidy data >frames, one describing the node data and one describing the edge data.
+>Both node and edge data by itself fits very well within the tidy concept, as each node and edge is, in a >sense, a single observation. Thus, a close approximation of tidyness for relational data is two tidy data >frames, one describing the node data and one describing the edge data.
 
 Let 's try to make a simple model for a Structural Equation Model (SEM) of a latent trait "Intelligence". 
 This trait is measured by three questions (items), that are observed.
 The three items have different "factor loadings", numbers that we want to plot in the graph.
-
-# Prep data to plot
 
 We begin with loading the required R packages.
 We need both **tidygraph** (for the tidy object to hold the data) as well as **ggraph** (to plot the data).
@@ -42,6 +40,8 @@ We need both **tidygraph** (for the tidy object to hold the data) as well as **g
 library(ggraph)
 library(tidygraph)
 ```
+
+# Prep data to plot
 
 We start with defining the nodes.
 We want a specific layout, so we define all positions manually.
@@ -75,10 +75,11 @@ The edges define the connections between the nodes. They all originate from the 
 
 ```{r}
 # edges
-param_edges <- data.frame(from = c( 4, 4, 4), 
-                            to = c( 1, 2, 3))
+param_edges <- data.frame(from = c( 1, 2, 3, 4, 4, 4), 
+                            to = c( 1, 2, 3, 1, 2, 3))
 
-param_edges$coef <- c(0.5, 0.6, 0.7)
+param_edges$coef <- c(1, 1, 1, 0.5, 0.6, 0.7)
+param_edges$error <- c("e1", "e2","e3", NA, NA, NA)
 ```
 
 We use `tbl_graph()` to combine both the node and edge datasets into a tidygraph object.
@@ -116,6 +117,13 @@ hp <- ggraph(my_tidygraph,
                                type = "closed",
                                ends = "last")
                  ) +
+  geom_edge_loop(
+                 start_cap = circle(1.2, 'cm'),
+                 end_cap = circle(1.2, 'cm'),
+                 arrow = arrow(angle = 45, 
+                               length = unit(0.5, "cm"), 
+                               type = "closed"),
+                 aes(span = 90, direction = 180)) + 
   geom_node_point(aes(shape = as.factor(latent), size = nsize),
                   color = "grey") +
   # Node names
@@ -135,6 +143,7 @@ hp <- ggraph(my_tidygraph,
   theme_graph() +
   theme(legend.position = "none")
 
+hp
 ```
 
 Finally, display the plot.
@@ -149,4 +158,6 @@ Hell yeah!
 PM add error correlation structure.
 
 # References / related blog posts
+
+* https://drsimonj.svbtle.com/ggsem-plot-sem-models-with-ggplot2
 
