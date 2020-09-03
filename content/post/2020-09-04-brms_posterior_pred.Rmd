@@ -1,0 +1,135 @@
+---
+title: "Using posterior_predict() to get an average treatment effect from brms"
+author: "Gertjan Verhoeven, Misja Mikkers"
+output: html_notebook
+---
+
+
+
+# Packages
+
+```{r, message = TRUE, warning = TRUE}
+library(tidyverse)  
+library(rstan)
+library(brms) 
+```
+
+# Data simulation
+
+```{r}
+set.seed(123)     
+
+id <- 1:200   
+
+df_sim <- as.data.frame(id) %>% 
+mutate(Voorspeller = round(rtruncnorm(n = length(id), 
+                                      a = 0, b= 20, mean = 4, sd= 2), 1)) %>% 
+mutate(Error = rnorm(n = length(id), mean = 0, sd = 2)) %>% # error term
+mutate(Latente_Uitkomst = 100 + 3 * Voorspeller + Error )%>% # we maken de latente uitkomst variabele als functie van de voorspeller
+mutate(Uitkomst = cut_interval(Latente_Uitkomst, n = 7, labels=c("1","2","3", "4", "5", "6", "7"))) %>% # discreet maken op Likert schaal
+mutate(Treatment = ifelse(Voorspeller < 5, 0, 1)) # discreet maken op Likert schaal
+```
+
+
+# Summarize data
+
+```{r}
+summary(df_sim)
+```
+
+The Treatment variable should cut our poisson-like outcome variable roughly in two halves.
+Check if that worked out.
+
+```{r, warning=FALSE}
+ggplot(data = df_sim, aes(x = Uitkomst)) +
+  geom_histogram(stat="count") +
+  facet_wrap(~ Treatment) + 
+  theme_bw()
+```
+It did.
+Good enough to fit a Poisson dist on.
+
+# Fit model
+
+```{r}
+model1 <- brm(
+  formula = as.integer(Uitkomst) ~  Treatment,
+   data = df_sim,
+  family = poisson(),
+  warmup = 2000, iter = 5000, 
+  cores = 2, 
+  chains = 4,
+  seed = 123 
+)
+```
+# Check model fit.
+
+```{r}
+summary(model1)
+```
+
+
+# Predict()
+
+```{r}
+df_sim_t0 <- df_sim %>% mutate(Treatment = 0)
+
+df_sim_t1 <- df_sim %>% mutate(Treatment = 1)
+
+df_sim_preds <- df_sim %>% mutate(Voorspellingt0 = predict(model1, newdata = df_sim_t0))
+
+df_sim_preds <- df_sim %>% mutate(Voorspellingt1 = predict(model1, newdata = df_sim_t1))
+```
+
+Ok, so far so good. Now move on to `posterior_predict()`
+
+# Posterior_predict()
+
+```{r}
+pp_t0 <- posterior_predict(model1, newdata = df_sim_t0)
+
+pp_t1 <- posterior_predict(model1, newdata = df_sim_t1)
+
+diff <- pp_t1 - pp_t0
+```
+
+Check if we still understand what is going on.
+
+We now have for eacht datapoint, for each sample a treatment effect (based on the difference of two draws from the model, with Treatment on and off).
+
+Averaging over all datapoints and samples should give us the estimated treatment effect.
+
+Compare to the fit parameters (intercept and treatment).
+We calculate upper and lower bounds using the CI values from `brm`
+
+```{r}
+mean(diff)
+
+# brm fit parameters (intercept plus treatment)
+mean_val <- exp(1.04+0.49) - exp(1.04)
+mean_val
+
+# use the Q5 Q95 vals for the model uncertainty (we ignore the uncertainty in the intercept, tricky to add)
+lower_val <- exp(1.04+0.33) - exp(1.04)
+upper_val <- exp(1.04+0.64) - exp(1.04)
+```
+
+Now average over all datapoints, but keep the samples dimension.
+This is the estimated effect, FOR A PARTICULAR SAMPLE.
+
+```{r}
+mean_per_sample <- apply(diff, 1, mean)
+```
+
+The samples dimension now gives us the variability (uncertainty) of the estimate.
+
+We compare with the Poisson model fit parameter for Treatment.
+
+```{r}
+ggplot(data.frame(mean_per_sample), aes(x = mean_per_sample)) +
+  geom_histogram() + 
+  geom_vline(xintercept = mean_val) +
+  geom_vline(xintercept = lower_val) +
+  geom_vline(xintercept = upper_val)
+```
+The variability in the samples is slightly higher than expected. This is likely due to us ignoring the uncertainty in the Intercept.
