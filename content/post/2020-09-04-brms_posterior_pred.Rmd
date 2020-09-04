@@ -1,15 +1,39 @@
 ---
-title: "Using posterior_predict() to get an average treatment effect from brms"
-author: "Gertjan Verhoeven, Misja Mikkers"
-output: html_notebook
+title: The posterior distribution of an average treatment effect in Stan using brms::posterior_predict()
+author: Gertjan Verhoeven & Misja Mikkers
+date: '2020-09-04'
+summary: Here we show how to calculate the posterior distribution of the adjusted average treatment effect for the covariates of a particular population using Stan & brms. 
+slug: posterior-distribution-average-treatment-effect
+draft: FALSE
+categories:
+  - R
+tags:
+  - brms, ate, causal effect, bayesian statistics
+baseurl: "https://gsverhoeven.github.io"
+header:
+  image: "headers/treatment.png"
+  preview: FALSE
 ---
 
+# Introduction
 
+Suppose we have data from a Randomized Controlled Trial (RCT). Patients get treated, or not, depending only on a coin flip.
+The outcome is a count variable, such as the number of times the patient gets admitted to the hospital.
+The treatment is expected to reduce the number of hospital admissions for patients.
+
+Suppose further that after we fitted the data, we want to now what would have happened if we had treated ALL the patients in the sample, versus if no patient in the sample would have received treatment.
+
+Well, that is easy, we just take the fitted model, change treatment from zero to one, and observe the effect on the outcome, right?
+
+Yes, but the uncertainty is harder. We have uncertainty in the estimated effect of the intercept and covariate, as well us in the treatment variable. And these uncertainties can be correlated (for example between the coefficients of intercept and covariate)
+
+Here we show how to use `posterior_predict()` to simulate outcomes of the model for the sampled parameters.
+If we do this for two counterfactuals, all patients treated, and all patients untreated, and subtract these, we can easily calculate the posterior distribution of the average treatment effect!
 
 # Packages
 
 ```{r, message = TRUE, warning = TRUE}
-library(tidyverse)  
+library(tidyverse)
 library(rstan)
 library(brms) 
 ```
@@ -20,14 +44,17 @@ library(brms)
 set.seed(123)     
 
 id <- 1:200   
+n_obs <- length(id)
+t_eff <- 0.7
+p_eff <- 0.1
 
 df_sim <- as.data.frame(id) %>% 
-mutate(Voorspeller = round(rtruncnorm(n = length(id), 
-                                      a = 0, b= 20, mean = 4, sd= 2), 1)) %>% 
-mutate(Error = rnorm(n = length(id), mean = 0, sd = 2)) %>% # error term
-mutate(Latente_Uitkomst = 100 + 3 * Voorspeller + Error )%>% # we maken de latente uitkomst variabele als functie van de voorspeller
-mutate(Uitkomst = cut_interval(Latente_Uitkomst, n = 7, labels=c("1","2","3", "4", "5", "6", "7"))) %>% # discreet maken op Likert schaal
-mutate(Treatment = ifelse(Voorspeller < 5, 0, 1)) # discreet maken op Likert schaal
+mutate(Predictor = rgamma(n_obs, shape = 5, scale = 2)) %>% # positive cont predictor
+mutate(Error = rnorm(n_obs, mean = 0, sd = 2)) %>% # add noise
+mutate(Treatment = ifelse(runif(n_obs) < 0.5, 0, 1)) %>% # Flip a coin for treatment
+mutate(Lambda = exp(p_eff * Predictor - t_eff * Treatment)) %>% # generate lambda for the poisson dist
+mutate(Admissions = rpois(n_obs, lambda = Lambda))
+
 ```
 
 
@@ -37,23 +64,23 @@ mutate(Treatment = ifelse(Voorspeller < 5, 0, 1)) # discreet maken op Likert sch
 summary(df_sim)
 ```
 
-The Treatment variable should cut our poisson-like outcome variable roughly in two halves.
-Check if that worked out.
+The Treatment variable should reduce admissions.
+Lets visualize the distribution of Admission values for both treated and untreated patients:
 
 ```{r, warning=FALSE}
-ggplot(data = df_sim, aes(x = Uitkomst)) +
+ggplot(data = df_sim, aes(x = Admissions)) +
   geom_histogram(stat="count") +
   facet_wrap(~ Treatment) + 
   theme_bw()
 ```
-It did.
-Good enough to fit a Poisson dist on.
+
+The effect of the treatment is clearly visible. Now lets fit our Bayesian Poisson model to it.
 
 # Fit model
 
 ```{r}
 model1 <- brm(
-  formula = as.integer(Uitkomst) ~  Treatment,
+  formula = as.integer(Admissions) ~  Predictor + Treatment,
    data = df_sim,
   family = poisson(),
   warmup = 2000, iter = 5000, 
@@ -67,9 +94,15 @@ model1 <- brm(
 ```{r}
 summary(model1)
 ```
+```{r}
+pairs(model1)
+```
 
 
 # Predict()
+
+First we use `predict()` to calculate a treatment effect for each patient. This gives us a standard error for each patient, but we lose a lot of information we need to properly calculate the posterior distribution for the ATE.
+But we can compare later on.
 
 ```{r}
 df_sim_t0 <- df_sim %>% mutate(Treatment = 0)
@@ -78,12 +111,14 @@ df_sim_t1 <- df_sim %>% mutate(Treatment = 1)
 
 df_sim_preds <- df_sim %>% mutate(Voorspellingt0 = predict(model1, newdata = df_sim_t0))
 
-df_sim_preds <- df_sim %>% mutate(Voorspellingt1 = predict(model1, newdata = df_sim_t1))
+df_sim_preds <- df_sim_preds %>% mutate(Voorspellingt1 = predict(model1, newdata = df_sim_t1))
 ```
 
 Ok, so far so good. Now move on to `posterior_predict()`
 
 # Posterior_predict()
+
+PM 
 
 ```{r}
 pp_t0 <- posterior_predict(model1, newdata = df_sim_t0)
@@ -105,13 +140,24 @@ We calculate upper and lower bounds using the CI values from `brm`
 ```{r}
 mean(diff)
 
-# brm fit parameters (intercept plus treatment)
-mean_val <- exp(1.04+0.49) - exp(1.04)
-mean_val
+est_t <- -0.89
+est_intercept <- -0.02
+est_pred_eff <- 0.1
+avg_pred <- mean(df_sim$Predictor)
 
+# brm fit parameters (intercept plus treatment)
+mean_val <- exp(est_intercept + (est_pred_eff * df_sim$Predictor) +  est_t) - exp(est_intercept + (est_pred_eff * df_sim$Predictor))
+
+mean_val_alt <- df_sim_preds[,8][,1] - df_sim_preds[,7][,1] 
+
+#mean_val <- mean(mean_val)
+plot(mean_val, mean_val_alt)
+abline(0, 1)
+
+mean(mean_val)
 # use the Q5 Q95 vals for the model uncertainty (we ignore the uncertainty in the intercept, tricky to add)
-lower_val <- exp(1.04+0.33) - exp(1.04)
-upper_val <- exp(1.04+0.64) - exp(1.04)
+#lower_val <- exp(-0.02+0.1*9.47 - 1.12) - exp(-0.02+0.1*9.47)
+#upper_val <- exp(-0.02 + 0.1*9.47 - 0.68) - exp(-0.02+0.1*9.47)
 ```
 
 Now average over all datapoints, but keep the samples dimension.
@@ -128,8 +174,8 @@ We compare with the Poisson model fit parameter for Treatment.
 ```{r}
 ggplot(data.frame(mean_per_sample), aes(x = mean_per_sample)) +
   geom_histogram() + 
-  geom_vline(xintercept = mean_val) +
-  geom_vline(xintercept = lower_val) +
-  geom_vline(xintercept = upper_val)
+  geom_vline(xintercept = mean(mean_val))# +
+#  geom_vline(xintercept = lower_val) +
+#  geom_vline(xintercept = upper_val)
 ```
-The variability in the samples is slightly higher than expected. This is likely due to us ignoring the uncertainty in the Intercept.
+The variability in the samples is slightly higher than expected. This is likely due to us ignoring the uncertainty in the Intercept and Predictor.
