@@ -20,17 +20,26 @@ header:
 Suppose we have data from a Randomized Controlled Trial (RCT). Patients get treated, or not, depending only on a coin flip.
 The outcome is a count variable, such as the number of times the patient gets admitted to the hospital.
 The treatment is expected to reduce the number of hospital admissions for patients.
+As is often the case with patients, not all patients are identical :)
+Suppose that older patients have more admissions. So age is a covariate.
 
-Suppose further that after we fitted the data, we want to now what would have happened if we had treated ALL the patients in the sample, versus if no patient in the sample would have received treatment.
+# Average treatment effect (ATE)
 
-Well, that is easy, we just take the fitted model, change treatment from zero to one, and observe the effect on the outcome, right?
+Now, after we fitted a model to the data, we want to actually **use** our model to answer "What-if" questions (counterfactuals).
+Here we answer the following question: 
 
-Yes, but the uncertainty is harder. We have uncertainty in the estimated effect of the intercept and covariate, as well us in the treatment variable. And these uncertainties can be correlated (for example between the coefficients of intercept and covariate)
+* What would the average reduction in Admissions be if we had treated **ALL** the patients in the sample, compared to a situation where **NO** patient in the sample would have received treatment?
 
-Here we show how to use `posterior_predict()` to simulate outcomes of the model for the sampled parameters.
+Well, that is easy, we just take the fitted model, change treatment from zero to one, and observe the ("marginal") effect on the outcome, right?
+
+Yes, but the uncertainty is harder. We have uncertainty in the estimated coefficients of the intercept and covariate, as well us in the treatment variable. And these uncertainties can be correlated (for example between the coefficients of intercept and covariate).
+
+Here we show how to use `posterior_predict()` to simulate outcomes of the model using the sampled parameters.
 If we do this for two counterfactuals, all patients treated, and all patients untreated, and subtract these, we can easily calculate the posterior distribution of the average treatment effect!
 
-# Packages
+# Packages used
+
+This tutorial uses `brms`, allowing user-friendly bayesian modelling with Stan.
 
 ```{r, message = TRUE, warning = TRUE}
 library(tidyverse)
@@ -40,25 +49,31 @@ library(brms)
 
 # Data simulation
 
+We generate fake data that matches our problem setup.
+
+Admissions are determined by patient Age, whether the patient is treatment, and some random noise to capture unobserved effects that influence admissions.
+
 ```{r}
-set.seed(123)     
+set.seed(123) 
 
 id <- 1:200   
 n_obs <- length(id)
-t_eff <- 0.7
-p_eff <- 0.1
+b_tr <- 0.7
+b_age <- 0.1
 
 df_sim <- as.data.frame(id) %>% 
-mutate(Predictor = rgamma(n_obs, shape = 5, scale = 2)) %>% # positive cont predictor
-mutate(Error = rnorm(n_obs, mean = 0, sd = 2)) %>% # add noise
+mutate(Age = rgamma(n_obs, shape = 5, scale = 2)) %>% # positive cont predictor
+mutate(Error = rnorm(n_obs, mean = 0, sd = 0.5)) %>% # add noise
 mutate(Treatment = ifelse(runif(n_obs) < 0.5, 0, 1)) %>% # Flip a coin for treatment
-mutate(Lambda = exp(p_eff * Predictor - t_eff * Treatment)) %>% # generate lambda for the poisson dist
+mutate(Lambda = exp(b_age * Age - b_tr * Treatment + Error)) %>% # generate lambda for the poisson dist
 mutate(Admissions = rpois(n_obs, lambda = Lambda))
 
 ```
 
 
 # Summarize data
+
+Ok, so what does our dataset look like?
 
 ```{r}
 summary(df_sim)
@@ -74,13 +89,15 @@ ggplot(data = df_sim, aes(x = Admissions)) +
   theme_bw()
 ```
 
-The effect of the treatment is clearly visible. Now lets fit our Bayesian Poisson model to it.
+The effect of the treatment on reducing admissions is clearly visible. Now lets fit our Bayesian Poisson model to it.
 
 # Fit model
 
+We use `brms` default priors for convenience here. For a real application we would of course put effort into into crafting priors that reflect our current knowledge of the problem at hand.
+
 ```{r}
 model1 <- brm(
-  formula = as.integer(Admissions) ~  Predictor + Treatment,
+  formula = as.integer(Admissions) ~  Age + Treatment,
    data = df_sim,
   family = poisson(),
   warmup = 2000, iter = 5000, 
@@ -89,15 +106,20 @@ model1 <- brm(
   seed = 123 
 )
 ```
-# Check model fit.
+# Check model fit
 
 ```{r}
 summary(model1)
 ```
+
+We see that the posterior dists for $\beta_{Age}$ and $\beta_{Treatment}$ cover the true values, so were good.
+To get a fuller glimpse into the (correlated) uncertainty of the model parameters we make a pairs plot:
+
 ```{r}
 pairs(model1)
 ```
 
+As expected, the coefficients $\beta_{Intercept}$ (added by `brms`) and $\beta_{Age}$ are highly correlated.
 
 # Predict()
 
@@ -109,16 +131,38 @@ df_sim_t0 <- df_sim %>% mutate(Treatment = 0)
 
 df_sim_t1 <- df_sim %>% mutate(Treatment = 1)
 
-df_sim_preds <- df_sim %>% mutate(Voorspellingt0 = predict(model1, newdata = df_sim_t0))
+df_sim_preds <- df_sim %>% mutate(Voorspellingt0 = 
+                                    predict(model1, newdata = df_sim_t0))
 
-df_sim_preds <- df_sim_preds %>% mutate(Voorspellingt1 = predict(model1, newdata = df_sim_t1))
+df_sim_preds <- df_sim_preds %>% mutate(Voorspellingt1 = 
+                                          predict(model1, newdata = df_sim_t1))
+
+# ATE
+
+tr_effs <- df_sim_preds[,8][,1] - df_sim_preds[,7][,1] 
+
+mean(tr_effs)
 ```
 
-Ok, so far so good. Now move on to `posterior_predict()`
+Ok, so on average, our treatment reduces the number of Admissions by -1.9. 
+
+But what is the range of plausible values consistent with the data & model?
+
+We move on to `posterior_predict()`
 
 # Posterior_predict()
 
-PM 
+`posterior_predict()` has two tricks:
+
+The first trick is to take advantage of the fact that we have the full set of parameter draws from the posterior.
+Conceptually, we imagine that each separate draw of the posterior represents a particular version of our model. 
+In the example above, we have 12.000 samples from the posterior. Thus, we have 12.000 versions of our model, where unlikely parameter combinations occur less often compared to likely parameter combinations. The full uncertainty of our model parameters is contained in this "collection of models" . 
+
+The second trick is that we simulate (generate) predictions from each of these 12.000 models.
+Under the hood, this means computing for each model (we have 12.000), for each observation (we have 200) the predicted lambda value given the covariates, and drawing a single value from a Poisson distribution with that $\Lambda$ value (e.g. running `rpois(n = 1, lambda)` ).
+
+This gives us a 12.000 x 200 matrix, that we can compute with.
+For our application, the computation is simple: use `posterior_predict()` on our dataset with Treatment set to zero, do the same for our dataset with Treatment set to one, and subtract the two matrices.
 
 ```{r}
 pp_t0 <- posterior_predict(model1, newdata = df_sim_t0)
@@ -127,10 +171,6 @@ pp_t1 <- posterior_predict(model1, newdata = df_sim_t1)
 
 diff <- pp_t1 - pp_t0
 ```
-
-Check if we still understand what is going on.
-
-We now have for eacht datapoint, for each sample a treatment effect (based on the difference of two draws from the model, with Treatment on and off).
 
 Averaging over all datapoints and samples should give us the estimated treatment effect.
 
@@ -148,7 +188,7 @@ avg_pred <- mean(df_sim$Predictor)
 # brm fit parameters (intercept plus treatment)
 mean_val <- exp(est_intercept + (est_pred_eff * df_sim$Predictor) +  est_t) - exp(est_intercept + (est_pred_eff * df_sim$Predictor))
 
-mean_val_alt <- df_sim_preds[,8][,1] - df_sim_preds[,7][,1] 
+
 
 #mean_val <- mean(mean_val)
 plot(mean_val, mean_val_alt)
@@ -179,3 +219,7 @@ ggplot(data.frame(mean_per_sample), aes(x = mean_per_sample)) +
 #  geom_vline(xintercept = upper_val)
 ```
 The variability in the samples is slightly higher than expected. This is likely due to us ignoring the uncertainty in the Intercept and Predictor.
+
+# To conclude
+
+
