@@ -11,17 +11,19 @@ tags:
   - brms, ate, causal effect, bayesian statistics
 baseurl: "https://gsverhoeven.github.io"
 header:
-  image: "headers/treatment.png"
+  image: "headers/national-cancer-institute-lSE4l8x2J7k-unsplash.jpg"
   preview: FALSE
 ---
 
 # Introduction
 
-Suppose we have data from a Randomized Controlled Trial (RCT). Patients get treated, or not, depending only on a coin flip.
-The outcome is a count variable, such as the number of times the patient gets admitted to the hospital.
+Suppose we have data from a Randomized Controlled Trial (RCT) and we want to estimate the average treatment effect (ATE). 
+Patients get treated, or not, depending only on a coin flip. This is encoded in the `Treatment` variable.
+The outcome is a count variable `Admissions`, representing the number of times the patient gets admitted to the hospital.
 The treatment is expected to reduce the number of hospital admissions for patients.
-As is often the case with patients, not all patients are identical :)
-Suppose that older patients have more admissions. So age is a covariate.
+
+To complicate matters (a bit): As is often the case with patients, not all patients are identical :)
+Suppose that older patients have on average more Admissions. So `Age` is a covariate.
 
 # Average treatment effect (ATE)
 
@@ -30,16 +32,18 @@ Here we answer the following question:
 
 * What would the average reduction in Admissions be if we had treated **ALL** the patients in the sample, compared to a situation where **NO** patient in the sample would have received treatment?
 
-Well, that is easy, we just take the fitted model, change treatment from zero to one, and observe the ("marginal") effect on the outcome, right?
+Well, that is easy, we just take the fitted model, change treatment from zero to one for each, and observe the ("marginal") effect on the outcome, right?
 
 Yes, but the uncertainty is harder. We have uncertainty in the estimated coefficients of the intercept and covariate, as well us in the treatment variable. And these uncertainties can be correlated (for example between the coefficients of intercept and covariate).
 
 Here we show how to use `posterior_predict()` to simulate outcomes of the model using the sampled parameters.
-If we do this for two counterfactuals, all patients treated, and all patients untreated, and subtract these, we can easily calculate the posterior distribution of the average treatment effect!
+If we do this for two counterfactuals, all patients treated, and all patients untreated, and subtract these, we can easily calculate the posterior distribution of the average treatment effect.
+
+Let's do it!
 
 # Packages used
 
-This tutorial uses `brms`, allowing user-friendly bayesian modelling with Stan.
+This tutorial uses [brms](https://github.com/paul-buerkner/brms), allowing user-friendly bayesian modelling with [Stan](https://mc-stan.org/.
 
 ```{r, message = TRUE, warning = TRUE}
 library(tidyverse)
@@ -51,7 +55,7 @@ library(brms)
 
 We generate fake data that matches our problem setup.
 
-Admissions are determined by patient Age, whether the patient is treatment, and some random noise to capture unobserved effects that influence admissions.
+`Admissions` are determined by patient `Age`, whether the patient has `Treatment`, and some random `Noise` to capture unobserved effects that influence `Admissions`. We exponentiate them to always get a positive number, and plug it in the Poisson distribution using `rpois()`.
 
 ```{r}
 set.seed(123) 
@@ -63,9 +67,9 @@ b_age <- 0.1
 
 df_sim <- as.data.frame(id) %>% 
 mutate(Age = rgamma(n_obs, shape = 5, scale = 2)) %>% # positive cont predictor
-mutate(Error = rnorm(n_obs, mean = 0, sd = 0.5)) %>% # add noise
+mutate(Noise = rnorm(n_obs, mean = 0, sd = 0.5)) %>% # add noise
 mutate(Treatment = ifelse(runif(n_obs) < 0.5, 0, 1)) %>% # Flip a coin for treatment
-mutate(Lambda = exp(b_age * Age - b_tr * Treatment + Error)) %>% # generate lambda for the poisson dist
+mutate(Lambda = exp(b_age * Age - b_tr * Treatment + Noise)) %>% # generate lambda for the poisson dist
 mutate(Admissions = rpois(n_obs, lambda = Lambda))
 
 ```
@@ -103,7 +107,9 @@ model1 <- brm(
   warmup = 2000, iter = 5000, 
   cores = 2, 
   chains = 4,
-  seed = 123 
+  seed = 123,
+  silent = TRUE,
+  refresh = 0,
 )
 ```
 # Check model fit
@@ -112,7 +118,7 @@ model1 <- brm(
 summary(model1)
 ```
 
-We see that the posterior dists for $\beta_{Age}$ and $\beta_{Treatment}$ cover the true values, so were good.
+We see that the posterior dists for $\beta_{Age}$ and $\beta_{Treatment}$ cover the true values, so looking good.
 To get a fuller glimpse into the (correlated) uncertainty of the model parameters we make a pairs plot:
 
 ```{r}
@@ -121,10 +127,43 @@ pairs(model1)
 
 As expected, the coefficients $\beta_{Intercept}$ (added by `brms`) and $\beta_{Age}$ are highly correlated.
 
+# Approach 1: Calculate Individual Treatment effects using the model fit object
+
+We can calculate for each patient an individual treatment effect using the estimated model parameters.
+
+```{r}
+est_intercept <- fixef(model1, pars = "Intercept")[,1]
+est_age_eff <- fixef(model1, pars = "Age")[,1]
+est_t <- fixef(model1, pars = "Treatment")[,1]
+
+# brm fit parameters (intercept plus treatment)
+ites <- exp(est_intercept + (est_age_eff * df_sim$Age) +  est_t) - exp(est_intercept + (est_age_eff * df_sim$Age))
+
+ggplot(data.frame(ites), aes(x = ites)) + 
+  geom_histogram() +
+  geom_vline(xintercept = mean(ites), col = "red")
+```
+
+Averaging the ITEs gives us the ATE, displayed in red. 
+
+Ok, so **on average**, our treatment reduces the number of Admissions by -1.9. 
+
+You may wonder: why do we even have a distribution of treatment effects here? Should it not be the same for each patient?
+Here a peculiarity of the Poisson regression model comes to surface: 
+The effect of changing `Treatment` from 0 to 1 on the outcome depends on the value of `Age` of the patient.
+Why? Because we exponentiate the linear model before we plug it into the Poisson distribution.
+
+Next, the uncertainty. How to get all this underlying uncertainty in the model parameters, that have varying effects depending on the covariates of patients, and properly incorporate  that in the ATE?
+
+For this we have to work with the full posterior distribution of model parameters.
+
 # Predict()
 
-First we use `predict()` to calculate a treatment effect for each patient. This gives us a standard error for each patient, but we lose a lot of information we need to properly calculate the posterior distribution for the ATE.
-But we can compare later on.
+First we use `predict()` to calculate a treatment effect for each patient. 
+
+Note that by default, `summary = TRUE` and thus we get for each datapoint a summary (mean, std. dev, 2.5% and 97.5% quantiles) of the posterior distribution of plausible outcomes given the covariates of that datapoint.
+
+By subtracting for each patient the mean outcome when treated from the mean outcome when not treated, we get an **individual treatment effect** (ITE).
 
 ```{r}
 df_sim_t0 <- df_sim %>% mutate(Treatment = 0)
@@ -136,27 +175,34 @@ df_sim_preds <- df_sim %>% mutate(Voorspellingt0 =
 
 df_sim_preds <- df_sim_preds %>% mutate(Voorspellingt1 = 
                                           predict(model1, newdata = df_sim_t1))
-
-# ATE
-
-tr_effs <- df_sim_preds[,8][,1] - df_sim_preds[,7][,1] 
-
-mean(tr_effs)
 ```
 
-Ok, so on average, our treatment reduces the number of Admissions by -1.9. 
+```{r}
+# ITEs
+tr_effs <- df_sim_preds[,8][,1] - df_sim_preds[,7][,1] 
 
-But what is the range of plausible values consistent with the data & model?
+ggplot(data.frame(tr_effs), aes(x = tr_effs)) + 
+  geom_histogram() +
+  geom_vline(xintercept = mean(tr_effs), col = "red")
+```
 
-We move on to `posterior_predict()`
+
+But what is the range of plausible values of the ATE consistent with the data & model?
+
+We move on to `brms::posterior_predict()`. 
+This is basically just `brms::predict(summary = FALSE)`.
 
 # Posterior_predict()
 
-`posterior_predict()` has two tricks:
+Now that we have some experience using `predict()`, let us look a bit under the hood.
+
+`posterior_predict()` (and therefore `predict()` as well) has two tricks:
 
 The first trick is to take advantage of the fact that we have the full set of parameter draws from the posterior.
 Conceptually, we imagine that each separate draw of the posterior represents a particular version of our model. 
-In the example above, we have 12.000 samples from the posterior. Thus, we have 12.000 versions of our model, where unlikely parameter combinations occur less often compared to likely parameter combinations. The full uncertainty of our model parameters is contained in this "collection of models" . 
+In our example model fit, we have 12.000 samples from the posterior. 
+
+Thus, we have 12.000 versions of our model, where unlikely parameter combinations occur less often compared to likely parameter combinations. The full uncertainty of our model parameters is contained in this "collection of models" . 
 
 The second trick is that we simulate (generate) predictions from each of these 12.000 models.
 Under the hood, this means computing for each model (we have 12.000), for each observation (we have 200) the predicted lambda value given the covariates, and drawing a single value from a Poisson distribution with that $\Lambda$ value (e.g. running `rpois(n = 1, lambda)` ).
@@ -174,31 +220,7 @@ diff <- pp_t1 - pp_t0
 
 Averaging over all datapoints and samples should give us the estimated treatment effect.
 
-Compare to the fit parameters (intercept and treatment).
-We calculate upper and lower bounds using the CI values from `brm`
 
-```{r}
-mean(diff)
-
-est_t <- -0.89
-est_intercept <- -0.02
-est_pred_eff <- 0.1
-avg_pred <- mean(df_sim$Predictor)
-
-# brm fit parameters (intercept plus treatment)
-mean_val <- exp(est_intercept + (est_pred_eff * df_sim$Predictor) +  est_t) - exp(est_intercept + (est_pred_eff * df_sim$Predictor))
-
-
-
-#mean_val <- mean(mean_val)
-plot(mean_val, mean_val_alt)
-abline(0, 1)
-
-mean(mean_val)
-# use the Q5 Q95 vals for the model uncertainty (we ignore the uncertainty in the intercept, tricky to add)
-#lower_val <- exp(-0.02+0.1*9.47 - 1.12) - exp(-0.02+0.1*9.47)
-#upper_val <- exp(-0.02 + 0.1*9.47 - 0.68) - exp(-0.02+0.1*9.47)
-```
 
 Now average over all datapoints, but keep the samples dimension.
 This is the estimated effect, FOR A PARTICULAR SAMPLE.
