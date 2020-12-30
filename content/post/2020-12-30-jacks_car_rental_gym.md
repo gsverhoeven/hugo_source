@@ -1,4 +1,20 @@
-# Jack's Car Rental as a Gym Environment
+---
+title: Jack's Car Rental as a Gym Environment
+author: Gertjan Verhoeven
+date: '2020-12-31'
+summary: In this blogpost, we solve a famous decision problem called "Jack's Car Rental" by first turning it into a Gym environment and then use a RL algorithm called "Policy Iteration" (a form of "Dynamic Programming") to solve for the optimal decisions to take in this environment. 
+draft: no
+categories:
+  - Machine Learning
+tags:
+  - Reinforcement learning
+  - OpenAI Gym
+  - AI
+baseurl: https://gsverhoeven.github.io
+header:
+  image: headers/pexels-josh-sorenson-1054387.png
+  preview: no
+---
 
 This blogpost is about [reinforcement learning](https://en.wikipedia.org/wiki/Reinforcement_learning), considered part of the Machine Learning / AI family of techniques.
 Reinforcement learning is all about agents taking decisions in complex environments. The decisions (**actions**) take the agent from a current **state** or situation, to a new **state**. When the probability of ending up in a new state is only dependent on the current state, and the action the agent takes, we are facing a so-called **Markov Decision Problem**, or **MDP** for short.
