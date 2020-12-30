@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo 'building site with blogdown'
-Rscript --verbose build_site.R
+#echo 'building site with blogdown'
+#Rscript --verbose build_site.R
 
 echo 'cleanup: remove rds files'
 rm --force public/post/bart_vs_grf/*.rds
