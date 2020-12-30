@@ -6,9 +6,10 @@ summary: In this post, we'll explore the BupaR suite of Process Mining packages 
 slug: exploring-process-mining
 draft: FALSE
 categories:
-  - R
+  - Data science
 tags:
   - process mining
+  - R
 baseurl: "https://gsverhoeven.github.io"
 header:
   image: "headers/ceiling-clean-clinic-247786.jpg"

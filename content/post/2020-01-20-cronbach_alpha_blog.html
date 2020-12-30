@@ -6,9 +6,11 @@ summary: Working for the first time with questionnaire data, I felt i needed som
 slug: cronbach-alpha-measurement-theory
 draft: TRUE
 categories:
-  - R
+  - Data science
+  - Statistics
 tags:
-  - cronbach's alpha, validity
+  - cronbach's alpha
+  - validity
 baseurl: "https://gsverhoeven.github.io"
 header:
   image: "headers/ceiling-clean-clinic-247786.jpg"
@@ -21,12 +23,12 @@ header:
 <div id="summary" class="section level1">
 <h1>Summary</h1>
 <p>Working for the first time with questionnaire data, I felt i needed some basic understanding of measurement theory, and the various approaches regarding reliability and validity of questionnaires.</p>
-<p>Cronbach’s alpha was something I already associated with the social sciences before I knew any stats. So I was curious to find out what it is, and how it can be useful.</p>
+<p>Cronbach's alpha was something I already associated with the social sciences before I knew any stats. So I was curious to find out what it is, and how it can be useful.</p>
 <p>As always, we use simulated data. Fortunately, the <code>psych</code> package by Hugh Revelle contains functions to simulate data with the appropriate structure.</p>
-<p>Before getting busy, let us explain the statistical models that underlie Cronbach ’s alpha. In this I follow Cho (2016). This study proves that various reliability coefficients are generated from measurement models nested within the bi-factor measurement model.</p>
+<p>Before getting busy, let us explain the statistical models that underlie Cronbach 's alpha. In this I follow Cho (2016). This study proves that various reliability coefficients are generated from measurement models nested within the bi-factor measurement model.</p>
 <p>Unfortunately, with rare exceptions, we normally are faced with just one test, not two, three or four. How then to estimate the reliability of that one test?</p>
 <p>It has been proposed that α {} can be viewed as the expected correlation of two tests that measure the same construct. By using this definition, it is implicitly assumed that the average correlation of a set of items is an accurate estimate of the average correlation of all items that pertain to a certain construct.</p>
-<p>The term item is used throughout this article, but items could be anything—questions, raters, indicators- for all of which, one might ask, to what extent they “measure the same thing.” Items that are manipulated are commonly referred to as variables.</p>
+<p>The term item is used throughout this article, but items could be anything—questions, raters, indicators- for all of which, one might ask, to what extent they &quot;measure the same thing.&quot; Items that are manipulated are commonly referred to as variables.</p>
 </div>
 <div id="revelle" class="section level1">
 <h1>Revelle:</h1>
@@ -35,8 +37,8 @@ header:
 <p>The most important difference between CTT and IRT is that in CTT, one uses a common estimate of the measurement precision that is assumed to be equal for all individuals irrespective of their attribute levels. In IRT, however, the measurement precision depends on the latent-attribute value. This can result in differences between CTT and IRT with respect to their conclusions about statistical significance of change.</p>
 </div>
 <div id="cronbach-s-alpha-and-its-measurement-models" class="section level1">
-<h1>Cronbach ’s alpha and its measurement models</h1>
-<p>Cronbach’s alpha is meant for single latent variables / factors / traits.</p>
+<h1>Cronbach 's alpha and its measurement models</h1>
+<p>Cronbach's alpha is meant for single latent variables / factors / traits.</p>
 <p>Classical Test Theory (CTT) considers four or more tests to be congenerically equivalent if all tests may be expressed in terms of one factor and a residual error. (N.b. we need at least four tests to identify all free parameters of the model).</p>
 <p>To determine the scale, the variance of the latent variable is set to 1.</p>
 <ul>
@@ -116,8 +118,8 @@ cov(errors)</code></pre>
 <pre><code>## [1] 1.012307</code></pre>
 </div>
 <div id="step-three-calculate-cronbachs-alpha" class="section level1">
-<h1>Step three: Calculate Cronbach’s Alpha</h1>
-<p>Ok, let’s have it. The cronbach alpha.</p>
+<h1>Step three: Calculate Cronbach's Alpha</h1>
+<p>Ok, let's have it. The cronbach alpha.</p>
 <pre class="r"><code># r4 population correlation matrix
 psych::alpha(r4$observed)</code></pre>
 <pre><code>## 
@@ -162,13 +164,13 @@ plot(my.df$sumV, my.df$theta)</code></pre>
 ## V4 0.4045279 0.3541304 0.3037033 0.2629166</code></pre>
 </div>
 <div id="and-why-does-this-measure-reliability-of-a-test" class="section level1">
-<h1>And why does this measure “reliability” of a test?</h1>
+<h1>And why does this measure &quot;reliability&quot; of a test?</h1>
 <p>The resulting α coefficient of reliability ranges from 0 to 1 in providing this overall assessment of a measure’s reliability. If all of the scale items are entirely independent from one another (i.e., are not correlated or share no covariance), then α = 0; and, if all of the items have high covariances, then α will approach 1 as the number of items in the scale approaches infinity.</p>
-<p>Cronbach’s α {} assumes that all factor loadings are equal. In reality this is rarely the case, and hence it systematically underestimates the reliability. An alternative to Cronbach’s α {} that does not rely on this assumption is congeneric reliability ( ρ C {<em>{C}} </em>{C})</p>
+<p>Cronbach's α {} assumes that all factor loadings are equal. In reality this is rarely the case, and hence it systematically underestimates the reliability. An alternative to Cronbach's α {} that does not rely on this assumption is congeneric reliability ( ρ C {<em>{C}} </em>{C})</p>
 </div>
 <div id="does-it-measure-unidimensionality" class="section level1">
 <h1>Does it measure unidimensionality?</h1>
-<p>Let ’s simulate data that has TWO factors, that are fully independent (uncorrelated). So that’s two independent (orthogonal) factors.</p>
+<p>Let 's simulate data that has TWO factors, that are fully independent (uncorrelated). So that's two independent (orthogonal) factors.</p>
 <pre class="r"><code># examples of two independent factors that produce reasonable alphas
 #this is a case where alpha is a poor indicator of unidimensionality
 set.seed(123)
@@ -218,7 +220,7 @@ alpha(two.f, keys = c(&quot;V1&quot;,&quot;V2&quot;,&quot;V7&quot;,&quot;V8&quot
 <div id="references" class="section level1">
 <h1>References</h1>
 <ul>
-<li><p>Cho, E (2016). “Making Reliability Reliable”. Organizational Research Methods. 19 (4): 651–682 <a href="https://rameliaz.github.io/mg-sem-workshop/cho2016.pdf" class="uri">https://rameliaz.github.io/mg-sem-workshop/cho2016.pdf</a></p></li>
+<li><p>Cho, E (2016). &quot;Making Reliability Reliable&quot;. Organizational Research Methods. 19 (4): 651–682 <a href="https://rameliaz.github.io/mg-sem-workshop/cho2016.pdf" class="uri">https://rameliaz.github.io/mg-sem-workshop/cho2016.pdf</a></p></li>
 <li><p>Revelle, W The Personality Project: <a href="https://www.personality-project.org/r/book/Chapter7.pdf" class="uri">https://www.personality-project.org/r/book/Chapter7.pdf</a></p></li>
 </ul>
 </div>

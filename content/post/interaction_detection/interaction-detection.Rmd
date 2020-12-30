@@ -5,9 +5,11 @@ date: '2017-09-01'
 summary: In this post, I explore how we can improve a parametric regression model by comparing its predictions to those of a Random Forest model. This might informs us in what ways the OLS model fails to capture all non-linearities and interactions between the predictors.
 draft: FALSE
 categories:
-  - R
+  - machine learning
 tags:
-  - interaction detection, random forest, ranger
+  - interaction detection
+  - random forest
+  - ranger
 header:
   image: "headers/abstract-black-and-white-dark-230659.jpg"
   preview: FALSE

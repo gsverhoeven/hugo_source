@@ -6,9 +6,10 @@ summary: In this post, I show how to create a Arduino-based atmospheric sensor p
 slug: arduino-atmospheric-datalogger
 draft: FALSE
 categories:
-  - Arduino
+  - Electronics
 tags:
-  - arduino 
+  - Arduino
+
 header:
   image: "headers/IMG_2960.jpg"
   preview: FALSE

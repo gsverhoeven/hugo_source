@@ -6,9 +6,10 @@ summary: Working for the first time with questionnaire data, I felt i needed som
 slug: cronbach-alpha-measurement-theory
 draft: TRUE
 categories:
-  - R
+  - Statistics
 tags:
-  - cronbach's alpha, validity
+  - cronbach's alpha
+  - validity
 baseurl: "https://gsverhoeven.github.io"
 header:
   image: "headers/ceiling-clean-clinic-247786.jpg"
@@ -25,32 +26,32 @@ header:
 </div>
 <div id="measurement-theories" class="section level1">
 <h1>Measurement Theories</h1>
-<p>Measurement theories concern themselves with the question: What does it mean to “measure” something? What types of measurement exist? And what statistical analysises are appropropriate for different types of measurement?</p>
-<p>According to a recent paper by Matt Williams, at least four measurement theories exist. There also exists a book by <strong>Denny Borsboom</strong> and <strong>Keith Markus</strong>, called “Frontiers of Test Validity Theory: Measurement, Causation, and Meaning”, which contains an extended review of the various measurement theories, and their implications for pyschological measurement. Another book on the same topic is “Measuring the mind” by <strong>Denny Borsboom</strong>. Borsboom has been influenced by <strong>Joel Michell</strong>, who wrote a book in 1995 on the topic, and was reviewed by my hero Cosma Shalizi! <a href="http://bactra.org/reviews/michell-measurement.html" class="uri">http://bactra.org/reviews/michell-measurement.html</a></p>
+<p>Measurement theories concern themselves with the question: What does it mean to &quot;measure&quot; something? What types of measurement exist? And what statistical analysises are appropropriate for different types of measurement?</p>
+<p>According to a recent paper by Matt Williams, at least four measurement theories exist. There also exists a book by <strong>Denny Borsboom</strong> and <strong>Keith Markus</strong>, called &quot;Frontiers of Test Validity Theory: Measurement, Causation, and Meaning&quot;, which contains an extended review of the various measurement theories, and their implications for pyschological measurement. Another book on the same topic is &quot;Measuring the mind&quot; by <strong>Denny Borsboom</strong>. Borsboom has been influenced by <strong>Joel Michell</strong>, who wrote a book in 1995 on the topic, and was reviewed by my hero Cosma Shalizi! <a href="http://bactra.org/reviews/michell-measurement.html" class="uri">http://bactra.org/reviews/michell-measurement.html</a></p>
 <ul>
 <li>Classical test theory (Operationalism, is operationalist, prescribes many items to reduce random error)</li>
 <li>Latent variable theory (where do the scores come from, hypothesis, substantive theory that can be falsified, realist theory of science)</li>
-<li>Representationalism (constructivist / restricted, “the scale” )</li>
+<li>Representationalism (constructivist / restricted, &quot;the scale &quot; )</li>
 </ul>
 </div>
 <div id="measuring-the-mind" class="section level1">
 <h1>Measuring the mind</h1>
-<p>Difference between measurement theories and scientific theories. Scientific theory we can use experiments to make progress. Measurement theory we only have “plausible” of “absurd” consequences. Conceptual, theory of science. CTT defective philosophical foundations.</p>
+<p>Difference between measurement theories and scientific theories. Scientific theory we can use experiments to make progress. Measurement theory we only have &quot;plausible&quot; of &quot;absurd&quot; consequences. Conceptual, theory of science. CTT defective philosophical foundations.</p>
 </div>
 <div id="representationalism" class="section level1">
 <h1>Representationalism</h1>
 <p>Representationalism is associated with the analysis of Stevens (1946), that resulted in the famous taxonomy of measurement <em>scales</em> (nominal, ordinal, interval, and ratio), and from these scales, what type of statistical analysis is appropriate.</p>
-<p>Williams explains <em>Representationalism</em> with an example, using a well-known scale of <em>Rock hardness</em>, the Mohs scale (<a href="https://en.wikipedia.org/wiki/Mohs_scale_of_mineral_hardness" class="uri">https://en.wikipedia.org/wiki/Mohs_scale_of_mineral_hardness</a>). Rocks exist, and we can measure a relationship between them, i.e. whether rocks can scratch each other. If a piece of unknown rock can be scratched by diamond, but not by Quartz, it’s hardness must be somewhere inbetween. It is thus a purely ordinal scale.</p>
-<p>So what statistical analyses are appropriate on ordinal data? Stevens reasons that we can change the numbers on a purely ordinal scale without changing the order. We could transform a set of numbers {1,2,3,4} into {1, 5, 20, 396} and the order would still hold. However, some statistical procedures give different answers (i.e. a Pearson correlation), and therefore are not appropriate for an ordinal scale. Another example of an ordinal scale is the Likert scale.</p>
-<p><em>Operationalism</em> avoids assumptions by defining what we have measured by the operation we performed to measure it. So if we use a particular psychometric test, say the “Revised NEO Personality Inventory” (NEO-PI-R), to measure personality of a subject, if we subsequently talk about the subject’s personality, we mean nothing more than the score as measured with the NEO-PI-R.</p>
-<p>This has several consequences that make this measurement theory not very useful. It means that we cannot compare tests, even if they purport to measure the same thing. There is also no concept of measurement error, because there is no underlying “true attribute” to measure with error.</p>
-<p>Then we have the <em>classical theory of measurement</em>. The classical theory of measurement should not be confused with classical test theory (a.k.a. true score theory). CTM is about concatenation, and requires a realist stance on the existence of attributes. This measurement theory also brings us trouble for psychometric tests, because it follows that there must exist some “unit” of personality, that allows us to compare “levels” of personality between subjects.</p>
+<p>Williams explains <em>Representationalism</em> with an example, using a well-known scale of <em>Rock hardness</em>, the Mohs scale (<a href="https://en.wikipedia.org/wiki/Mohs_scale_of_mineral_hardness" class="uri">https://en.wikipedia.org/wiki/Mohs_scale_of_mineral_hardness</a>). Rocks exist, and we can measure a relationship between them, i.e. whether rocks can scratch each other. If a piece of unknown rock can be scratched by diamond, but not by Quartz, it's hardness must be somewhere inbetween. It is thus a purely ordinal scale.</p>
+<p>So what statistical analyses are appropriate on ordinal data? Stevens reasons that we can change the numbers on a purely ordinal scale without changing the order. We could transform a set of numbers {1,2,3,4} into {1, 5, 20, 396} and the order would still hold. However, some statistical procedures give different answers (i.e. a Pearson correlation), and therefore are not appropriate for an ordinal scale. Another example of an ordinal scale is the Likert scale.</p>
+<p><em>Operationalism</em> avoids assumptions by defining what we have measured by the operation we performed to measure it. So if we use a particular psychometric test, say the &quot;Revised NEO Personality Inventory&quot; (NEO-PI-R), to measure personality of a subject, if we subsequently talk about the subject's personality, we mean nothing more than the score as measured with the NEO-PI-R.</p>
+<p>This has several consequences that make this measurement theory not very useful. It means that we cannot compare tests, even if they purport to measure the same thing. There is also no concept of measurement error, because there is no underlying &quot;true attribute&quot; to measure with error.</p>
+<p>Then we have the <em>classical theory of measurement</em>. The classical theory of measurement should not be confused with classical test theory (a.k.a. true score theory). CTM is about concatenation, and requires a realist stance on the existence of attributes. This measurement theory also brings us trouble for psychometric tests, because it follows that there must exist some &quot;unit&quot; of personality, that allows us to compare &quot;levels&quot; of personality between subjects.</p>
 <p>From Wikipedia: &gt;Psychological attributes, like temperature, are considered to be intensive as no way of concatenating such &gt;attributes has been found. But this is not to say that such attributes are not quantifiable. The theory of &gt;conjoint measurement provides a theoretical means of doing this.</p>
 <p>PM apgar score.</p>
 </div>
 <div id="latent-variable-theory" class="section level1">
 <h1>Latent variable theory</h1>
-<p>This leaves us with <em>latent variable theory</em>. It appears that this is what all current/modern/standard psychometrics is about. For example, the starting sentence on measurement on the “personality-project.org” website by Prof. William Revelle states:</p>
+<p>This leaves us with <em>latent variable theory</em>. It appears that this is what all current/modern/standard psychometrics is about. For example, the starting sentence on measurement on the &quot;personality-project.org&quot; website by Prof. William Revelle states:</p>
 <blockquote>
 <p>All scientific theories require measurement of the constructs underlying the field.</p>
 </blockquote>
@@ -58,7 +59,7 @@ header:
 </div>
 <div id="conclusion" class="section level1">
 <h1>Conclusion</h1>
-<p>Measurement theory is part of the Philosophy of science. We therefore cannot set out to “falsify” a measurement theory using some clever experiment. Borsboom writes that it is still usefull to think about these things, because some measurement theories will result in inplausible conclusions.</p>
+<p>Measurement theory is part of the Philosophy of science. We therefore cannot set out to &quot;falsify&quot; a measurement theory using some clever experiment. Borsboom writes that it is still usefull to think about these things, because some measurement theories will result in inplausible conclusions.</p>
 </div>
 <div id="references" class="section level1">
 <h1>References</h1>

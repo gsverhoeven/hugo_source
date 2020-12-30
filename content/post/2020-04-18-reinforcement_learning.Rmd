@@ -6,7 +6,7 @@ summary: Our goal is to use reinforcement learning to play the game Mancala.
 slug: reinforcement-learning
 draft: TRUE
 categories:
-  - R
+  - Reinforcement learing
 tags:
   - reinforcement learning
 baseurl: "https://gsverhoeven.github.io"

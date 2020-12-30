@@ -1,0 +1,238 @@
+---
+title: Using posterior predictive distributions to get the Average Treatment Effect (ATE) with uncertainty
+author: Gertjan Verhoeven & Misja Mikkers
+date: '2020-09-04'
+summary: Here we show how to use Stan and the brms R-package to calculate the posterior
+  predictive distribution of a covariate-adjusted average treatment effect (ATE).
+slug: posterior-distribution-average-treatment-effect
+draft: no
+categories:
+  - Statistics
+tags:
+  - brms
+  - causal inference
+  - bayesian statistics
+  - Stan
+  - rstan
+baseurl: https://gsverhoeven.github.io
+header:
+  image: headers/DSC02623_crop.JPG
+  preview: no
+---
+
+
+
+<div id="gertjan-verhoeven-misja-mikkers" class="section level2">
+<h2>Gertjan Verhoeven &amp; Misja Mikkers</h2>
+<p>Here we show how to use <a href="https://mc-stan.org">Stan</a> with the <a href="https://github.com/paul-buerkner/brms">brms</a> R-package to calculate the posterior predictive distribution of a covariate-adjusted average treatment effect. We fit a model on simulated data that mimics a (very clean) experiment with random treatment assignment.</p>
+<div id="introduction" class="section level3">
+<h3>Introduction</h3>
+<p>Suppose we have data from a Randomized Controlled Trial (RCT) and we want to estimate the average treatment effect (ATE). Patients get treated, or not, depending only on a coin flip. This is encoded in the <code>Treatment</code> variable. The outcome is a count variable <code>Admissions</code>, representing the number of times the patient gets admitted to the hospital. The treatment is expected to reduce the number of hospital admissions for patients.</p>
+<p>To complicate matters (a bit): As is often the case with patients, not all patients are identical. Suppose that older patients have on average more Admissions. So <code>Age</code> is a covariate.</p>
+</div>
+<div id="average-treatment-effect-ate" class="section level3">
+<h3>Average treatment effect (ATE)</h3>
+<p>Now, after we fitted a model to the data, we want to actually <strong>use</strong> our model to answer &quot;What-if&quot; questions (counterfactuals). Here we answer the following question:</p>
+<ul>
+<li>What would the average reduction in Admissions be if we had treated <strong>ALL</strong> the patients in the sample, compared to a situation where <strong>NO</strong> patient in the sample would have received treatment?</li>
+</ul>
+<p>Well, that is easy, we just take the fitted model, change treatment from zero to one for each, and observe the (&quot;marginal&quot;) effect on the outcome, right?</p>
+<p>Yes, but the uncertainty is harder. We have uncertainty in the estimated coefficients of the intercept and covariate, as well as in the coefficient of the treatment variable. And these uncertainties can be correlated (for example between the coefficients of intercept and covariate).</p>
+<p>Here we show how to use <code>posterior_predict()</code> to simulate outcomes of the model using the sampled parameters. If we do this for two counterfactuals, all patients treated, and all patients untreated, and subtract these, we can easily calculate the posterior predictive distribution of the average treatment effect.</p>
+<p>Let's do it!</p>
+</div>
+<div id="load-packages" class="section level3">
+<h3>Load packages</h3>
+<p>This tutorial uses <a href="https://github.com/paul-buerkner/brms">brms</a>, a user friendly interface to full Bayesian modelling with <a href="https://mc-stan.org/">Stan</a>.</p>
+<pre class="r"><code>library(tidyverse)
+library(rstan)
+library(brms) </code></pre>
+</div>
+<div id="data-simulation" class="section level3">
+<h3>Data simulation</h3>
+<p>We generate fake data that matches our problem setup.</p>
+<p><code>Admissions</code> are determined by patient <code>Age</code>, whether the patient has <code>Treatment</code>, and some random <code>Noise</code> to capture unobserved effects that influence <code>Admissions</code>. We exponentiate them to always get a positive number, and plug it in the Poisson distribution using <code>rpois()</code>.</p>
+<pre class="r"><code>set.seed(123) 
+
+id &lt;- 1:200   
+n_obs &lt;- length(id)
+b_tr &lt;- -0.7
+b_age &lt;- 0.1
+
+df_sim &lt;- as.data.frame(id) %&gt;% 
+mutate(Age = rgamma(n_obs, shape = 5, scale = 2)) %&gt;% # positive cont predictor
+mutate(Noise = rnorm(n_obs, mean = 0, sd = 0.5)) %&gt;% # add noise
+mutate(Treatment = ifelse(runif(n_obs) &lt; 0.5, 0, 1)) %&gt;% # Flip a coin for treatment
+mutate(Lambda = exp(b_age * Age + b_tr * Treatment + Noise)) %&gt;% # generate lambda for the poisson dist
+mutate(Admissions = rpois(n_obs, lambda = Lambda))</code></pre>
+</div>
+<div id="summarize-data" class="section level3">
+<h3>Summarize data</h3>
+<p>Ok, so what does our dataset look like?</p>
+<pre class="r"><code>summary(df_sim)</code></pre>
+<pre><code>##        id              Age             Noise            Treatment    
+##  Min.   :  1.00   Min.   : 1.794   Min.   :-1.32157   Min.   :0.000  
+##  1st Qu.: 50.75   1st Qu.: 6.724   1st Qu.:-0.28614   1st Qu.:0.000  
+##  Median :100.50   Median : 8.791   Median : 0.04713   Median :0.000  
+##  Mean   :100.50   Mean   : 9.474   Mean   : 0.02427   Mean   :0.495  
+##  3rd Qu.:150.25   3rd Qu.:11.713   3rd Qu.: 0.36025   3rd Qu.:1.000  
+##  Max.   :200.00   Max.   :24.835   Max.   : 1.28573   Max.   :1.000  
+##      Lambda          Admissions    
+##  Min.   : 0.2479   Min.   : 0.000  
+##  1st Qu.: 1.1431   1st Qu.: 1.000  
+##  Median : 1.8104   Median : 2.000  
+##  Mean   : 2.6528   Mean   : 2.485  
+##  3rd Qu.: 3.0960   3rd Qu.: 3.000  
+##  Max.   :37.1296   Max.   :38.000</code></pre>
+<p>The Treatment variable should reduce admissions. Lets visualize the distribution of Admission values for both treated and untreated patients.</p>
+<pre class="r"><code>ggplot(data = df_sim, aes(x = Admissions)) +
+  geom_histogram(stat=&quot;count&quot;) +
+  facet_wrap(~ Treatment) </code></pre>
+<p><img src="/post/2020-09-04-brms_posterior_pred_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<p>The effect of the treatment on reducing admissions is clearly visible.</p>
+<p>We can also visualize the relationship between <code>Admissions</code> and <code>Age</code>, for both treated and untreated patients. We use the <code>viridis</code> scales to provide colour maps that are designed to be perceived by viewers with common forms of colour blindness.</p>
+<pre class="r"><code>ggplot(data = df_sim, aes(x = Age, y = Admissions, color = as.factor(Treatment))) +
+  geom_point() +
+  scale_color_viridis_d(labels = c(&quot;No Treatment&quot;, &quot;Treatment&quot;)) +
+  labs(color = &quot;Treatment&quot;)</code></pre>
+<p><img src="/post/2020-09-04-brms_posterior_pred_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+<p>Now lets fit our Bayesian Poisson regression model to it.</p>
+</div>
+<div id="fit-model" class="section level3">
+<h3>Fit model</h3>
+<p>We use <code>brms</code> default priors for convenience here. For a real application we would of course put effort into into crafting priors that reflect our current knowledge of the problem at hand.</p>
+<pre class="r"><code>model1 &lt;- brm(
+  formula = as.integer(Admissions) ~  Age + Treatment,
+   data = df_sim,
+  family = poisson(),
+  warmup = 2000, iter = 5000, 
+  cores = 2, 
+  chains = 4,
+  seed = 123,
+  silent = TRUE,
+  refresh = 0,
+)</code></pre>
+<pre><code>## Compiling Stan program...</code></pre>
+<pre><code>## Start sampling</code></pre>
+</div>
+<div id="check-model-fit" class="section level3">
+<h3>Check model fit</h3>
+<pre class="r"><code>summary(model1)</code></pre>
+<pre><code>##  Family: poisson 
+##   Links: mu = log 
+## Formula: as.integer(Admissions) ~ Age + Treatment 
+##    Data: df_sim (Number of observations: 200) 
+## Samples: 4 chains, each with iter = 5000; warmup = 2000; thin = 1;
+##          total post-warmup samples = 12000
+## 
+## Population-Level Effects: 
+##           Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+## Intercept    -0.05      0.12    -0.28     0.18 1.00     7410     7333
+## Age           0.12      0.01     0.10     0.14 1.00     8052     8226
+## Treatment    -0.83      0.10    -1.02    -0.63 1.00     7794     7606
+## 
+## Samples were drawn using sampling(NUTS). For each parameter, Bulk_ESS
+## and Tail_ESS are effective sample size measures, and Rhat is the potential
+## scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
+<p>We see that the posterior dists for <span class="math inline">\(\beta_{Age}\)</span> and <span class="math inline">\(\beta_{Treatment}\)</span> cover the true values, so looking good. To get a fuller glimpse into the (correlated) uncertainty of the model parameters we make a pairs plot:</p>
+<pre class="r"><code>pairs(model1)</code></pre>
+<p><img src="/post/2020-09-04-brms_posterior_pred_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p>As expected, the coefficients <span class="math inline">\(\beta_{Intercept}\)</span> (added by <code>brms</code>) and <span class="math inline">\(\beta_{Age}\)</span> are highly correlated.</p>
+</div>
+<div id="first-attempt-calculate-individual-treatment-effects-using-the-model-fit-object" class="section level3">
+<h3>First attempt: Calculate Individual Treatment effects using the model fit object</h3>
+<p>Conceptually, the simplest approach for prediction is to take the most likely values for all the model parameters, and use these to calculate for each patient an individual treatment effect. This is what plain OLS regression does when we call <code>predict.lm()</code> on a fitted model.</p>
+<pre class="r"><code>est_intercept &lt;- fixef(model1, pars = &quot;Intercept&quot;)[,1]
+est_age_eff &lt;- fixef(model1, pars = &quot;Age&quot;)[,1]
+est_t &lt;- fixef(model1, pars = &quot;Treatment&quot;)[,1]
+
+# brm fit parameters (intercept plus treatment)
+ites &lt;- exp(est_intercept + (est_age_eff * df_sim$Age) +  est_t) - exp(est_intercept + (est_age_eff * df_sim$Age))
+
+ggplot(data.frame(ites), aes(x = ites)) + 
+  geom_histogram() +
+  geom_vline(xintercept = mean(ites), col = &quot;red&quot;) +
+  ggtitle(&quot;Effect of treatment on Admissions for each observation&quot;) +
+   expand_limits(x = 0) </code></pre>
+<p><img src="/post/2020-09-04-brms_posterior_pred_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<p>Averaging the ITEs gives us the ATE, displayed in red.</p>
+<p>Ok, so <strong>on average</strong>, our treatment reduces the number of Admissions by -1.9.</p>
+<p>You may wonder: why do we even have a distribution of treatment effects here? Should it not be the same for each patient? Here a peculiarity of the Poisson regression model comes to surface: The effect of changing <code>Treatment</code> from 0 to 1 on the outcome depends on the value of <code>Age</code> of the patient. This is because we <strong>exponentiate</strong> the linear model before we plug it into the Poisson distribution.</p>
+</div>
+<div id="next-the-uncertainty-in-the-ate" class="section level3">
+<h3>Next, the uncertainty in the ATE</h3>
+<p>How to get all this underlying, correlated uncertainty in the model parameters, that have varying effects depending on the covariates of patients, and properly propagate that to the ATE? What is the range of plausible values of the ATE consistent with the data &amp; model?</p>
+<p>At this point, using only the summary statistics of the model fit (i.e. the coefficients), we hit a wall. To make progress we have to work with the full posterior distribution of model parameters, and use this to make predictions. That is why it is often called &quot;the posterior predictive distribution&quot; (Check <a href="http://www.stat.columbia.edu/~gelman/book/BDA3.pdf">BDA3</a> for the full story).</p>
+</div>
+<div id="posterior-predictive-distribution-ppd-two-tricks" class="section level3">
+<h3>Posterior predictive distribution (PPD): two tricks</h3>
+<p>Ok, you say, a Posterior Predictive Distribution, let's have it! Where can I get one?</p>
+<p>Luckily for us, most of the work is already done, because we have fitted our model. And thus we have a large collection of parameter draws (or samples, to confuse things a bit). All the correlated uncertainty is contained in these draws.</p>
+<p>This is the first trick. Conceptually, we imagine that each separate draw of the posterior represents a particular version of our model.</p>
+<p>In our example model fit, we have 12.000 samples from the posterior. In our imagination, we now have 12.000 versions of our model, where unlikely parameter combinations are present less often compared to likely parameter combinations. The full uncertainty of our model parameters is contained in this &quot;collection of models&quot; .</p>
+<p>The second trick is that we simulate (generate) predictions for all observations, from each of these 12.000 models. Under the hood, this means computing for each model (we have 12.000), for each observation (we have 200) the predicted lambda value given the covariates, and drawing a single value from a Poisson distribution with that <span class="math inline">\(\Lambda\)</span> value (e.g. running <code>rpois(n = 1, lambda)</code> ).</p>
+<p>This gives us a 12.000 x 200 matrix, that we can compute with.</p>
+</div>
+<div id="computing-with-the-ppd-brmsposterior_predict" class="section level3">
+<h3>Computing with the PPD: brms::posterior_predict()</h3>
+<p>To compute PPD's, we can use <code>brms::posterior_predict()</code>. We can feed it any dataset using the <code>newdata</code> argument, and have it generate a PPD.</p>
+<p>For our application, the computation can be broken down in two steps:</p>
+<ul>
+<li>Step 1: use <code>posterior_predict()</code> on our dataset with <code>Treatment</code> set to zero, do the same for our dataset with <code>Treatment</code> set to one, and subtract the two matrices. This gives us a matrix of outcome differences / treatment effects.</li>
+<li>Step 2: Averaging over all cols (the N=200 simulated outcomes for each draw) should give us the distribution of the ATE. This distribution now represents the variability (uncertainty) of the estimate.</li>
+</ul>
+<p>Ok, step 1:</p>
+<pre class="r"><code># create two versions of our dataset, with all Tr= 0 and all Tr=1
+df_sim_t0 &lt;- df_sim %&gt;% mutate(Treatment = 0)
+
+df_sim_t1 &lt;- df_sim %&gt;% mutate(Treatment = 1)
+
+# simulate the PPDs
+pp_t0 &lt;- posterior_predict(model1, newdata = df_sim_t0)
+
+pp_t1 &lt;- posterior_predict(model1, newdata = df_sim_t1)
+
+diff &lt;- pp_t1 - pp_t0
+
+dim(diff)</code></pre>
+<pre><code>## [1] 12000   200</code></pre>
+<p>And step 2 (averaging by row over the cols):</p>
+<pre class="r"><code>ATE_per_draw &lt;- apply(diff, 1, mean)
+
+# equivalent expression for tidyverse fans
+#ATE_per_draw &lt;- data.frame(diff) %&gt;% rowwise() %&gt;% summarise(avg = mean(c_across(cols = everything())))
+
+length(ATE_per_draw)</code></pre>
+<pre><code>## [1] 12000</code></pre>
+<p>Finally, a distribution of plausible ATE values. Oo, that is so nice. Lets visualize it!</p>
+<pre class="r"><code>ggplot(data.frame(ATE_per_draw), aes(x = ATE_per_draw)) +
+  geom_histogram() + 
+  geom_vline(xintercept = mean(ites), col = &quot;red&quot;) +
+  ggtitle(&quot;Posterior distribution of the Average Treatment Effect (ATE)&quot;)</code></pre>
+<p><img src="/post/2020-09-04-brms_posterior_pred_files/figure-html/unnamed-chunk-12-1.png" width="672" /></p>
+<p>We can compare this distribution with the point estimate of the ATE we obtained above using the model coefficients. It sits right in the middle (red line), just as it should be!</p>
+</div>
+<div id="demonstrating-the-versatility-uncertainty-in-the-sum-of-treatment-effects" class="section level3">
+<h3>Demonstrating the versatility: uncertainty in the sum of treatment effects</h3>
+<p>Now suppose we are a policy maker, and we want to estimate the total reduction in Admissions if all patients get the treatment. And we want to quantify the range of plausible values of this summary statistic.</p>
+<p>To do so, we can easily adjust our code to summing instead of averaging all the treatment effects within each draw (i.e. by row):</p>
+<pre class="r"><code>TTE_per_draw &lt;- apply(diff, 1, sum)
+
+ggplot(data.frame(TTE_per_draw), aes(x = TTE_per_draw)) +
+  geom_histogram() + 
+  geom_vline(xintercept = sum(ites), col = &quot;red&quot;) +
+  ggtitle(&quot;Posterior distribution of the Total Treatment Effect (TTE)&quot;)</code></pre>
+<p><img src="/post/2020-09-04-brms_posterior_pred_files/figure-html/unnamed-chunk-13-1.png" width="672" /></p>
+<p>So our model predicts for the aggregate reduction of patient Admissions a value in the range of -500 to -250.</p>
+<p>This distribution can then be used to answer questions such as &quot;what is the probability that our treatment reduces Admissions by at least 400&quot;?</p>
+<pre class="r"><code>TTE &lt;- data.frame(TTE_per_draw) %&gt;%
+  mutate(counter = ifelse(TTE_per_draw &lt; -400, 1, 0)) 
+
+mean(TTE$counter) * 100</code></pre>
+<pre><code>## [1] 38.1</code></pre>
+</div>
+<div id="take-home-message-ppd-with-brms-is-easy-and-powerful" class="section level3">
+<h3>Take home message: PPD with brms is easy and powerful</h3>
+<p>We hope to have demonstrated that when doing a full bayesian analysis with <code>brms</code> and <code>Stan</code>, it is very easy to create Posterior Predictive Distributions using <code>posterior_predict()</code>. And that if we <em>have</em> a posterior predictive distribution, incorporating uncertainty in various &quot;marginal effects&quot; type analyses becomes dead-easy. These analyses include what-if scenarios using the original data, or scenarios using new data with different covariate distributions (for example if we have an RCT that is enriched in young students, and we want to apply it to the general population). Ok, that it is for today, happy modelling!</p>
+</div>
+</div>

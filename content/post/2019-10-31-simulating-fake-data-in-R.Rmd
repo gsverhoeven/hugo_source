@@ -6,9 +6,13 @@ summary: This blog post is on simulating fake data using the R package [simstudy
 slug: simulating-fake-data
 draft: FALSE
 categories:
-  - R
+  - Data science
 tags:
-  - R, fake data, simulation, copula, tetrachoric correlation
+  - fake data
+  - simulation
+  - copula
+  - tetrachoric correlation
+  - R
 baseurl: "https://gsverhoeven.github.io"
 header:
   image: "headers/bright-chart-data-210607.jpg"

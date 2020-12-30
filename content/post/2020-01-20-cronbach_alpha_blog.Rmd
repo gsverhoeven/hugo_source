@@ -6,9 +6,11 @@ summary: Working for the first time with questionnaire data, I felt i needed som
 slug: cronbach-alpha-measurement-theory
 draft: TRUE
 categories:
-  - R
+  - Data science
+  - Statistics
 tags:
-  - cronbach's alpha, validity
+  - cronbach's alpha
+  - validity
 baseurl: "https://gsverhoeven.github.io"
 header:
   image: "headers/ceiling-clean-clinic-247786.jpg"

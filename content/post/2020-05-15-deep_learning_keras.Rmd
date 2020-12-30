@@ -6,9 +6,13 @@ summary: With the commoditization of deep learning in the form of Keras, I felt 
 slug: deep-learning-tensorflow-keras
 draft: FALSE
 categories:
-  - R
+  - Machine learning
+  - Deep learning
 tags:
-  - tensorflow, keras, neural networks, deep learning
+  - tensorflow
+  - keras
+  - neural networks
+  - deep learning
 baseurl: "https://gsverhoeven.github.io"
 header:
   image: "headers/monolith.png"

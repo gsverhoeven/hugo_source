@@ -6,9 +6,11 @@ summary: A recurring need in statistics is to plot nodes and edges, e.g. for str
 slug: ggplot-ggraph-sem-models
 draft: TRUE
 categories:
-  - R
+  - Data science
 tags:
-  - ggraph, tidygraph, sem
+  - ggraph
+  - tidygraph
+  - sem
 baseurl: "https://gsverhoeven.github.io"
 header:
   image: "headers/ceiling-clean-clinic-247786.jpg"

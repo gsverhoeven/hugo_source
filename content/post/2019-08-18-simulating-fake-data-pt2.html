@@ -6,7 +6,7 @@ summary: PM
 slug: simulating-fake-data
 draft: true
 categories:
-  - R
+  - Data science
 tags:
   - process mining
 baseurl: "https://gsverhoeven.github.io"
@@ -18,7 +18,7 @@ header:
 
 
 
-<p>In this post, we’ll explore the <a href="https://www.bupar.net">Simstudy</a> package created by <em>Keith Goldfeld</em> from New York University.</p>
+<p>In this post, we'll explore the <a href="https://www.bupar.net">Simstudy</a> package created by <em>Keith Goldfeld</em> from New York University.</p>
 <pre class="r"><code>library(data.table)</code></pre>
 <div id="why-simulate-data" class="section level1">
 <h1>Why simulate data?</h1>
@@ -37,7 +37,7 @@ header:
 <li>Different variable types (Binary, Continuous positive, Poisson, Likert )</li>
 <li>Ability to specify marginal distributions</li>
 <li>Ability to specify correlation matrix</li>
-<li>Ability to specify particular functional forms between the variables, including link functions (i.e. logit to map continuous to 0/1)</li>
+<li>Ability to specify particular functional forms between the variables, including link functions (i.e. logit to map continuous to 0/1)</li>
 <li>Ability to simulate from a causal DAG (related to previous one)</li>
 <li>Ability to simulate time series (sequential data)</li>
 </ul>
@@ -49,7 +49,7 @@ header:
 <li>Wakefield</li>
 <li>Charlatan</li>
 </ul>
-<p>These both generate uncorrelated variables that are realistic, i.e. creditcard numbers, adresses, zipcodes etc.</p>
+<p>These both generate uncorrelated variables that are realistic, i.e. creditcard numbers, adresses, zipcodes etc.</p>
 <ul>
 <li>Simcausal</li>
 </ul>
@@ -57,11 +57,11 @@ header:
 <ul>
 <li>Synthpop</li>
 </ul>
-<p>This uses a ‘’visit sequence’’ where each variable is visited in sequence and synthesized, based on the original data and the already sequenced variables.</p>
+<p>This uses a ''visit sequence'' where each variable is visited in sequence and synthesized, based on the original data and the already sequenced variables.</p>
 </div>
 <div id="test-casus" class="section level1">
 <h1>Test casus</h1>
-<p>As a test casus, let’s see what it takes to simulate data that has the following characteristics:</p>
+<p>As a test casus, let's see what it takes to simulate data that has the following characteristics:</p>
 <ul>
 <li>Five point Likert-scale for ten questions, with means uniformly distributed between 2 and 4, and correlation matrix uniformly distributed between -1 and 1.</li>
 <li>A positive continuous predictor <a href="https://en.wikipedia.org/wiki/Gamma_distribution">gamma distributed</a>, with shape parameter 2 and scale parameter 20.</li>
@@ -144,40 +144,40 @@ def &lt;- defData(def, varname = &quot;a2&quot;,
                link=&quot;logit&quot;)</code></pre>
 <pre class="r"><code>dt &lt;- genData(1000, def)
 dt</code></pre>
-<pre><code>##       idnum nr       x1       y1  y2 xnb xCat         g1           b1 a1 a2
-##    1:     1  7 19.99113 49.11770  26  19    2  713.21219 4.325563e-01  0 28
-##    2:     2  7 12.93723 33.71467  86  85    1 2074.01460 1.491924e-05  0 18
-##    3:     3  7 19.91756 48.67153  27  28    1  325.61010 9.880139e-01  0 10
-##    4:     4  7 16.72849 39.85958  37  39    1   36.72730 9.912832e-01  0 14
-##    5:     5  7 17.50127 45.76918  36  29    2  236.40386 9.999820e-01  1 28
-##   ---                                                                      
-##  996:   996  7 11.75838 34.68288 108  94    3  534.77661 1.000000e+00  0 51
-##  997:   997  7 17.08523 38.28912  38  28    2  243.22822 9.980995e-01  1 35
-##  998:   998  7 19.57686 41.60322  28  24    3   63.50575 1.340520e-01  0 45
-##  999:   999  7 19.41492 46.60367  16  23    2  625.38012 2.903190e-01  0 24
-## 1000:  1000  7 12.85335 32.08918  91  58    3 6467.70456 9.998608e-01  0 48</code></pre>
+<pre><code>##       idnum nr       x1       y1  y2 xnb xCat         g1        b1 a1 a2
+##    1:     1  7 14.97976 33.05830  60  47    3 5501.03601 0.2017378  1 54
+##    2:     2  7 12.22104 31.16723  84  79    1   78.73303 0.6881783  0 16
+##    3:     3  7 12.60895 32.42309  89  49    3 4807.80863 0.9998756  1 45
+##    4:     4  7 14.96127 35.92261  58  73    3  575.54047 0.9998289  1 51
+##    5:     5  7 13.34583 37.83417  72  88    3  840.99284 0.9954889  0 58
+##   ---                                                                   
+##  996:   996  7 15.20480 36.68988  64  39    3 1530.78989 0.9999827  1 48
+##  997:   997  7 15.94276 36.55326  45  19    1  708.38563 0.9872003  1 12
+##  998:   998  7 12.44362 28.46352 107  95    3  251.67741 0.9990085  1 46
+##  999:   999  7 16.53920 38.16599  40  32    2  699.97377 0.8644852  0 21
+## 1000:  1000  7 10.44040 29.91850 157 153    3 1850.78486 0.8126965  0 47</code></pre>
 <pre class="r"><code>summary(dt)</code></pre>
 <pre><code>##      idnum              nr          x1              y1              y2        
-##  Min.   :   1.0   Min.   :7   Min.   :10.00   Min.   :19.89   Min.   : 13.00  
-##  1st Qu.: 250.8   1st Qu.:7   1st Qu.:12.43   1st Qu.:31.86   1st Qu.: 33.00  
-##  Median : 500.5   Median :7   Median :15.22   Median :37.27   Median : 52.50  
-##  Mean   : 500.5   Mean   :7   Mean   :15.08   Mean   :37.18   Mean   : 63.75  
-##  3rd Qu.: 750.2   3rd Qu.:7   3rd Qu.:17.65   3rd Qu.:42.37   3rd Qu.: 91.00  
-##  Max.   :1000.0   Max.   :7   Max.   :19.99   Max.   :53.14   Max.   :159.00  
+##  Min.   :   1.0   Min.   :7   Min.   :10.02   Min.   :19.91   Min.   : 13.00  
+##  1st Qu.: 250.8   1st Qu.:7   1st Qu.:12.31   1st Qu.:31.42   1st Qu.: 34.75  
+##  Median : 500.5   Median :7   Median :14.66   Median :36.56   Median : 58.00  
+##  Mean   : 500.5   Mean   :7   Mean   :14.83   Mean   :36.68   Mean   : 66.12  
+##  3rd Qu.: 750.2   3rd Qu.:7   3rd Qu.:17.28   3rd Qu.:41.66   3rd Qu.: 93.25  
+##  Max.   :1000.0   Max.   :7   Max.   :20.00   Max.   :54.07   Max.   :170.00  
 ##       xnb              xCat             g1                  b1           
-##  Min.   :  7.00   Min.   :1.000   Min.   :    5.907   Min.   :0.0000149  
-##  1st Qu.: 32.00   1st Qu.:1.000   1st Qu.:  297.684   1st Qu.:0.7744091  
-##  Median : 50.00   Median :2.000   Median :  874.501   Median :0.9796932  
-##  Mean   : 63.47   Mean   :2.178   Mean   : 1882.711   Mean   :0.8286925  
-##  3rd Qu.: 85.25   3rd Qu.:3.000   3rd Qu.: 2492.620   3rd Qu.:0.9997404  
-##  Max.   :210.00   Max.   :3.000   Max.   :16816.684   Max.   :1.0000000  
-##        a1              a2      
-##  Min.   :0.000   Min.   : 4.0  
-##  1st Qu.:0.000   1st Qu.:15.0  
-##  Median :0.000   Median :35.0  
-##  Mean   :0.335   Mean   :33.5  
-##  3rd Qu.:1.000   3rd Qu.:49.0  
-##  Max.   :1.000   Max.   :66.0</code></pre>
+##  Min.   :  8.00   Min.   :1.000   Min.   :    0.249   Min.   :0.0000663  
+##  1st Qu.: 33.00   1st Qu.:1.000   1st Qu.:  325.380   1st Qu.:0.7692463  
+##  Median : 57.00   Median :2.000   Median :  920.723   Median :0.9761661  
+##  Mean   : 66.32   Mean   :2.208   Mean   : 1791.429   Mean   :0.8306563  
+##  3rd Qu.: 91.00   3rd Qu.:3.000   3rd Qu.: 2416.098   3rd Qu.:0.9997500  
+##  Max.   :246.00   Max.   :3.000   Max.   :16651.534   Max.   :1.0000000  
+##        a1             a2       
+##  Min.   :0.00   Min.   : 4.00  
+##  1st Qu.:0.00   1st Qu.:16.00  
+##  Median :0.00   Median :35.50  
+##  Mean   :0.34   Mean   :34.02  
+##  3rd Qu.:1.00   3rd Qu.:49.00  
+##  Max.   :1.00   Max.   :64.00</code></pre>
 </div>
 </div>
 <div id="lets-make-a-synthetic-bostonhousing" class="section level1">
