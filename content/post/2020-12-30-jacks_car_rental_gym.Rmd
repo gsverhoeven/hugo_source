@@ -1,13 +1,15 @@
 ---
-title: Jack's Car Rental as a Gym Environment
+title: Jacks Car Rental as a Gym Environment
 author: Gertjan Verhoeven
-date: '2020-12-31'
-summary: In this blogpost, we solve a famous decision problem called "Jack's Car Rental" by first turning it into a Gym environment and then use a RL algorithm called "Policy Iteration" (a form of "Dynamic Programming") to solve for the optimal decisions to take in this environment. 
+date: '2020-12-30'
+summary: In this blogpost, we solve a famous sequential decision problem called Jacks Car Rental by first turning it into a Gym environment and then use a RL algorithm called Policy Iteration (a form of Dynamic Programming) to solve for the optimal decisions to take in this environment.
+slug: jacks-car-rental-gym
 draft: no
 categories:
   - Machine Learning
 tags:
   - Reinforcement learning
+  - Python
   - OpenAI Gym
   - AI
 baseurl: https://gsverhoeven.github.io
@@ -16,20 +18,20 @@ header:
   preview: no
 ---
 
-This blogpost is about [reinforcement learning](https://en.wikipedia.org/wiki/Reinforcement_learning), considered part of the Machine Learning / AI family of techniques.
-Reinforcement learning is all about agents taking decisions in complex environments. The decisions (**actions**) take the agent from a current **state** or situation, to a new **state**. When the probability of ending up in a new state is only dependent on the current state, and the action the agent takes, we are facing a so-called **Markov Decision Problem**, or **MDP** for short.
+This blogpost is about [reinforcement learning](https://en.wikipedia.org/wiki/Reinforcement_learning), part of the Machine Learning (ML) / AI family of computer algorithms and techniques.
+Reinforcement learning is all about agents taking decisions in complex environments. The decisions (**actions**) take the agent from a current **state** or situation, to a new **state**. When the probability of ending up in a new state is only dependent on the current state and the action the agent takes in that state, we are facing a so-called **Markov Decision Problem**, or **MDP** for short.
 
-Back in 2016, people at OpenAI, a startup company that specializes in AI/ML, created a Python library called **Gym** that provides standardized access to a range of MDP environments. This creates a sharp separation between the RL algorithm ("The agent")  and the environment (or task) it tries to solve / optimize / control / achieve. 
-
-This allows us to easily benchmark RL algorithms on a range of different environments. It also allows us to more easily build on others work, and share our own work (i.e. on Github). Because when I implement something as a Gym Environment, others can then immediately apply their algorithms on it, and vice versa.
+Back in 2016, people at OpenAI, a startup company that specializes in AI/ML, created a Python library called **Gym** that provides standardized access to a range of MDP environments. Using Gym means keeping a sharp separation between the RL algorithm ("The agent")  and the environment (or task) it tries to solve / optimize / control / achieve. Gym allows us to easily benchmark RL algorithms on a range of different environments. It also allows us to more easily build on others work, and share our own work (i.e. on Github). Because when I implement something as a Gym Environment, others can then immediately apply their algorithms on it, and vice versa.
 
 In this blogpost, we solve a famous decision problem called "Jack's Car Rental" by first turning it into a Gym environment and then use a RL algorithm called "Policy Iteration" (a form of "Dynamic Programming") to solve for the optimal decisions to take in this environment. 
+
+The Gym environment for Jack's Car Rental is called `gym_jcr` and can be installed from [https://github.com/gsverhoeven/gym_jcr](https://github.com/gsverhoeven/gym_jcr).
 
 # Jack's Car Rental problem
 
 Learning Reinforcement learning (RL) as a student, means working through the famous [book on RL by Sutton and Barto](http://incompleteideas.net/book/the-book.html). In chapter 4, Example 4.2 (2018 edition), Jack's Car Rental problem is presented:
 
-```
+```plaintext
 Jack’s Car Rental 
 
 Jack manages two locations for a nationwide car rental company. 
@@ -153,8 +155,9 @@ Close enough. Let's run our Dynamic Programming algorithm on it!
 
 # Policy iteration on JCR
 
-We reproduce the results from the Sutton & Barto book (p81), where the algorithm converges after four iterations. This takes about 30 min on my computer.
+The `policy_iteration()` function used below is from [dp.py](https://github.com/gsverhoeven/hugo_source/blob/master/content/post/dp.py). This exact same code was used in a Jupyter tutorial notebook to solve the [Frozen-Lake Gym environment](https://gym.openai.com/envs/FrozenLake-v0/).
 
+We reproduce the results from the Sutton & Barto book (p81), where the algorithm converges after four iterations. This takes about 30 min on my computer.
 
 ```python
 fullrun = False
@@ -174,7 +177,7 @@ else:
 
 # Plot optimal policy as a contour map
 
-We need to transform the policy from a 2d state-action matrix to a 2d state-A, state-B matrix with the action values in the cells. 
+For easy plotting, we need to transform the policy from a 2d state-action matrix to a 2d state-A, state-B matrix with the action values in the cells. 
 
 
 ```python
@@ -207,24 +210,16 @@ plt.xlabel("cars at B")
 plt.ylabel("cars at A")
 ```
 
-
-
-
-    Text(0, 0.5, 'cars at A')
-
-
-
-
-![png](2020-12-30-jacks_car_rental_gym_files/2020-12-30-jacks_car_rental_gym_13_1.png)
+![Optimal policy for all states of Jack's Car Rental](/post/2020-12-30-jacks_car_rental_gym_files/2020-12-30-jacks_car_rental_gym_13_1.png)
 
 
 # Conclusion and outlook
 
-Conclusion: yes we can turn JCR into a Gym environment and solve it using the exact same code we used to solve the Frozen Lake environment! 
+Conclusion: yes we can turn JCR into a Gym environment and solve it using the exact same (policy iteration) code that I had earlier used to solve the Frozen-Lake Gym environment! 
 
 So now what? One obvious area of improvement is speed: It takes too long to load the environment. Also the DP algorithm is slow, because it uses for loops instead of matrix operations.
 
-Also currently the rewards that the environment returns are **average rewards** that are received when taking action *a* in state *s* . However, they do not match the actual amount of cars rented when transitioning from a particular state *s* to a new state *s'*. 
+Another thing is that currently the rewards that the environment returns are **average expected rewards** that are received when taking action *a* in state *s* . However, they do not match the actual amount of cars rented when transitioning from a particular state *s* to a new state *s'*. 
 
-Finally, adding the modifications to the problem from Exercise 4.7 could also be implemented, but this complicates the calculation of **P** and **R** even further. 
-For me, this is the real takeaway from this exercise: it is really hard to compute the complete set of proper transition probabilities and rewards for an MDP, but it is much easier if we just need to simulate single transitions according to the MDP specification. Wikipedia calls this [Simulator models](https://en.wikipedia.org/wiki/Markov_decision_process#Simulator_models).
+Finally, adding the modifications to the problem from Exercise 4.7 in Sutton & Barto could also be implemented, but this complicates the calculation of **P** and **R** even further. 
+For me, this is the real takeaway from this exercise: it is really hard to (correctly) compute the complete set of transition probabilities and rewards for an MDP, but it is much easier if we just need to simulate single transitions according to the MDP specification. Wikipedia has a nice paragraph on it under [simulator models for MDPs](https://en.wikipedia.org/wiki/Markov_decision_process#Simulator_models).

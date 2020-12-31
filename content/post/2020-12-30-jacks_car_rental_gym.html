@@ -1,0 +1,176 @@
+---
+title: Jacks Car Rental as a Gym Environment
+author: Gertjan Verhoeven
+date: '2020-12-30'
+summary: In this blogpost, we solve a famous sequential decision problem called Jacks Car Rental by first turning it into a Gym environment and then use a RL algorithm called Policy Iteration (a form of Dynamic Programming) to solve for the optimal decisions to take in this environment.
+slug: jacks-car-rental-gym
+draft: no
+categories:
+  - Machine Learning
+tags:
+  - Reinforcement learning
+  - Python
+  - OpenAI Gym
+  - AI
+baseurl: https://gsverhoeven.github.io
+header:
+  image: headers/pexels-josh-sorenson-1054387.png
+  preview: no
+---
+
+<link href="/rmarkdown-libs/anchor-sections/anchor-sections.css" rel="stylesheet" />
+<script src="/rmarkdown-libs/anchor-sections/anchor-sections.js"></script>
+
+
+<p>This blogpost is about <a href="https://en.wikipedia.org/wiki/Reinforcement_learning">reinforcement learning</a>, part of the Machine Learning (ML) / AI family of computer algorithms and techniques.
+Reinforcement learning is all about agents taking decisions in complex environments. The decisions (<strong>actions</strong>) take the agent from a current <strong>state</strong> or situation, to a new <strong>state</strong>. When the probability of ending up in a new state is only dependent on the current state and the action the agent takes in that state, we are facing a so-called <strong>Markov Decision Problem</strong>, or <strong>MDP</strong> for short.</p>
+<p>Back in 2016, people at OpenAI, a startup company that specializes in AI/ML, created a Python library called <strong>Gym</strong> that provides standardized access to a range of MDP environments. Using Gym means keeping a sharp separation between the RL algorithm (“The agent”) and the environment (or task) it tries to solve / optimize / control / achieve. Gym allows us to easily benchmark RL algorithms on a range of different environments. It also allows us to more easily build on others work, and share our own work (i.e. on Github). Because when I implement something as a Gym Environment, others can then immediately apply their algorithms on it, and vice versa.</p>
+<p>In this blogpost, we solve a famous decision problem called “Jack’s Car Rental” by first turning it into a Gym environment and then use a RL algorithm called “Policy Iteration” (a form of “Dynamic Programming”) to solve for the optimal decisions to take in this environment.</p>
+<p>The Gym environment for Jack’s Car Rental is called <code>gym_jcr</code> and can be installed from <a href="https://github.com/gsverhoeven/gym_jcr">https://github.com/gsverhoeven/gym_jcr</a>.</p>
+<div id="jacks-car-rental-problem" class="section level1">
+<h1>Jack’s Car Rental problem</h1>
+<p>Learning Reinforcement learning (RL) as a student, means working through the famous <a href="http://incompleteideas.net/book/the-book.html">book on RL by Sutton and Barto</a>. In chapter 4, Example 4.2 (2018 edition), Jack’s Car Rental problem is presented:</p>
+<pre class="plaintext"><code>Jack’s Car Rental 
+
+Jack manages two locations for a nationwide car rental company. 
+Each day, some number of customers arrive at each location to rent cars. 
+If Jack has a car available, he rents it out and is credited $10 by 
+the national company. If he is out of cars at that location, then the 
+business is lost. Cars become available for renting the day after they 
+are returned. To help ensure that cars are available where they are 
+needed, Jack can move them between the two locations overnight, at a cost 
+of $2 per car moved. We assume that the number of cars requested and 
+returned at each location are Poisson random variables. Suppose Lambda is
+3 and 4 for rental requests at the first and second locations and 
+3 and 2 for returns. 
+
+To simplify the problem slightly, we assume that there can be no more than
+20 cars at each location (any additional cars are returned to the 
+nationwide company, and thus disappear from the problem) and a maximum 
+of five cars can be moved from one location to the other in one night. 
+
+We take the discount rate to be gamma = 0.9 and formulate this as a 
+continuing finite MDP, where the time steps are days, the state is the 
+number of cars at each location at the end of the day, and the actions 
+are the net numbers of cars moved between the two locations overnight.</code></pre>
+<p>In order to implement this MDP in Gym and solving it using DP (Dynamic Programming), we need to calculate for each state - action combination the probability of transitioning to all other states. Here a state is defined as the number of cars at the two locations A and B. Since there can be between 0 and 20 cars at each location, we have in total 21 x 21 = 441 states. We have 11 actions, moving up to five cars from A to B, moving up to five cars from B to A, or moving no cars at all. We also need the rewards <strong>R</strong> for taking action <span class="math inline">\(a\)</span> in state <span class="math inline">\(s\)</span>.</p>
+<p>Luckily for us, Christian Herta and Patrick Baumann, as part of their project <a href="https://www.deep-teaching.org/">“Deep.Teaching”</a>, created a Jupyter Notebook containing a well explained Python code solution for calculating <strong>P</strong>, and <strong>R</strong>, and published it as open source under the MIT license. I extracted their functions and put them in <code>jcr_mdp.py</code>, containing two top level functions <code>create_P_matrix()</code> and <code>create_R_matrix()</code>, these are used when the Gym environment is initialized.</p>
+</div>
+<div id="jackscarrentalenv" class="section level1">
+<h1>JacksCarRentalEnv</h1>
+<p>My approach to creating the Gym environment for Jack’s Car Rental was to take the <a href="https://gym.openai.com/envs/FrozenLake-v0/">Frozen Lake Gym environment</a>, and rework it to become JacksCarRentalEnv. I chose this environment because it has a similar structure as JCR, having discrete states and discrete actions. In addition, it is one of the few environments that create and expose the complete transition matrix <strong>P</strong> needed for the DP algorithm.</p>
+<p>There is actually not much to it at this point, as most functionality is provided by the <code>DiscreteEnv</code> class that our environment builds on. We need only to specify four objects:</p>
+<ul>
+<li>nS: number of states</li>
+<li>nA: number of actions</li>
+<li>P: transitions</li>
+<li>isd: initial state distribution (list or array of length nS)</li>
+</ul>
+<p><code>nS</code> and <code>nA</code> were already discussed above, there are 441 and 11 respectively.
+For the <code>isd</code> we simply choose an equal probability to start in any of the 441 states.</p>
+<p>This leaves us with the transitions <strong>P</strong>. This needs to be in a particular format, a <code>dictionary dict of dicts of lists, where P[s][a] == [(probability, nextstate, reward, done), ...]</code> according to the help of this class. So we take the <strong>P</strong> and <strong>R</strong> arrays created by the python code in <code>jcr_mdp.py</code> and use these to fill the dictionary in the proper way (drawing inspiration from the Frozen Lake <strong>P</strong> object :)).</p>
+<pre class="python"><code>P = {s : {a : [] for a in range(nA)} for s in range(nS)}
+
+# prob, next_state, reward, done
+for s in range(nS):
+    # need a state vec to extract correct probs from Ptrans
+    state_vec = np.zeros(nS)
+    state_vec[s] = 1
+    for a in range(nA):
+        prob_vec = np.dot(Ptrans[:,:,a], state_vec)
+        li = P[s][a]
+        # add rewards for all transitions
+        for ns in range(nS):
+            li.append((prob_vec[ns], ns, R[s][a], False))</code></pre>
+<p>And were done! Let’s try it out.</p>
+<pre class="python"><code>import matplotlib.pyplot as plt
+import numpy as np
+import pickle
+
+# Gym environment
+import gym
+import gym_jcr
+# RL algorithm
+from dp import *</code></pre>
+<pre class="python"><code># n.b. can take up to 15 s
+env = gym.make(&quot;JacksCarRentalEnv-v0&quot;) </code></pre>
+<p>So what we have?</p>
+<pre class="python"><code># print the state space and action space
+print(env.observation_space)
+print(env.action_space)
+
+# print the total number of states and actions
+print(env.nS)
+print(env.nA)</code></pre>
+<pre><code>Discrete(441)
+Discrete(11)
+441
+11</code></pre>
+<p>Let us check for state <code>s= 0</code>, for each action <code>a</code>, if the probabilities of transitioning to a new state <code>new_state</code> sum to one (we need to end up somewhere right?).</p>
+<pre class="python"><code># from state 0, for each action the probs for going to new state
+s = 0
+
+for a in range(env.nA):
+    prob = 0.0
+    for new_state in range(env.nS):
+        prob += env.P[s][a][new_state][0]
+    print(prob, end = &#39; &#39;)</code></pre>
+<pre><code>0.9999999999999992 0.9999999999999992 0.9999999999999992 0.9999999999999992 0.9999999999999992 0.9999999999999992 0.9999999999999992 0.9999999999999992 0.9999999999999992 0.9999999999999992 0.9999999999999992 </code></pre>
+<p>Close enough. Let’s run our Dynamic Programming algorithm on it!</p>
+</div>
+<div id="policy-iteration-on-jcr" class="section level1">
+<h1>Policy iteration on JCR</h1>
+<p>The <code>policy_iteration()</code> function used below is from <a href="https://github.com/gsverhoeven/hugo_source/blob/master/content/post/dp.py">dp.py</a>. This exact same code was used in a Jupyter tutorial notebook to solve the <a href="https://gym.openai.com/envs/FrozenLake-v0/">Frozen-Lake Gym environment</a>.</p>
+<p>We reproduce the results from the Sutton &amp; Barto book (p81), where the algorithm converges after four iterations. This takes about 30 min on my computer.</p>
+<pre class="python"><code>fullrun = False
+
+if fullrun == True:
+    policy, V = policy_iteration(env, gamma = 0.9)
+    with open(&#39;policy.bin&#39;, &#39;wb&#39;) as f:
+        pickle.dump(policy, f)
+    with open(&#39;values.bin&#39;, &#39;wb&#39;) as f:
+        pickle.dump(V, f)
+else:
+    with open(&#39;policy.bin&#39;, &#39;rb&#39;) as f:
+        policy = pickle.load(f)
+    with open(&#39;values.bin&#39;, &#39;rb&#39;) as f:
+        V = pickle.load(f)</code></pre>
+</div>
+<div id="plot-optimal-policy-as-a-contour-map" class="section level1">
+<h1>Plot optimal policy as a contour map</h1>
+<p>For easy plotting, we need to transform the policy from a 2d state-action matrix to a 2d state-A, state-B matrix with the action values in the cells.</p>
+<pre class="python"><code>MAX_CARS = 20
+
+def get_state_vector(a, b):
+    s = np.zeros((MAX_CARS+1)**2)
+    s[a*(MAX_CARS+1)+b] = 1
+    return s
+
+policy_map = np.zeros([MAX_CARS+1, MAX_CARS+1])
+
+for a in range(MAX_CARS+1):
+    for b in range(MAX_CARS+1):
+        state = get_state_vector(a, b)
+        s = state.argmax()
+        policy_map[a, b] = np.argmax(policy[s,:]) - 5</code></pre>
+<p>We visualize the optimal policy as a 2d heatmap using <code>matplotlib.pyplot.imshow()</code>.</p>
+<pre class="python"><code>plt.figure(figsize=(7,6))
+hmap = plt.imshow(policy_map, cmap=&#39;viridis&#39;, origin=&#39;lower&#39;)
+cbar = plt.colorbar(hmap)
+cbar.ax.set_ylabel(&#39;actions&#39;)
+plt.title(&#39;Policy&#39;)
+plt.xlabel(&quot;cars at B&quot;)
+plt.ylabel(&quot;cars at A&quot;)</code></pre>
+<div class="figure">
+<img src="/post/2020-12-30-jacks_car_rental_gym_files/2020-12-30-jacks_car_rental_gym_13_1.png" alt="Optimal policy for all states of Jack’s Car Rental" />
+<p class="caption">Optimal policy for all states of Jack’s Car Rental</p>
+</div>
+</div>
+<div id="conclusion-and-outlook" class="section level1">
+<h1>Conclusion and outlook</h1>
+<p>Conclusion: yes we can turn JCR into a Gym environment and solve it using the exact same (policy iteration) code that I had earlier used to solve the Frozen-Lake Gym environment!</p>
+<p>So now what? One obvious area of improvement is speed: It takes too long to load the environment. Also the DP algorithm is slow, because it uses for loops instead of matrix operations.</p>
+<p>Another thing is that currently the rewards that the environment returns are <strong>average expected rewards</strong> that are received when taking action <em>a</em> in state <em>s</em> . However, they do not match the actual amount of cars rented when transitioning from a particular state <em>s</em> to a new state <em>s’</em>.</p>
+<p>Finally, adding the modifications to the problem from Exercise 4.7 in Sutton &amp; Barto could also be implemented, but this complicates the calculation of <strong>P</strong> and <strong>R</strong> even further.
+For me, this is the real takeaway from this exercise: it is really hard to (correctly) compute the complete set of transition probabilities and rewards for an MDP, but it is much easier if we just need to simulate single transitions according to the MDP specification. Wikipedia has a nice paragraph on it under <a href="https://en.wikipedia.org/wiki/Markov_decision_process#Simulator_models">simulator models for MDPs</a>.</p>
+</div>

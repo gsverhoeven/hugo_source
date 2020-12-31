@@ -16,6 +16,8 @@ header:
 
 ---
 
+<link href="/rmarkdown-libs/anchor-sections/anchor-sections.css" rel="stylesheet" />
+<script src="/rmarkdown-libs/anchor-sections/anchor-sections.js"></script>
 
 
 <p>In this post, we'll explore the <a href="https://www.bupar.net">Simstudy</a> package created by <em>Keith Goldfeld</em> from New York University.</p>
@@ -144,40 +146,40 @@ def &lt;- defData(def, varname = &quot;a2&quot;,
                link=&quot;logit&quot;)</code></pre>
 <pre class="r"><code>dt &lt;- genData(1000, def)
 dt</code></pre>
-<pre><code>##       idnum nr       x1       y1  y2 xnb xCat         g1        b1 a1 a2
-##    1:     1  7 14.97976 33.05830  60  47    3 5501.03601 0.2017378  1 54
-##    2:     2  7 12.22104 31.16723  84  79    1   78.73303 0.6881783  0 16
-##    3:     3  7 12.60895 32.42309  89  49    3 4807.80863 0.9998756  1 45
-##    4:     4  7 14.96127 35.92261  58  73    3  575.54047 0.9998289  1 51
-##    5:     5  7 13.34583 37.83417  72  88    3  840.99284 0.9954889  0 58
-##   ---                                                                   
-##  996:   996  7 15.20480 36.68988  64  39    3 1530.78989 0.9999827  1 48
-##  997:   997  7 15.94276 36.55326  45  19    1  708.38563 0.9872003  1 12
-##  998:   998  7 12.44362 28.46352 107  95    3  251.67741 0.9990085  1 46
-##  999:   999  7 16.53920 38.16599  40  32    2  699.97377 0.8644852  0 21
-## 1000:  1000  7 10.44040 29.91850 157 153    3 1850.78486 0.8126965  0 47</code></pre>
+<pre><code>##       idnum nr       x1       y1  y2 xnb xCat        g1        b1 a1 a2
+##    1:     1  7 13.42048 35.98828  81  38    3  421.0279 0.8656377  0 56
+##    2:     2  7 10.00644 28.23544 139 119    3 7216.9318 0.9998675  1 42
+##    3:     3  7 17.33053 40.59627  34  29    1  234.1918 0.9999994  0  7
+##    4:     4  7 13.00988 34.93738  70  96    1  439.5746 0.9956729  0 12
+##    5:     5  7 12.97293 27.76582  83  90    3 1330.0674 0.7931669  1 54
+##   ---                                                                  
+##  996:   996  7 17.06721 37.82787  34  42    3  898.1379 1.0000000  0 55
+##  997:   997  7 13.29744 37.98693  88  71    1 2642.0243 0.9990694  0 13
+##  998:   998  7 15.93931 41.98359  39  43    3 2702.7853 0.1754883  0 49
+##  999:   999  7 13.20991 35.33711  93  99    3  876.5383 0.9902652  0 52
+## 1000:  1000  7 12.02765 34.14060  93  69    3 1883.7245 0.6375487  0 50</code></pre>
 <pre class="r"><code>summary(dt)</code></pre>
 <pre><code>##      idnum              nr          x1              y1              y2        
-##  Min.   :   1.0   Min.   :7   Min.   :10.02   Min.   :19.91   Min.   : 13.00  
-##  1st Qu.: 250.8   1st Qu.:7   1st Qu.:12.31   1st Qu.:31.42   1st Qu.: 34.75  
-##  Median : 500.5   Median :7   Median :14.66   Median :36.56   Median : 58.00  
-##  Mean   : 500.5   Mean   :7   Mean   :14.83   Mean   :36.68   Mean   : 66.12  
-##  3rd Qu.: 750.2   3rd Qu.:7   3rd Qu.:17.28   3rd Qu.:41.66   3rd Qu.: 93.25  
-##  Max.   :1000.0   Max.   :7   Max.   :20.00   Max.   :54.07   Max.   :170.00  
-##       xnb              xCat             g1                  b1           
-##  Min.   :  8.00   Min.   :1.000   Min.   :    0.249   Min.   :0.0000663  
-##  1st Qu.: 33.00   1st Qu.:1.000   1st Qu.:  325.380   1st Qu.:0.7692463  
-##  Median : 57.00   Median :2.000   Median :  920.723   Median :0.9761661  
-##  Mean   : 66.32   Mean   :2.208   Mean   : 1791.429   Mean   :0.8306563  
-##  3rd Qu.: 91.00   3rd Qu.:3.000   3rd Qu.: 2416.098   3rd Qu.:0.9997500  
-##  Max.   :246.00   Max.   :3.000   Max.   :16651.534   Max.   :1.0000000  
-##        a1             a2       
-##  Min.   :0.00   Min.   : 4.00  
-##  1st Qu.:0.00   1st Qu.:16.00  
-##  Median :0.00   Median :35.50  
-##  Mean   :0.34   Mean   :34.02  
-##  3rd Qu.:1.00   3rd Qu.:49.00  
-##  Max.   :1.00   Max.   :64.00</code></pre>
+##  Min.   :   1.0   Min.   :7   Min.   :10.01   Min.   :20.62   Min.   :  9.00  
+##  1st Qu.: 250.8   1st Qu.:7   1st Qu.:12.71   1st Qu.:32.19   1st Qu.: 32.00  
+##  Median : 500.5   Median :7   Median :14.94   Median :37.07   Median : 54.00  
+##  Mean   : 500.5   Mean   :7   Mean   :15.08   Mean   :37.24   Mean   : 63.26  
+##  3rd Qu.: 750.2   3rd Qu.:7   3rd Qu.:17.78   3rd Qu.:42.62   3rd Qu.: 88.00  
+##  Max.   :1000.0   Max.   :7   Max.   :20.00   Max.   :54.03   Max.   :166.00  
+##       xnb              xCat            g1                 b1          
+##  Min.   :  5.00   Min.   :1.00   Min.   :    2.47   Min.   :0.006775  
+##  1st Qu.: 32.00   1st Qu.:1.00   1st Qu.:  296.57   1st Qu.:0.784967  
+##  Median : 54.00   Median :3.00   Median :  857.04   Median :0.983776  
+##  Mean   : 64.83   Mean   :2.24   Mean   : 1888.41   Mean   :0.832095  
+##  3rd Qu.: 89.00   3rd Qu.:3.00   3rd Qu.: 2499.38   3rd Qu.:0.999804  
+##  Max.   :217.00   Max.   :3.00   Max.   :20830.34   Max.   :1.000000  
+##        a1              a2       
+##  Min.   :0.000   Min.   : 3.00  
+##  1st Qu.:0.000   1st Qu.:15.00  
+##  Median :0.000   Median :42.00  
+##  Mean   :0.361   Mean   :34.74  
+##  3rd Qu.:1.000   3rd Qu.:50.00  
+##  Max.   :1.000   Max.   :64.00</code></pre>
 </div>
 </div>
 <div id="lets-make-a-synthetic-bostonhousing" class="section level1">
