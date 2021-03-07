@@ -1,0 +1,26 @@
+---
+title: "Azure cloud"
+author: "Gertjan Verhoeven"
+date: "1/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Time to explore what the cloud is all about.
+Our goal is to set up a Virtual Machine running Windows 10, and install tinytex on it.
+To make this happen, we need it to have an IP, and we need disks.
+
+* Subscription
+* VM<
+
+Access will be through RDP (Remote Desktop Protocol). Ubuntu provides the `Remmina` software for this.
+
+# Getting access
+
+We start with creating a free account on Azure. This comes with 170 Euro free credit to spent within a month.
+  
+
+# Cost (81 euro p/m D2 v2)
