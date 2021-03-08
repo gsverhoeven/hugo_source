@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# NOTE TO SELF: ARGUMENT $1 DOES NOT WORK CHECK COMMITS ON GITHUB
+
 #echo 'building site with blogdown'
 #Rscript --verbose build_site.R
 
