@@ -1,0 +1,153 @@
+---
+title: "My current workflow for writing scientific papers"
+author: "Gertjan Verhoeven"
+date: '2021-05-02'
+summary: This blog post describes a sequence of 9 steps to set up a reproducible workflow for scientific writing based on open-source tooling. It boils down to writing the manuscript in Rmarkdown, and using a set of auxiliary tools to manage citations and output to Word to share with collaborators and to prepare the final document for submission to the journal.
+slug: zotero-rmarkdown-csl
+draft: no
+categories: 
+  - Scientific writing
+tags:
+  - Zotero
+  - Rmarkdown
+  - Better bibtex
+baseurl: https://gsverhoeven.github.io
+header:
+  image: headers/wilhelm-gunkel-di8ognBauG0-unsplash.jpg
+  preview: no
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+(This blog post is mainly for my future self, and for people that ask me about my workflow for scientific papers.
+Please contact me if you spot ways to improve this!)
+
+This blog post describes a sequence of 9 steps to set up a reproducible workflow for scientific writing based on open-source tooling. It boils down to writing the manuscript in Rmarkdown, and using a set of auxiliary tools to manage citations and output to Word to share with collaborators and to prepare the final document for submission to the journal.
+
+# Step 1: Choose the target journal
+
+First step is to check what the constraints of the journal are where we want to submit.
+Do they have a particular word count? Do they have a particular format for the abstract? etc.
+Go to the target journal, and download the author instructions.
+Because author instructions are typically **REALLY** boring to read, a quick visual way to find out whats needed is to download a few **recent** (because change is the only constant), **open access** (no fuss with paywalls etc), and **highly cited** (this must mean they did something right with their paper, right?) example papers.
+
+# Step 2: Install reference manager Zotero
+
+Zotero is THE open source reference manager.
+Source code on Github, check, cross-platform, check, 4K stars on Github, check.
+Another cool feature is that your references library is stored online, and your local Zotero install synchronizes with it, so you no longer need to move around library files.
+Go to [the Zotero website](zotero.org) to download, install and configure Zotero.
+(This includes creating a Zotero account for online storage of your references)
+
+# Step 3: Save citations to Zotero from your browser
+
+The easiest way to fill your Zotero library is to use a browser plugin.
+I use Firefox on Linux, so I installed the [Zotero Firefox connector](https://www.zotero.org/download/).
+Once this is installed, I use Google scholar to look up papers I want to cite.
+To add a paper to the Zotero library, make sure to have Zotero open, then click on a paper in Google Scholar to go to that paper's web site (Typically the Publishers website for the journal).
+Finally, click the icon in the browsers top right top corner ("Save to zotero").
+Repeat ad nauseam.
+
+# Step 4: Create stable citation keys
+
+While writing our papers, we want short but recognizable identifier keys for our citations.
+For this we use the "Better BibTex for Zotero" Add-on.
+Go to [the Better Bibtex website](https://retorque.re/zotero-better-bibtex/installation/) and follow the installation instructions.
+
+In the Zotero preferences (Better bibtex tab), I changed the "Citation Key Format" to create keys like `verhoeven_etal20`.
+
+    [auth.etal:lower:replace=.,_][>0][shortyear]|[veryshorttitle][shortyear]
+
+(This snippet comes from [Dewey Dunnington's blog](https://fishandwhistle.net/post/2020/getting-started-zotero-better-bibtex-rmarkdown/))
+
+This should automatically create / update all the citations keys in Zotero.
+
+# Step 5: Rstudio, Rmarkdown and all that
+
+Rstudio is where we actually write the paper.
+We use the `.Rmd` Rmarkdown format.
+This format consists of a YAML header, followed by a body that consists of Markdown formatted text with optional code chunks, figures and tables interspersed.
+Version control is through [Git](https://git-scm.com/book/en/v2/Getting-Started-About-Version-Control).
+
+Important thing to check: make sure that your `.Rmd` file uses UTF-8 encoding.
+In Rstudio, `File --> Save with Encoding --> UTF-8` can set this straight if somehow you ended up with a file in the wrong encoding.
+
+Check the [Rstudio website](https://rmarkdown.rstudio.com/authoring_quick_tour.html) for more info on Rmarkdown.
+
+**Note** The latest version of Rstudio (1.4) contains a new editing mode for Rmarkdown, "the visual markdown editor", that contains support for inserting citations from Zotero. I am not sure yet whether I like this, and noted that on my system, it was still buggy, and the editor, when invoked, makes **CHANGES** to the markdown code. Brrr. Therefore, this blog post does not make use of this new feature.
+
+# Step 6: Connecting Rstudio to Zotero
+
+Hold on, almost there. We're in Rstudio, and writing our paper.
+Now comes the moment where we want to cite something! 
+Now we need a connection to Zotero. There are two Rstudio Addins that compete for this functionality, `citr` and `rbbt`.
+Both packages are not on CRAN and therefore need to be installed from Github. 
+I tried them both out, and went for `rbbt` as `citr` does not support CSL-JSON and `rbbt` appears slightly leaner.
+
+```{r eval = FALSE}
+remotes::install_github("paleolimbot/rbbt")
+```
+
+After installing and restarting Rstdio, the `rbbt` addin can be found under `Addins`.
+Now since citing stuff is a common activity while writing a paper, we want a keyboard shortcut for this.
+I put it under `CTRL + K` where K stand for errr, Knowledge ?
+
+To bind `rbbt` to a particular keyboard shortcut, do the following:
+First, in RStudio, choose `Tools --> Modify Keyboard Shortcuts`.
+Type `zotero` to filter out the Zotero plugin.
+Click on the 'Shortcut' field for the 'Insert Zotero citation' addin row, and type the desired shortcut keys.
+
+In Rstudio, we can now press CTRL+K, type the name of the first author, select the citation, press enter, and have the citation key added to our `.Rmd` document.
+
+# Step 7: Creating the bibliography
+
+Now that we have an Rmarkdown document filled with citation keys that references citations in Zotero, we still need one more thing, and that is to create the actual `.bib` or `.json` file containing the cited references.
+
+Here I describe the simplest approach.
+We go to Zotero and export all the references using "Export Collection" , and choosing `CSL JSON`, save the file as `references.json` in the same folder as your Rmd paper.
+CSL-JSON is an emerging standard that is recommended by Yihui Xie, author of Rmarkdown.
+
+In Rstudio, we add to following line to our YAML header:
+
+```
+bibliography: references.json
+```
+
+`rbbt` has the functionality to automatically create a bib/json file that ONLY contains the references that are cited in the Rmd document. I haven't tested this yet, but this would be the icing on the cake. Instructions for this are on the [rbbt Github page](https://github.com/paleolimbot/rbbt).
+
+# Step 8: Getting the references in the proper format
+
+At this point, we can `knit` our Rmarkdown document, and it will contain the cited references appended at the end of the HTML/PDF/Word generated output document.
+
+However, the references are (most likely) not yet properly formatted for the journal we want to send it to.
+For example, the journal "Health Services Research" want the references in the main text to be numbered, and the reference list sorted in the order of appearance, and formatted according the APA format (whatever that is).
+
+Luckily for us, enter the [Citation Style Language project](https://citationstyles.org/).
+They created a common standard, CSL, and a crowdsourced repository, that contains more than 10.000 free citation styles.
+All we need to do is grab the CSL file for our target journal!
+
+Go to the [Zotero Style Repository](https://www.zotero.org/styles) , search for the target journal name (in my case Health Services Research) and click on the result. This downloads a CSL file that we add to our Git repo containing the manuscript.
+
+# Step 9: Make Rstudio output to Word for our collaborators
+Still here? Great. Now we are ready for the final step.
+This one is for our collaborators, who we feel sorry for, because the miss out on all the Rmarkdown fun, and need to work with software like Microsoft Word. And for some journals, that force us to submit our manuscript as a Word file.
+
+In Rstudio, we add the following code to the YAML header:
+
+```
+output:
+  word_document:
+    reference_docx: style_template.docx
+```
+
+This tells Rmarkdown to use the Word formatting styles contained in the style_template.docx file.
+For me, this contains at the moment three things: A4 page size, double line spacing, and numbered lines.
+
+Follow the instructions by [Rstudio](https://rmarkdown.rstudio.com/articles_docx.html) to make this template.
+In short, you let Rstudio's pandoc generate a Word document from a `.Rmd` file, and tweak the formatting styles of that document. Name the document `style_template.docx` and keep it with your `.Rmd` manuscript.
+I can confirm that this also works when you edit this document using LibreOffice / OpenOffice.
+
+The great thing, now I have this blog post, I can forget about all this stuff, and finally get to the scientific writing part! 
