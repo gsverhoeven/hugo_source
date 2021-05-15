@@ -1,0 +1,72 @@
+---
+title: "COVID-19 rapid test kits: how reliable are they?"
+author: "Gertjan Verhoeven"
+date: '2021-03-07'
+summary: This blog post is about COVID-19 rapid test.
+slug: covid_test_reliability
+draft: no
+categories: 
+  - Statistics
+tags:
+  - COVID-19
+baseurl: https://gsverhoeven.github.io
+header:
+  image: headers/ryan-fishel-xm9NIbVD-8E-unsplash_ed.png
+  preview: no
+---
+
+For starters, I LOVE measurement. It is where learning starts, with technology involved, and models. 
+At home, we now have a box of Roche `SARS-CoV-2 Rapid Antigen Test Nasal`.
+Many people are suspicious about the reliability of rapid self-tests, so I decided to check it out.
+My starting point is the leaflet that came with the box.
+The cool thing is that it contains the results of an experiment on 547 persons. PCR test results are compared with the antigen test results. The not so cool thing is that it does not contain a reference to the actual study.
+After googling a bit, I came across a [Roche presentation](SARS-CoV-2-Rapid-Antigen-Assay-Clinical-Performance-2021.02.pdf) that contains more information (in fact, a LOT more information), which led me to the actual publication of the results contained in the leaflet. The paper, called `Diagnostic accuracy of two commercial SARS-CoV-2 antigen-detecting rapid tests at the point of care in community-based testing centers` was published in march of this year in [Plos One](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0248921).
+
+
+# The basics of SARS testing
+
+So to check whether the rapid antigen test works well, it is compared to results from the **PCR test**, this is considered the gold standard. PCR (Polymerase Chain Reaction) can amplify really low quantities of viral material in the sample. The amount of *cyles* needed to reach a threshold of signal can be used to get an estimate of the **viral load** in the sample. The **viral load** is a function of time since infection. It increases up until day 5, after which it decreases again (ref Stan github). (The quality / quantity of the sample (nose, deep nose, throat etc)) also matters, we ignore this for now.
+
+Uitgaande van correct afgenomen monsters stijgt de sensitiviteit van 0% op moment van overdracht van het virus tot circa 30% 4 dagen later en 60% op moment van ontstaan klachten op dag 5 na besmetting. Daarna stijgt de sensitiviteit door tot circa 80% op dag 8 na besmetting waarna de sensitiviteit langzaam afneemt tot circa 30% 21 dagen na infectie.
+
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7240870/
+
+Over the 4 days of infection before the typical time of symptom onset (day 5), the probability of a false-negative result in an infected person decreases from 100% (95% CI, 100% to 100%) on day 1 to 67% (CI, 27% to 94%) on day 4, although there is considerable uncertainty in these numbers. On the day of symptom onset, the median false-negative rate was 38% (CI, 18% to 65%) (Figure 2, top). This decreased to 20% (CI, 12% to 30%) on day 8 (3 days after symptom onset) then began to increase again, from 21% (CI, 13% to 31%) on day 9 to 66% (CI, 54% to 77%) on day 21.
+
+https://github.com/HopkinsIDD/covidRTPCR
+We use Stan for this analysis.
+
+# Antigen Test: Klinische evaluatie
+
+De klinische prestatie van de `SARS-CoV-2 Rapid Antigen Test Nasal` voor zelftesten door patiënten werd beoordeeld met behulp van neusuitstrijkjes van 146 proefpersonen in een prospectieve studie in een klinisch centrum in Berlijn. 
+
+138 monsters hiervan werden genomen binnen 7 dagen na het begin van de symptomen. Het studiecohort bestond uit symptomatische volwassenen (in de leeftijd van 18 tot 68 jaar) bij wie een klinisch vermoeden aanwezig was van  een  SARS-CoV-2-infectie.  Deelnemers  aan  de  studie  volgden schriftelijke  en  geïllustreerde  instructies  om  een  neusuitstrijkje  te nemen en de test zelf uit te voeren. Het nemen van het monster en de uitvoering van de test werden zonder tussenkomst geobserveerd door medische professionals. PCR-tests met gecombineerde nasofaryngeale/orofaryngeale uitstrijkjes werden gebruikt als vergelijkingsmethoden. De nasale monsterafname ging altijd vooraf aan de gecombineerde NF/OF-monsterafname. SARS-CoV-2-infectie werd gediagnosticeerd bij 27,4% van de patiënten (gebruikmakend van PCR). 
+
+https://www.medrxiv.org/content/10.1101/2020.11.12.20230292v1.full.pdf+html
+
+De klinische prestaties van de SARS-CoV-2 Rapid Antigen Test Nasal zijn eveneens beoordeeld voor professionele zelfafname of professionele afname van neusuitstrijkjes in hetzelfde klinische centrum. 468 volwassenen bij wie een klinisch vermoeden bestond van een SARS-CoV-2-infectie werden prospectief geïncludeerd. 179 deelnemers aan de studie (155 van hen binnen 7 dagen na het begin van de symptomen) ondergingen een nasale monsterafname door medisch geschoold personeel. 289 deelnemers aan de studie (van wie 244 binnen 7 dagen na het begin van de symptomen) volgden schriftelijke instructies voor het zelf afnemen van een neusuitstrijkje. De afname door de patiënten zelf werd uitgevoerd onder toezichtvan professionele zorgverleners zonder tussenkomst. PCR-tests met gecombineerde nasofaryngeale/orofaryngeale uitstrijkjes werden gebruikt als vergelijkingsmethoden. De nasale monsterafname ging altijd vooraf aan de gecombineerde NF/OF-monsterafname.
+
+# Testgevoeligheid en -specificiteit
+
+In de zelfteststudie identificeerde de Rapid Antigen Test Nasal 82,5%(CI: 67,2% - 92,7%) van de geïnfecteerde mensen en 100,0% (CI: 96,5% - 100,0%) van de niet-geïnfecteerde mensen correct. Als de test werd uitgevoerd binnen de eerste 5 dagen na het begin van de symptomen, identificeerde de test 86,2% (CI: 68,3% - 96,1%) van dedoor een PCR-test geïdentificeerde geïnfecteerde personen correct.Dit betekent dat van de 100 werkelijk geïnfecteerde patiënten de test 83 geïnfecteerde patiënten detecteert. Als de test wordt uitgevoerd binnen 5 dagen na het begin van de symptomen, identificeert de test86 van de 100 geïnfecteerde patiënten correct.Voor monsters van patiënten genomen binnen 7 dagen na het begin van de symptomen resulteert samengevat in de volgende gepoolde prestatiebeoordeling van de test van de drie hierboven beschreven studiecohorten. De test toonde een gevoeligheid van 83,3% en een specificiteit van 99,1%.
+
+Samenvatting van alle patiëntmonsters binnen 7 dagen na het begin van de symptomen:
+
+PCR positiefPCR negatiefTotaalAntigeen positief85489Antigeen negatief17431448Totaal102435537Gevoeligheid83.3% (95%CI: 74.7% - 90.0%)Specificiteit99.1% (95%CI: 97.7% - 99.7%)
+
+537 = 138 + 155 + 244
+
+Het is onwaarschijnlijk dat u COVID-19 heeft
+5 out of 6 (83%)
+
+# limit of detection, detectielimiet
+De LoD werd bepaald door het testen van een verdunningsreeks van kunstmatige positieve monsters als 9,25 x 101,2 TCID50/ml voor directe neusuitstrijkjes.
+
+https://www.cochranelibrary.com/cdsr/doi/10.1002/14651858.CD013705.pub2/pdf/full
+
+# Authors' conclusions
+Antigen tests vary in sensitivity. In people with signs and symptoms of COVID-19, sensitivities are highest in the first week of illness whenviral loads are higher. The assays shown to meet appropriate criteria, such as WHO's priority target product profiles for COVID-19 diagnostics(‘acceptable’ sensitivity ≥ 80% and specificity ≥ 97%), can be considered as a replacement for laboratory-based RT-PCR when immediate
+
+https://www.medrxiv.org/content/10.1101/2020.11.18.20234104v1
+
+https://diagnostics.roche.com/nl/en/antigeentest.html
