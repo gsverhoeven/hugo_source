@@ -15,58 +15,270 @@ header:
   preview: no
 ---
 
-For starters, I LOVE measurement. It is where learning starts, with technology involved, and models. 
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+With this post, I'd like to join the swelling ranks of amateur epidemiologists :)
+
+# The Roche rapid Antigen Test
+
+For starters, I LOVE measurement. It is where learning from data starts, with technology involved, and models. 
 At home, we now have a box of Roche `SARS-CoV-2 Rapid Antigen Test Nasal`.
 Many people are suspicious about the reliability of rapid self-tests, so I decided to check it out.
-My starting point is the leaflet that came with the box.
-The cool thing is that it contains the results of an experiment on 547 persons. PCR test results are compared with the antigen test results. The not so cool thing is that it does not contain a reference to the actual study.
-After googling a bit, I came across a [Roche presentation](SARS-CoV-2-Rapid-Antigen-Assay-Clinical-Performance-2021.02.pdf) that contains more information (in fact, a LOT more information), which led me to the actual publication of the results contained in the leaflet. The paper, called `Diagnostic accuracy of two commercial SARS-CoV-2 antigen-detecting rapid tests at the point of care in community-based testing centers` was published in march of this year in [Plos One](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0248921).
+
+The kit is distributed by Roche, but manufactured in South Korea by a company called SD Biosensor.
+The leaflet contains information on the **sensitivity** (does it detect COVID when you are infected) and **specificity** of the test
+(does it ONLY detect COVID, or also other flu types or even unrelated materials). 
+
+These metrics are calculated from aggregated data gathered in three experiments on in total 547 persons. After googling a bit, I found out that the experiments were performed in a famous University hospital in Berlin [Charité](https://de.wikipedia.org/wiki/Charit%C3%A9). After googling a bit more and mailing with one of the involved reseachers, Prof. Andreas Lindner, I got a list of papers that describe the research mentioned in the leaflet.
+All three studies are studies by researchers not affiliated or financed by Roche or SD biosensor.
+This increases the trustworthiness of the findings. 
+
+The cool thing is that the three papers contain the raw data. The not so cool thing is that data is **not machine readable**. 
+With a combination of manual tweaking / find-replace and some coding, I tidied the data of the three studies in a single `tibble` data frame. You can grab the code and data from my [github](url_to_data).
+
+```{r}
+library(tidyverse)
+library(yardstick)
+
+source("sars_test/dataprep_roche_test.R")
+
+source("sars_test/dataprep_roche_test_leaflet.R")
+```
+
+# PCR as the golden, but imperfect standard for COVID-19 testing
+
+We want to find if somebody is infected, if somebody is `COVID-19 positive`.
+
+The gold standard to find this out is by using a **PCR test**. 
+
+However, even a PCR test does not detect all infected people all the time. The ability of a test to detect COVID when it is present is called the  **sensitivity**. This depends on how much of the virus is present at the location where the sample (i.e. nose swab) is taken. 
+
+The **viral load** is a function of time since infection. On the first day of the infection, because the viral load is so small, virtually 0% of all infections are detected. Because the viral load increases, the detection percentage increases to ~50% after 5 days (typical first day of symptom onset), and to ~80% after 8 days, after which it decreases again to ~30% 21 days after infection. 
+
+If you want to know more about the ability of PCR to detect COVID go check out [the covidRTPCR Github repository](https://github.com/HopkinsIDD/covidRTPCR). It is completely awesome, with open data, open code, and Bayesian statistics using [Stan](https://mc-stan.org/)!
+
+# Antigen tests as a low-tech, faster alternative for PCR
+
+To do the PCR test you need a lab with PCR devices, pipets, and some time, as the process takes at least a few hours to complete.
+The promise of antigen tests, such as the kit from Roche, is to have a low-tech, faster alternative.
+But the comes at a cost, the antigen tests are less sensitive.
+How much less? To check this, we compare it to results from the **PCR test**.
+
+The PCR test not only measures if someone is infected, it also provides an estimate of the viral load in the sample.
+How does this work? 
+
+PCR (Polymerase Chain Reaction) can amplify really low quantities of viral material in a biological sample. The amount of cycles of the PCR device needed to reach a threshold of signal is called the cycle threshold or **Ct value**. The less material we have in our sample, the more cycles we need to amplify the signal to reach a certain threshold. On the log scale, this gives us a linear inverse (negative) relationship between **ct_value** and **viral_load**. 
+
+```{r}
+set.seed(123)
+ggplot(df_pcr_pos, aes(x = ct_value, y = viral_load, color = factor(pcr_assay_type))) + 
+  geom_point() + ggtitle("Calibration curves for viral load")
+
+```
+This plot shows that `viral_load`  is directly derived from the `ct_value`.
+PCR Ct values of > 35 are considered as the threshold value for detecting a COVID infection using the PCR test.
+
+Take some time to appreciate the huge range difference in the samples on display here.
+From only 10.000 viral particles ($log_{10}{(10^4)} = 4$ ) to almost 1 billion ($log_{10}{(10^9)} = 9$ ) particles.
+
+We can also see that for each separate PCR assay (test type) a separate conversion formula is used to obtain the estimated viral load.
+The missings for `pcr_assay_type` are because for two of three datasets, it was difficult to extract this information from the PDF file. From the plot, we can conclude that for these datasets, the same assays were used since the values map onto the same two calibration lines.
+
+# Where do we get our specimen from?
+
+Ok, so PCR can measure the amount of virus in the sample.
+But does that tell us how much virus the person carries with him? 
+No, it tells us how much virus was in the sample we did the test on.
+And that brings us to the way we obtain our sample.
+
+There are many ways to obtain a sample from a person. 
+We have spit, saliva, or we can take swab from the nose ("nasal") or from the throat ("oral").
+The most unpleasement measurement is from the "nasopharynx", this is that part of the throat that can be reached *through* the nose.
+The Roche antigen test is a **nasal** test. The dataset for the blog post compares **nasal** samples (a mix of self taken samples (studies 1 and 3) and professionally taken samples (study 2))  applied to the test kit, to PCR-tested **nasopharyngeal** samples taken by professionals.
+
+## The dataset
+
+The dataset contains, for each PCR positive patient:
+
+* ct_value
+* viral_load (through the calibration curve)
+* days_of_symptoms
+* mm_value (Result of the antigen test measurement)
+
+Let's start by checking the raw percentage of antigen test measurements that are positive as well. This is called the **sensitivity**.
+
+```{r}
+res <- df_pcr_pos %>%
+  summarize(sensitivity = mean(mm_value), 
+            N = n())
+
+res
+```
+So for all PCR positive samples, `r res$sensitivity * 100` % is positive as well.
+This means that, on average, if we would use the antigen test kit, we have a one in five (20%) probability of not detecting COVID-19, compared to when we would have used the method used by test centers operated by the public health agencies.
+
+Let's postpone evaluation of this fact for a moment and look a bit closer at the data.
+For example, we can example the relationship between viral load and a positive antigen test result:
+
+```{r}
+set.seed(123)
+ggplot(df_pcr_pos, aes(x = viral_load, y = mm_value)) + geom_jitter(height = 0.1) +
+  geom_smooth() + geom_vline(xintercept = c(5.7, 7), col = "red")
+
+```
+From this plot, we can see that the probability of obtaining a False negative result (`mm_value` of 0) on the Antigen test decreases as the viral load increases. From the data, it looks like for the antigen test starts to work about half of the time, we need around $5 \cdot 10^5$ viral particles, and for it to work reliably, we need around $10^7$ particles. 
+
+For high viral loads, above $10^7$ particles, the probability of a false negative result is only a few percent:
+
+```{r}
+df_pcr_pos %>% filter(viral_load >= 7) %>%
+  summarize(sensitivity = mean(mm_value), 
+            N = n())
+```
+
+# Viral loads varies with days of symptoms
+
+Above, we already discussed that the viral load varies with the time since infection.
+We can check this by plotting the `days_of_symptoms` versus `viral_load`:
+
+```{r}
+ggplot(df_pcr_pos, aes(x = days_of_symptoms, y = viral_load)) + 
+  geom_smooth() + expand_limits(x = -4) + geom_vline(xintercept = 1, linetype = "dashed") +
+  geom_vline(xintercept = c(3, 7), col = "red") + geom_hline(yintercept = 7, col = "grey", linetype = "dashed") +
+  geom_jitter(height = 0, width = 0.2) 
+
+```
+From this plot, we learn that the viral load is highest on the onset of symptoms day (typically 5 days after infection) and decreases afterwards. When evaluating rapid antigen tests, sometimes thresholds for days of symptoms are used, for example <= 3 days or <= 7 days (plotted in red). It makes sense to have a threshold, since the viral load decreases as the immune system attacks the virus and removes the particles.
+
+If we want to use the antigen test **INSTEAD** of taking a PCR test, we don't have information on the viral load. What we often do have is the days since symptoms, and we know that in the first few days of symptoms viral load is highest. 
+
+Let us see how sensitive the antigen test is for this subgroup:
+
+```{r}
+res <- df_pcr_pos %>%
+  filter(days_of_symptoms <= 3) %>%
+  summarize(sensitivity = mean(mm_value), 
+            N = n())
+
+res
+```
+The sensitivity in this subgroup is increased to `r res$sensitivity * 100` %.
+Now only 1 in 7 cases is missed by the antigen test. We return to this fact at the end of the blog.
+
+# Specificity
+
+So far, the discussion centered around the *sensitivity* of the test.
+Equally important is the **specificity** of the test. This quantifies if the test result of the antigen test is specific for COVID-19. It would be bad if the test would also show a result for other virusses, or even unrelated molecules.
+
+To examine this, we use the data supplied on the leaflet from the kit, `df_leaflet`.
+This is a 2x2 matrix describing for each sample one of four possibilities:
+Both negative, both positive, pcr positive but antigen negative, pcr negative but antigen positive.
+
+We use the `yardstick` package of R`s `tidymodels` family to create the table and analyze the specificity.
 
 
-# The basics of SARS testing
+```{r fig.width = 3, fig.height = 3}
+cm <- yardstick::conf_mat(df_leaflet, pcr_result, ag_result)
 
-So to check whether the rapid antigen test works well, it is compared to results from the **PCR test**, this is considered the gold standard. PCR (Polymerase Chain Reaction) can amplify really low quantities of viral material in the sample. The amount of *cyles* needed to reach a threshold of signal can be used to get an estimate of the **viral load** in the sample. The **viral load** is a function of time since infection. It increases up until day 5, after which it decreases again (ref Stan github). (The quality / quantity of the sample (nose, deep nose, throat etc)) also matters, we ignore this for now.
+autoplot(cm, type = "heatmap")
+```
 
-Uitgaande van correct afgenomen monsters stijgt de sensitiviteit van 0% op moment van overdracht van het virus tot circa 30% 4 dagen later en 60% op moment van ontstaan klachten op dag 5 na besmetting. Daarna stijgt de sensitiviteit door tot circa 80% op dag 8 na besmetting waarna de sensitiviteit langzaam afneemt tot circa 30% 21 dagen na infectie.
+```{r}
+yardstick::spec(df2, pcr_result, ag_result)
+```
 
-https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7240870/
+This matches exactly with those mentioned on the leaflet.
 
-Over the 4 days of infection before the typical time of symptom onset (day 5), the probability of a false-negative result in an infected person decreases from 100% (95% CI, 100% to 100%) on day 1 to 67% (CI, 27% to 94%) on day 4, although there is considerable uncertainty in these numbers. On the day of symptom onset, the median false-negative rate was 38% (CI, 18% to 65%) (Figure 2, top). This decreased to 20% (CI, 12% to 30%) on day 8 (3 days after symptom onset) then began to increase again, from 21% (CI, 13% to 31%) on day 9 to 66% (CI, 54% to 77%) on day 21.
+## So what about confidence intervals?
 
-https://github.com/HopkinsIDD/covidRTPCR
-We use Stan for this analysis.
+Lets do the bootstrap / resampling thing.
+Since we created the data as a microdata, this is now easy to implement.
 
-# Antigen Test: Klinische evaluatie
+We just sample with replacement, and calculate the sensitivity and specificity on the samples:
 
-De klinische prestatie van de `SARS-CoV-2 Rapid Antigen Test Nasal` voor zelftesten door patiënten werd beoordeeld met behulp van neusuitstrijkjes van 146 proefpersonen in een prospectieve studie in een klinisch centrum in Berlijn. 
+```{r}
+fullrun <- 0
+set.seed(123)
 
-138 monsters hiervan werden genomen binnen 7 dagen na het begin van de symptomen. Het studiecohort bestond uit symptomatische volwassenen (in de leeftijd van 18 tot 68 jaar) bij wie een klinisch vermoeden aanwezig was van  een  SARS-CoV-2-infectie.  Deelnemers  aan  de  studie  volgden schriftelijke  en  geïllustreerde  instructies  om  een  neusuitstrijkje  te nemen en de test zelf uit te voeren. Het nemen van het monster en de uitvoering van de test werden zonder tussenkomst geobserveerd door medische professionals. PCR-tests met gecombineerde nasofaryngeale/orofaryngeale uitstrijkjes werden gebruikt als vergelijkingsmethoden. De nasale monsterafname ging altijd vooraf aan de gecombineerde NF/OF-monsterafname. SARS-CoV-2-infectie werd gediagnosticeerd bij 27,4% van de patiënten (gebruikmakend van PCR). 
+spec_vec <- c()
+sens_vec <- c()
 
-https://www.medrxiv.org/content/10.1101/2020.11.12.20230292v1.full.pdf+html
+n <- 1e4 # 100s
 
-De klinische prestaties van de SARS-CoV-2 Rapid Antigen Test Nasal zijn eveneens beoordeeld voor professionele zelfafname of professionele afname van neusuitstrijkjes in hetzelfde klinische centrum. 468 volwassenen bij wie een klinisch vermoeden bestond van een SARS-CoV-2-infectie werden prospectief geïncludeerd. 179 deelnemers aan de studie (155 van hen binnen 7 dagen na het begin van de symptomen) ondergingen een nasale monsterafname door medisch geschoold personeel. 289 deelnemers aan de studie (van wie 244 binnen 7 dagen na het begin van de symptomen) volgden schriftelijke instructies voor het zelf afnemen van een neusuitstrijkje. De afname door de patiënten zelf werd uitgevoerd onder toezichtvan professionele zorgverleners zonder tussenkomst. PCR-tests met gecombineerde nasofaryngeale/orofaryngeale uitstrijkjes werden gebruikt als vergelijkingsmethoden. De nasale monsterafname ging altijd vooraf aan de gecombineerde NF/OF-monsterafname.
+if(fullrun){
+  for (i in 1:n){
+    sel_vec <- sample(1:nrow(df), size = nrow(df), replace = TRUE)
+    df_sample <- df[sel_vec,]
+    spec_vec[i] <- yardstick::spec(df_sample, pcr_result, ag_result) %>% 
+      pull(.estimate)
+    sens_vec[i] <- yardstick::sens(df_sample, pcr_result, ag_result) %>% 
+      pull(.estimate)
+  }
+  saveRDS(spec_vec, "spec_vec.rds")
+  saveRDS(sens_vec, "sens_vec.rds")
+} else {
+  spec_vec <- readRDS("spec_vec.rds")
+  sens_vec <- readRDS("sens_vec.rds")
+}
 
-# Testgevoeligheid en -specificiteit
+```
 
-In de zelfteststudie identificeerde de Rapid Antigen Test Nasal 82,5%(CI: 67,2% - 92,7%) van de geïnfecteerde mensen en 100,0% (CI: 96,5% - 100,0%) van de niet-geïnfecteerde mensen correct. Als de test werd uitgevoerd binnen de eerste 5 dagen na het begin van de symptomen, identificeerde de test 86,2% (CI: 68,3% - 96,1%) van dedoor een PCR-test geïdentificeerde geïnfecteerde personen correct.Dit betekent dat van de 100 werkelijk geïnfecteerde patiënten de test 83 geïnfecteerde patiënten detecteert. Als de test wordt uitgevoerd binnen 5 dagen na het begin van de symptomen, identificeert de test86 van de 100 geïnfecteerde patiënten correct.Voor monsters van patiënten genomen binnen 7 dagen na het begin van de symptomen resulteert samengevat in de volgende gepoolde prestatiebeoordeling van de test van de drie hierboven beschreven studiecohorten. De test toonde een gevoeligheid van 83,3% en een specificiteit van 99,1%.
+## Sensitivity confidence intervals
 
-Samenvatting van alle patiëntmonsters binnen 7 dagen na het begin van de symptomen:
+Sensitivity 83.3% (95%CI: 74.7% - 90.0%)
 
-PCR positiefPCR negatiefTotaalAntigeen positief85489Antigeen negatief17431448Totaal102435537Gevoeligheid83.3% (95%CI: 74.7% - 90.0%)Specificiteit99.1% (95%CI: 97.7% - 99.7%)
+```{r message = F}
+ggplot(data.frame(spec_vec), aes(x = spec_vec)) + geom_histogram() +
+  geom_vline(xintercept = yardstick::spec(df, pcr_result, ag_result)$.estimate, col = "red")
+```
+## Specificity confidence intervals
 
-537 = 138 + 155 + 244
+Specificity 99.1% (95%CI: 97.7% - 99.7%)
 
-Het is onwaarschijnlijk dat u COVID-19 heeft
-5 out of 6 (83%)
+```{r message = F}
+ggplot(data.frame(sens_vec), aes(x = sens_vec)) + geom_histogram() +
+  geom_vline(xintercept = yardstick::sens(df, pcr_result, ag_result)$.estimate, col = "red")
+```
 
-# limit of detection, detectielimiet
-De LoD werd bepaald door het testen van een verdunningsreeks van kunstmatige positieve monsters als 9,25 x 101,2 TCID50/ml voor directe neusuitstrijkjes.
+Here we can see the effect of the finite amount of data with a resampling approach.
 
-https://www.cochranelibrary.com/cdsr/doi/10.1002/14651858.CD013705.pub2/pdf/full
+```{r}
+quantile(spec_vec, probs = c(0.025, 0.975))
+quantile(sens_vec, probs = c(0.025, 0.975))
+```
 
-# Authors' conclusions
-Antigen tests vary in sensitivity. In people with signs and symptoms of COVID-19, sensitivities are highest in the first week of illness whenviral loads are higher. The assays shown to meet appropriate criteria, such as WHO's priority target product profiles for COVID-19 diagnostics(‘acceptable’ sensitivity ≥ 80% and specificity ≥ 97%), can be considered as a replacement for laboratory-based RT-PCR when immediate
+The amount of data (N = 537) prevents us from getting an exact match to the confidence intervals based on theoretic formulas.
+But we do get pretty close.
+
+# Relationship with viral load, pooled results
+
+
+# Study 3: Marion Koopmans in Rotterdam
 
 https://www.medrxiv.org/content/10.1101/2020.11.18.20234104v1
 
-https://diagnostics.roche.com/nl/en/antigeentest.html
+# Is the model AKA the Ag test usefull?
+
+From the studies it follows that ... (super high specificity, sensitivity a function of viral load).
+This makes it a great tool to use.
+
+
+# Conclusions
+
+https://www.rivm.nl/coronavirus-covid-19/testen/zelftesten
+https://www.rivm.nl/coronavirus-covid-19/testen/antigeentest
+
+Erasmus, samen met RIVM, Igloi gekeken naar culture ook. 
+Nog een ander onderzoek dat kijkt naar speeksel.
+Toch checken de verschillende meet manieren.
+
+```
+Under certain conditions, antigen testing using self-collected swabs from the anterior nose may constitute a reliable alternative to antigen testing using nasopharyngeal swabs collected by health professionals. This is the conclusion drawn by a team of researchers from Charité – Universitäts medizin Berlin and Heidelberg University Hospital. Results from their study have been published in the European Respiratory Journal*.
+```
+
+# RIVM
+
+Het is onwaarschijnlijk dat u COVID-19 heeft
+5 out of 6 (83%)
