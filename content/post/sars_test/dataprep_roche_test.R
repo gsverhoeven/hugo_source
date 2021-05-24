@@ -11,7 +11,7 @@ library(tidyverse)
 #   The study took place at the ambulatory SARS-CoV-2 testing facility of Charité University Hospital (Charité-Universitätsmedizin Berlin, Germany) from 23 September to 14 October 2020. 
 # 
 
-# why ag_self has signal here?
+# 
 df1 <- read.csv("sars_test/dataset_n287.csv", sep = " ", header = FALSE, na.strings = "X")
 
 df1_names <- c("id", "ag_self_nmt", "ag_self_nmt_signal", "ag_prof_np", "ag_prof_np_signal", "ct_value",  "viral_load", "days_of_symptoms")

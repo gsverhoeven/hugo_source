@@ -6,12 +6,12 @@ summary: This blog post is about COVID-19 rapid test.
 slug: covid_test_reliability
 draft: no
 categories: 
-  - Statistics
+  - Statistics, R
 tags:
   - COVID-19
 baseurl: https://gsverhoeven.github.io
 header:
-  image: headers/ryan-fishel-xm9NIbVD-8E-unsplash_ed.png
+  image: headers/covid_antigen_test.png
   preview: no
 ---
 
@@ -20,6 +20,7 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 ```
 
 With this post, I'd like to join the swelling ranks of amateur epidemiologists :)
+It has been more than 10 years since i left the molecular biology lab, let's see if anything has changed.
 
 # The Roche rapid Antigen Test
 
@@ -36,7 +37,7 @@ All three studies are studies by researchers not affiliated or financed by Roche
 This increases the trustworthiness of the findings. 
 
 The cool thing is that the three papers contain the raw data. The not so cool thing is that data is **not machine readable**. 
-With a combination of manual tweaking / find-replace and some coding, I tidied the data of the three studies in a single `tibble` data frame. You can grab the code and data from my [github](url_to_data).
+With a combination of manual tweaking / find-replace and some coding, I tidied the data of the three studies into a single `tibble` data frame. You can grab the code and data from my [github](url_to_data).
 
 ```{r}
 library(tidyverse)
@@ -45,6 +46,8 @@ library(yardstick)
 source("sars_test/dataprep_roche_test.R")
 
 source("sars_test/dataprep_roche_test_leaflet.R")
+
+source("sars_test/bootstrap_conf_intervals.R")
 ```
 
 # PCR as the golden, but imperfect standard for COVID-19 testing
@@ -59,14 +62,14 @@ The **viral load** is a function of time since infection. On the first day of th
 
 If you want to know more about the ability of PCR to detect COVID go check out [the covidRTPCR Github repository](https://github.com/HopkinsIDD/covidRTPCR). It is completely awesome, with open data, open code, and Bayesian statistics using [Stan](https://mc-stan.org/)!
 
-# Antigen tests as a low-tech, faster alternative for PCR
+# Some technical stuff about PCR
 
 To do the PCR test you need a lab with PCR devices, pipets, and some time, as the process takes at least a few hours to complete.
 The promise of antigen tests, such as the kit from Roche, is to have a low-tech, faster alternative.
-But the comes at a cost, the antigen tests are less sensitive.
+But that comes at a cost, because the antigen tests are less sensitive.
 How much less? To check this, we compare it to results from the **PCR test**.
 
-The PCR test not only measures if someone is infected, it also provides an estimate of the viral load in the sample.
+The PCR test not only measures **if** someone is infected, it also provides an estimate of the viral load in the sample.
 How does this work? 
 
 PCR (Polymerase Chain Reaction) can amplify really low quantities of viral material in a biological sample. The amount of cycles of the PCR device needed to reach a threshold of signal is called the cycle threshold or **Ct value**. The less material we have in our sample, the more cycles we need to amplify the signal to reach a certain threshold. On the log scale, this gives us a linear inverse (negative) relationship between **ct_value** and **viral_load**. 
@@ -74,33 +77,96 @@ PCR (Polymerase Chain Reaction) can amplify really low quantities of viral mater
 ```{r}
 set.seed(123)
 ggplot(df_pcr_pos, aes(x = ct_value, y = viral_load, color = factor(pcr_assay_type))) + 
-  geom_point() + ggtitle("Calibration curves for viral load")
+  geom_point() + ggtitle("Calibration curves for viral load (log10 scale)")
 
 ```
-This plot shows that `viral_load`  is directly derived from the `ct_value`.
+This plot shows that `viral_load` is directly derived from the `ct_value` through a multiplication factor.
 PCR Ct values of > 35 are considered as the threshold value for detecting a COVID infection using the PCR test.
 
 Take some time to appreciate the huge range difference in the samples on display here.
 From only 10.000 viral particles ($log_{10}{(10^4)} = 4$ ) to almost 1 billion ($log_{10}{(10^9)} = 9$ ) particles.
 
 We can also see that for each separate PCR assay (test type) a separate conversion formula is used to obtain the estimated viral load.
-The missings for `pcr_assay_type` are because for two of three datasets, it was difficult to extract this information from the PDF file. From the plot, we can conclude that for these datasets, the same assays were used since the values map onto the same two calibration lines.
 
-# Where do we get our specimen from?
+(**N.b.** The missings for `pcr_assay_type` are because for two of three datasets, it was difficult to extract this information from the PDF file. From the plot, we can conclude that for these datasets, the same two assays were used since the values map onto the same two calibration lines)
+
+# Where do we get our specimen from? 
 
 Ok, so PCR can measure the amount of virus in the sample.
 But does that tell us how much virus the person carries with him? 
 No, it tells us how much virus was in the sample we did the test on.
 And that brings us to the way we obtain our sample.
 
-There are many ways to obtain a sample from a person. 
+There are many ways to obtain a sample from a person.
 We have spit, saliva, or we can take swab from the nose ("nasal") or from the throat ("oral").
-The most unpleasement measurement is from the "nasopharynx", this is that part of the throat that can be reached *through* the nose.
-The Roche antigen test is a **nasal** test. The dataset for the blog post compares **nasal** samples (a mix of self taken samples (studies 1 and 3) and professionally taken samples (study 2))  applied to the test kit, to PCR-tested **nasopharyngeal** samples taken by professionals.
+The most unpleasant measurement is from the "nasopharynx", this is that part of the throat that can be reached *through* the nose.
+Only professional health workers are thought to be able to perform *nasopharyngeal** swabs.
+
+The Roche antigen test is a **nasal** test. The dataset for the blog post compares **nasal** samples (a mix of self taken samples (studies 1 and 3) and professionally taken samples (study 2)) tested with the antigen test kit, to PCR-tested **nasopharyngeal** samples taken by professionals. 
+
+One of the studies (Study 3) shows that **nasal** samples taken by patients themselves give highly similar results compared to when professionals take them (33/40 vs 34/40 antigen vs PCR+), so for this blog post we simply pool the three studies and think of them as results that apply to self-testing by patients.
+
+# Nasopharyngeal swabs as the golden standard
+
+As I was reading up on the subject, I gradually realized that the choice to not "go deep", which is highly uncomfortable, but to stay  in the front part of the nose (up to 2 cm deep), is not so innocent.
+
+## Sample size required to detect a difference between 0.8 and 0.9 probability?
+
+But what about statistical power? From glancing at the literature (N = 40 also low power) the difference seems about 5- 10%.
+
+How big a sample do we we need to detect a difference of 10%?
+
+We can do a simple simulation to check the range of outcomes if we would compare two antigen tests, one with a sensitivity of 80%, and the other with a sensitivity of 90%, and a sample size of 40 pairs (so all 40 PCR positive, and then comparing both Ag tests):
+
+```{r}
+n_iter <- 10000
+n_sample <- 40
+probs <- c(0.80, 0.90)
+
+vec1 <- rbinom(n_iter, n_sample, probs[1])
+vec2 <- rbinom(n_iter, n_sample, probs[2])
+
+hist((vec1 - vec2)/n_sample)
+```
+We can see that the difference in sensitivity is highly uncertain, and in `r mean((vec1 - vec2)/n_sample >=0)` of the cases is the sign reversed, and the test with the lower sensitivity scores better!
+So with these sample sizes, common statistical testing will likely yield a result of hypothesis of no difference not rejected.
+We can see that papers use this to suggest that both swab methods give "similar" or "comparable" results.
+
+# Mini literature review
+
+A quick google scholar search turned up several studies that claim to show no difference or "similar" performance:
+
+* Irving et al 2012: Comparison of Nasal and Nasopharyngeal Swabs for Influenza Detection in Adults (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3494547/)
+
+Paired samples were collected from 240 adults; 33 (14%) individuals tested positive for influenza by rRT-PCR. Using rRT-PCR, the sensitivity of the nasal swab was 89% (95% CI, 78%-99%) and the sensitivity of the nasopharyngeal swab was 94% (95% CI, 87%-100%), compared to a composite gold standard.
+
+Test sensitivity did not vary significantly by swab type when using a highly sensitive molecular diagnostic test, but power was limited to detect modest differences.
+
+* Péré et al 2020: Nasal Swab Sampling for SARS-CoV-2: a Convenient Alternative in Times of Nasopharyngeal Swab Shortage (https://jcm.asm.org/content/58/6/e00721-20)
+
+Out of 37 patients that were positive for SARS-CoV-2 by nasopharyngeal swab testing, 33 also tested positive by nasal sampling.
+
+We herein report that the molecular detection of SARS-CoV-2 using nasal swab specimens was nearly equivalent to the detection using nasopharyngeal swab considered the gold standard. (**This one is really bad**)
+
+* Head-to-head comparison of SARS-CoV-2 antigen-detecting rapid test with self-collected nasal swab versus professional-collected nasopharyngeal swab
+
+The STANDARD Q Ag-RDT with NMT sampling showed a sensitivity of 74.4% (29/39 PCR positives detected; 95% CI 58.9–85.4%) and specificity of 99.2% (95% CI 97.1–99.8%) compared to RT-PCR. The sensitivity with NP sampling was 79.5% (31/39 PCR positives detected; 95% CI 64.5–89.2%) and specificity was 99.6% (95% CI 97.8–100%).
+
+And from the press release: "This study shows that supervised, self-administered swabs are no less effective than professional-collected nasopharyngeal swabs when used with the antigen test selected for this research," explains PD Dr. Denkinger.(Brrr)
+
+* Seaman et al 2019: Self-collected compared with professional-collected swabbing in the diagnosis of influenza in symptomatic individuals: A meta-analysis and assessment of validity
+
+Pooled sensitivity was 87% (95%CI:80%,92%) and specificity was 99% (95%CI:98%,100%), compared to professional-collected swabs in the diagnosis of influenza.
+
+Great, somebody did a meta-analysis!
+
+* Lee et al 2021: Performance of Saliva, Oropharyngeal Swabs, and Nasal Swabs for SARS-CoV-2 Molecular Detection: a Systematic Review and Meta-analysis
+
+While all 3 sample types independently seemed to capture lower % positives (nasal swabs 82% [95% CI 73 to 90%], OP swabs 84% [95% CI 57 to 100%] and saliva 88%[95% CI 81 to 93%]) in comparison to NP swabs, combined OP/nasal swabs in 4 studies,interestingly, had the same % positive detection rate as NP swabs (97% [95% CI 90 to100%]) (Fig. 6).
 
 ## The dataset
 
-The dataset contains, for each PCR positive patient:
+The dataset `df_pcr_pos` contains, for each PCR positive patient:
 
 * ct_value
 * viral_load (through the calibration curve)
@@ -120,15 +186,16 @@ So for all PCR positive samples, `r res$sensitivity * 100` % is positive as well
 This means that, on average, if we would use the antigen test kit, we have a one in five (20%) probability of not detecting COVID-19, compared to when we would have used the method used by test centers operated by the public health agencies.
 
 Let's postpone evaluation of this fact for a moment and look a bit closer at the data.
-For example, we can example the relationship between viral load and a positive antigen test result:
+For example, we can example the relationship between viral load and a positive antigen test result (`mm_value` = 1):
 
 ```{r}
 set.seed(123)
-ggplot(df_pcr_pos, aes(x = viral_load, y = mm_value)) + geom_jitter(height = 0.1) +
-  geom_smooth() + geom_vline(xintercept = c(5.7, 7), col = "red")
-
+ggplot(df_pcr_pos, aes(x = viral_load, y = mm_value)) + 
+  geom_jitter(height = 0.1) +
+  geom_smooth() + 
+  geom_vline(xintercept = c(5.7, 7), col = "red")
 ```
-From this plot, we can see that the probability of obtaining a False negative result (`mm_value` of 0) on the Antigen test decreases as the viral load increases. From the data, it looks like for the antigen test starts to work about half of the time, we need around $5 \cdot 10^5$ viral particles, and for it to work reliably, we need around $10^7$ particles. 
+From this plot, we can see that the probability of obtaining a False negative result (`mm_value` of 0) on the Antigen test decreases as the viral load increases. From the data, it looks like for the antigen test starts to work about half of the time, we need around $5 \cdot 10^5$ viral particles (log10 scale 5.7), and for it to work reliably, we need around $10^7$ particles ("high" viral load). 
 
 For high viral loads, above $10^7$ particles, the probability of a false negative result is only a few percent:
 
@@ -150,135 +217,126 @@ ggplot(df_pcr_pos, aes(x = days_of_symptoms, y = viral_load)) +
   geom_jitter(height = 0, width = 0.2) 
 
 ```
-From this plot, we learn that the viral load is highest on the onset of symptoms day (typically 5 days after infection) and decreases afterwards. When evaluating rapid antigen tests, sometimes thresholds for days of symptoms are used, for example <= 3 days or <= 7 days (plotted in red). It makes sense to have a threshold, since the viral load decreases as the immune system attacks the virus and removes the particles.
+From this plot, we learn that the viral load is highest on the onset of symptoms day (typically 5 days after infection) and decreases afterwards. When evaluating rapid antigen tests, sometimes thresholds for days of symptoms are used, for example <= 3 days or <= 7 days (plotted in red). 
 
 If we want to use the antigen test **INSTEAD** of taking a PCR test, we don't have information on the viral load. What we often do have is the days since symptoms, and we know that in the first few days of symptoms viral load is highest. 
+We check for both commonly used thresholds, i.e.  <= 3 days and for <= 7 days.
 
-Let us see how sensitive the antigen test is for this subgroup:
+Let us see how sensitive the antigen test is for these subgroups:
 
 ```{r}
 res <- df_pcr_pos %>%
   filter(days_of_symptoms <= 3) %>%
-  summarize(sensitivity = mean(mm_value), 
+  summarize(label = "< 3 days",
+            sensitivity = mean(mm_value), 
             N = n())
 
-res
+res2 <- df_pcr_pos %>%
+  filter(days_of_symptoms <= 7) %>%
+  summarize(label = "< 7 days",
+            sensitivity = mean(mm_value), 
+            N = n())
+
+bind_rows(res, res2)
 ```
-The sensitivity in this subgroup is increased to `r res$sensitivity * 100` %.
+The sensitivity in both subgroups is increased to `r res$sensitivity * 100` % and `r res2$sensitivity * 100` %.
 Now only 1 in 7 cases is missed by the antigen test. We return to this fact at the end of the blog.
 
 # Specificity
 
-So far, the discussion centered around the *sensitivity* of the test.
-Equally important is the **specificity** of the test. This quantifies if the test result of the antigen test is specific for COVID-19. It would be bad if the test would also show a result for other virusses, or even unrelated molecules.
+So far, the discussion centered around the **sensitivity** of the test.
+Equally important is the **specificity** of the test. This quantifies if the test result of the antigen test is specific for COVID-19. It would be bad if the test would also show a result for other viruses, or even unrelated molecules.
 
 To examine this, we use the data supplied on the leaflet from the kit, `df_leaflet`.
-This is a 2x2 matrix describing for each sample one of four possibilities:
-Both negative, both positive, pcr positive but antigen negative, pcr negative but antigen positive.
+This dataset contains for each sample one of four possibilities:
 
-We use the `yardstick` package of R`s `tidymodels` family to create the table and analyze the specificity.
+* Both tests are negative, 
+* both tests are positive, 
+* the PCR test is positive but the antigen test negative, 
+* the PCR test is negative but the antigen positive.
 
+We use the `yardstick` package of R`s `tidymodels` family to create the 2x2 table and analyze the specificity.
+
+**Overthinking**: Note that the `yardstick` package is used to quantify the performance of statistical prediction models by comparing the model predictions to the true values contained in the training data. This provides us with an analogy where the antigen test can be viewed as a model that is trying the predict the outcome of the PCR test.
 
 ```{r fig.width = 3, fig.height = 3}
+options(yardstick.event_first = FALSE)
+
 cm <- yardstick::conf_mat(df_leaflet, pcr_result, ag_result)
 
-autoplot(cm, type = "heatmap")
+autoplot(cm, type = "heatmap", title = "Truth = PCR test, Prediction = Antigen test")
 ```
+From the heatmap, we see that:
+
+* For most samples (N = 431), both tests are COVID-19 negative.
+* 85 + 17 = 102 samples tested COVID-19 positive using the PCR-test
+* 85 out of 102 samples that are PCR positive, are antigen test positive as well
+
+**N.b.** The data from the leaflet is a subset of all the data from the three studies, because the data was subsetted for cases with `<= 7 days_of_symptoms`. Above, we learned that this has a positive effect on the sensitivity of the test.
+
+For the specificity, we have to look at the samples were the PCR test is negative, but the antigen test is positive, and compare these to all the samples that are PCR-test negative. These are the number of tests where the antigen test picked up a non-specific signal. One minus this percentage gives the specificity (1 - 4/435 = 431/435):
 
 ```{r}
 yardstick::spec(df2, pcr_result, ag_result)
 ```
 
-This matches exactly with those mentioned on the leaflet.
+Thus , we find that the antigen test is highly specific, with around 1% of false positives.
 
-## So what about confidence intervals?
+# Specificity and Sensitivity: credible intervals consistent with the data
 
-Lets do the bootstrap / resampling thing.
-Since we created the data as a microdata, this is now easy to implement.
+So far, we did not discuss the sampling variability in the estimated specificity and sensitivity.
 
-We just sample with replacement, and calculate the sensitivity and specificity on the samples:
+The kit leaflet mentions the following confidence intervals:
 
-```{r}
-fullrun <- 0
-set.seed(123)
+* Sensitivity 83.3% (95%CI: 74.7% - 90.0%)
+* Specificity 99.1% (95%CI: 97.7% - 99.7%)
 
-spec_vec <- c()
-sens_vec <- c()
+The R-package `yardstick` does not yet include confidence intervals, so I generated these using bootstrapping. I calculate both metrics for 10.000 samples sampled from the raw data. For brevity I omitted the code here, go check out my Github for R script.
 
-n <- 1e4 # 100s
-
-if(fullrun){
-  for (i in 1:n){
-    sel_vec <- sample(1:nrow(df), size = nrow(df), replace = TRUE)
-    df_sample <- df[sel_vec,]
-    spec_vec[i] <- yardstick::spec(df_sample, pcr_result, ag_result) %>% 
-      pull(.estimate)
-    sens_vec[i] <- yardstick::sens(df_sample, pcr_result, ag_result) %>% 
-      pull(.estimate)
-  }
-  saveRDS(spec_vec, "spec_vec.rds")
-  saveRDS(sens_vec, "sens_vec.rds")
-} else {
-  spec_vec <- readRDS("spec_vec.rds")
-  sens_vec <- readRDS("sens_vec.rds")
-}
-
-```
-
-## Sensitivity confidence intervals
-
-Sensitivity 83.3% (95%CI: 74.7% - 90.0%)
-
-```{r message = F}
-ggplot(data.frame(spec_vec), aes(x = spec_vec)) + geom_histogram() +
-  geom_vline(xintercept = yardstick::spec(df, pcr_result, ag_result)$.estimate, col = "red")
-```
-## Specificity confidence intervals
-
-Specificity 99.1% (95%CI: 97.7% - 99.7%)
-
-```{r message = F}
-ggplot(data.frame(sens_vec), aes(x = sens_vec)) + geom_histogram() +
-  geom_vline(xintercept = yardstick::sens(df, pcr_result, ag_result)$.estimate, col = "red")
-```
-
-Here we can see the effect of the finite amount of data with a resampling approach.
+The bootstrapping approach yields the following range of plausible values given the data (95% interval):
 
 ```{r}
 quantile(spec_vec, probs = c(0.025, 0.975))
 quantile(sens_vec, probs = c(0.025, 0.975))
 ```
 
-The amount of data (N = 537) prevents us from getting an exact match to the confidence intervals based on theoretic formulas.
-But we do get pretty close.
+The amount of data (N = 537) prevents us from getting an exact match to the leaflet's confidence intervals, that are based on theoretic formulas. But we do get pretty close.
 
-# Relationship with viral load, pooled results
-
-
-# Study 3: Marion Koopmans in Rotterdam
-
-https://www.medrxiv.org/content/10.1101/2020.11.18.20234104v1
-
-# Is the model AKA the Ag test usefull?
-
-From the studies it follows that ... (super high specificity, sensitivity a function of viral load).
-This makes it a great tool to use.
+Especially for the sensitivity, there is quite some uncertainty, we see that plausible values range from 76% up to 90% *for this particular cohort of patients*.
 
 
 # Conclusions
 
+
+
+Oops, no it doesnt.
+
+
+From the studies it follows that ... (super high specificity, sensitivity a function of viral load).
+This makes it a great tool to use.
+
 https://www.rivm.nl/coronavirus-covid-19/testen/zelftesten
 https://www.rivm.nl/coronavirus-covid-19/testen/antigeentest
 
-Erasmus, samen met RIVM, Igloi gekeken naar culture ook. 
-Nog een ander onderzoek dat kijkt naar speeksel.
-Toch checken de verschillende meet manieren.
+N.b. after writing this, post, I found out that there is also a Dutch study for the Roche kit:
+https://www.medrxiv.org/content/10.1101/2020.11.18.20234104v1
+
+The big difference is that the Dutch study is about the **Deep** (Nasopharyngeal) nose test, whereas the kit we have at home is the **Anterior** nose (Nasal). The conclusions are different, the NP seems much more sensitive.
+
+
+Results: We included 970 persons with complete data. Overall sensitivity and specificity were 84.9% (CI95% 79.1-89.4) and 99.5% (CI95% 98.7-99.8) which translated into a positive predictive value of 97.5% (CI95% 94.0-99.5) under the current regional PCR positivity of 19.2%. Sensitivity for people with high loads of viral RNA (ct <30, 2.17E+05 E gene copy/ml = 5.3 on the log scale) and who presented within 7 days since symptom onset increased to 95.8% (CI95% 90.5-98.2). 
+
+
+
 
 ```
-Under certain conditions, antigen testing using self-collected swabs from the anterior nose may constitute a reliable alternative to antigen testing using nasopharyngeal swabs collected by health professionals. This is the conclusion drawn by a team of researchers from Charité – Universitäts medizin Berlin and Heidelberg University Hospital. Results from their study have been published in the European Respiratory Journal*.
-```
+# References
 
-# RIVM
+Head-to-head comparison of SARS-CoV-2 antigen-detecting rapid test with self-collected nasal swab versus professional-collected nasopharyngeal swab
+Andreas K. Lindner, Olga Nikolai, Franka Kausch, Mia Wintel, Franziska Hommes, Maximilian Gertler, Lisa J. Krüger, Mary Gaeddert, Frank Tobian, Federica Lainati, Lisa Köppel, Joachim Seybold, Victor M. Corman, Christian Drosten, Jörg Hofmann, Jilian A. Sacks, Frank P. Mockenhaupt, Claudia M. Denkinger, European Respiratory Journal 2021 57: 2003961
 
-Het is onwaarschijnlijk dat u COVID-19 heeft
-5 out of 6 (83%)
+Head-to-head comparison of SARS-CoV-2 antigen-detecting rapid test with professional-collected nasal versus nasopharyngeal swab
+Andreas K. Lindner, Olga Nikolai, Chiara Rohardt, Susen Burock, Claudia Hülso, Alisa Bölke, Maximilian Gertler, Lisa J. Krüger, Mary Gaeddert, Frank Tobian, Federica Lainati, Joachim Seybold, Terry C. Jones, Jörg Hofmann, Jilian A. Sacks, Frank P. Mockenhaupt, Claudia M. Denkinger European Respiratory Journal 2021 57: 2004430;
+
+SARS-CoV-2 patient self-testing with an antigen-detecting rapid test: a head-to-head comparison with professional testing
+Andreas K. Lindner, Olga Nikolai, Chiara Rohardt, Franka Kausch, Mia Wintel, Maximilian Gertler, Susen Burock, Merle Hörig, Julian Bernhard, Frank Tobian, Mary Gaeddert, Federica Lainati, Victor M. Corman, Terry C. Jones, Jilian A. Sacks, Joachim Seybold, Claudia M. Denkinger, Frank P. Mockenhaupt, under review, preprint on medrxiv.org
