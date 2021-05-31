@@ -1,0 +1,60 @@
+---
+title: "Untitled"
+author: "Gertjan Verhoeven"
+date: "5/30/2021"
+output: pdf_document
+---
+
+## Sample size required to detect a difference between 0.8 and 0.9 probability?
+
+But what about statistical power? From glancing at the literature (N = 40 also low power) the difference seems about 5- 10%.
+
+How big a sample do we we need to detect a difference of 10%?
+
+We can do a simple simulation to check the range of outcomes if we would compare two antigen tests, one with a sensitivity of 80%, and the other with a sensitivity of 90%, and a sample size of 40 pairs (so all 40 PCR positive, and then comparing both Ag tests):
+
+```{r}
+n_iter <- 10000
+n_sample <- 40
+probs <- c(0.80, 0.90)
+
+vec1 <- rbinom(n_iter, n_sample, probs[1])
+vec2 <- rbinom(n_iter, n_sample, probs[2])
+
+hist((vec1 - vec2)/n_sample)
+```
+We can see that the difference in sensitivity is highly uncertain, and in `r mean((vec1 - vec2)/n_sample >=0)` of the cases is the sign reversed, and the test with the lower sensitivity scores better!
+So with these sample sizes, common statistical testing will likely yield a result of hypothesis of no difference not rejected.
+We can see that papers use this to suggest that both swab methods give "similar" or "comparable" results.
+
+# Mini literature review
+
+A quick google scholar search turned up several studies that claim to show no difference or "similar" performance:
+
+* Irving et al 2012: Comparison of Nasal and Nasopharyngeal Swabs for Influenza Detection in Adults (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3494547/)
+
+Paired samples were collected from 240 adults; 33 (14%) individuals tested positive for influenza by rRT-PCR. Using rRT-PCR, the sensitivity of the nasal swab was 89% (95% CI, 78%-99%) and the sensitivity of the nasopharyngeal swab was 94% (95% CI, 87%-100%), compared to a composite gold standard.
+
+Test sensitivity did not vary significantly by swab type when using a highly sensitive molecular diagnostic test, but power was limited to detect modest differences.
+
+* Péré et al 2020: Nasal Swab Sampling for SARS-CoV-2: a Convenient Alternative in Times of Nasopharyngeal Swab Shortage (https://jcm.asm.org/content/58/6/e00721-20)
+
+Out of 37 patients that were positive for SARS-CoV-2 by nasopharyngeal swab testing, 33 also tested positive by nasal sampling.
+
+We herein report that the molecular detection of SARS-CoV-2 using nasal swab specimens was nearly equivalent to the detection using nasopharyngeal swab considered the gold standard. (**This one is really bad**)
+
+* Head-to-head comparison of SARS-CoV-2 antigen-detecting rapid test with self-collected nasal swab versus professional-collected nasopharyngeal swab
+
+The STANDARD Q Ag-RDT with NMT sampling showed a sensitivity of 74.4% (29/39 PCR positives detected; 95% CI 58.9–85.4%) and specificity of 99.2% (95% CI 97.1–99.8%) compared to RT-PCR. The sensitivity with NP sampling was 79.5% (31/39 PCR positives detected; 95% CI 64.5–89.2%) and specificity was 99.6% (95% CI 97.8–100%).
+
+And from the press release: "This study shows that supervised, self-administered swabs are no less effective than professional-collected nasopharyngeal swabs when used with the antigen test selected for this research," explains PD Dr. Denkinger.(Brrr)
+
+* Seaman et al 2019: Self-collected compared with professional-collected swabbing in the diagnosis of influenza in symptomatic individuals: A meta-analysis and assessment of validity
+
+Pooled sensitivity was 87% (95%CI:80%,92%) and specificity was 99% (95%CI:98%,100%), compared to professional-collected swabs in the diagnosis of influenza.
+
+Great, somebody did a meta-analysis!
+
+* Lee et al 2021: Performance of Saliva, Oropharyngeal Swabs, and Nasal Swabs for SARS-CoV-2 Molecular Detection: a Systematic Review and Meta-analysis
+
+While all 3 sample types independently seemed to capture lower % positives (nasal swabs 82% [95% CI 73 to 90%], OP swabs 84% [95% CI 57 to 100%] and saliva 88%[95% CI 81 to 93%]) in comparison to NP swabs, combined OP/nasal swabs in 4 studies,interestingly, had the same % positive detection rate as NP swabs (97% [95% CI 90 to100%]) (Fig. 6).

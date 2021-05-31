@@ -76,12 +76,19 @@ df3$study <- 3
 
 #For study three, we want the `ag_self_nmt` variable. nmt stands for nasal measurement.
 
+# Tech note:
+# The results for the Antigen test in the three studies are not entirely comparable:
+# For two of the studies, patients themselves took the nasal samples, in a third study professionals took the samples.
+# One of the studies (Study 3) has results that are consistent with the assumption that for anterior nose samples, the procedure is so simple that health workers can only improve very little on the results that patients themselves obtain.
+# (33/40 match with PCR vs 34/40 match with PCR for the professionals)
+# So for this blog post we simply pool the three studies and think of them as results that apply to self-testing by patients.
+
 # Merged dataset
 
-# PM add PCR negatives for days with symptoms <7 and for all days
 df_pcr_pos <- rbind(df1 %>% filter(mm_type == "ag_self_nmt"), 
             df2 %>% filter(mm_type == "ag_prof_nmt"), 
             df3 %>% filter(mm_type == "ag_self_nmt"))
+
 df_pcr_pos$mm_value <- as.integer(as.factor(df_pcr_pos$mm_value ))-1
 
 rm(df1, df2, df3, df1_names, df2_names, df3_names)
