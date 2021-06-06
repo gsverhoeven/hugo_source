@@ -19,7 +19,7 @@ header:
 knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 ```
 
-```{r}
+```{r include = FALSE}
 library(tidyverse)
 library(yardstick)
 ```
@@ -33,34 +33,39 @@ The kit is distributed by Roche, but manufactured in South Korea by a company ca
 
 So where to start? We can make a small causal model of the measurement process using [DAGitty](http://dagitty.net/dags.html?id=whqGBx):
 
-```{r}
+```{r echo = FALSE, fig.width=8, fig.height = 3}
 library(dagitty)
 
 g <- dagitty('dag {
 bb="0,0,1,1"
-Infected [exposure,pos="0.153,0.246"]
-antigen_test [outcome,pos="0.428,0.530"]
-close_contact_with_infected [pos="0.238,0.534"]
-nose_swab [pos="0.335,0.428"]
-pcr_test [outcome,pos="0.430,0.353"]
-symptoms [pos="0.294,0.249"]
-virus_buildup [pos="0.222,0.247"]
+"throat+deep_nose_swab" [pos="0.464,0.257"]
+Infected [exposure,pos="0.179,0.250"]
+antigen_test [outcome,pos="0.550,0.449"]
+close_contact_with_infected [pos="0.335,0.451"]
+decision_to_test [pos="0.394,0.357"]
+nose_swab [pos="0.463,0.451"]
+pcr_test [outcome,pos="0.548,0.257"]
+symptoms [pos="0.332,0.251"]
+virus_buildup [pos="0.261,0.249"]
+"throat+deep_nose_swab" -> pcr_test
 Infected -> virus_buildup
-close_contact_with_infected -> nose_swab
+close_contact_with_infected -> decision_to_test
+decision_to_test -> "throat+deep_nose_swab"
+decision_to_test -> nose_swab
 nose_swab -> antigen_test
-nose_swab -> pcr_test
-symptoms -> nose_swab
+symptoms -> decision_to_test
 virus_buildup -> symptoms
 }
+
 ')
 
 plot(g)
 ```
 
 It all starts with whether someone is infected. After infection, virus particles start to build up. These particles can be in the lungs, in the throat, nose etc. 
-These particles either do or do not cause symptoms. Whether there are symptoms will likely influence the decision to start a measurement (do a nose swab), but there will also be people without symptoms that will be measured (i.e. if a family member was tested positive).
+These particles either do or do not cause symptoms. Whether there are symptoms will likely influence the decision to test (do a nose swab), but there will also be people without symptoms that will be tested (i.e. if a family member was tested positive).
 
-Then given the sample, we can do either a PCR test or an antigen test.
+In the experiments we analyse, two samples were taken, one for the PCR test and one for the antigen test.
 
 To do the PCR test you need a lab with skilled people, equipment such as PCR devices and pipets, and some time, as the process takes at least a few hours to complete.
 The advantage of an antigen test, such as the kit from Roche, is to have a low-tech, faster alternative that can be self-administered.
@@ -99,7 +104,8 @@ If you want to know more about the ability of PCR to detect COVID go check out [
 
 There are many ways to obtain a sample from a person.
 
-Here the golden standard is a so-called **Nasopharyngeal swab**. This goes through your nose all the way (~ 5 cm) into the back of the throat, and is highly uncomfortable. Typically, only professional health workers perform *nasopharyngeal** swabs.
+Here the golden standard is a so-called **Nasopharyngeal swab**. This goes through your nose all the way (~ 5 cm) into the back of the throat, and is highly uncomfortable. Typically, only professional health workers perform **nasopharyngeal** swabs.
+In these experiments, this deep nose swab was combined with a swab from the throat (**oroharyngeal**). This is also how test centers in the Netherlands operated during the last year.
 
 There are various alternatives: We have spit, saliva, we can cough up "sputum" (slime from the lungs) or we can take swab from the nose ("nasal") or from the throat ("oral"). 
 
@@ -109,31 +115,37 @@ The Roche antigen test is a **nasal** test that only goes up to 2 cm in the nose
 
 Now that we have some background info, we are ready to check the data!
 
-The dataset for the blog post compares **nasal** samples tested with the Roche Antigen test kit, to PCR-tested **nasopharyngeal** samples taken by professionals. 
+The dataset for the blog post compares **nasal** samples tested with the Roche Antigen test kit, to PCR-tested **nasopharyngeal** plus **oropharyngeal** samples taken by professionals. 
 
-This blog post is possible because the three papers all contain the raw data as a table in the paper. Unfortunately, this means the data is not **machine readable**. However, with a combination of manual tweaking / find-replace and some coding, I tidied the data of the three studies into a single `tibble` data frame. You can grab the code and data from my [github](url_to_data).
+**This blog post is possible because the three papers all contain the raw data as a table in the paper. Cool!**
+Unfortunately, this means the data is not **machine readable**. However, with a combination of manual tweaking / find-replace and some coding, I tidied the data of the three studies into a single `tibble` data frame. You can grab the code and data from my [Github](https://github.com/gsverhoeven/hugo_source/tree/master/content/post/sars_test).
 
-```{r include = FALSE}
+```{r}
+# creates df_pcr_pos
 source("sars_test/dataprep_roche_test.R")
 
+# creates df_leaflet
 source("sars_test/dataprep_roche_test_leaflet.R")
 
+# see below
 source("sars_test/bootstrap_conf_intervals.R")
 ```
 
-The dataset `df_pcr_pos` contains, for each PCR positive patient:
+The dataset `df_pcr_pos` contains, for each **PCR positive** patient:
 
-* ct_value
-* viral_load (through the calibration curve)
-* days_of_symptoms
-* mm_value (Result of the antigen test measurement)
+* `ct_value`
+* `viral_load` 
+* `days_of_symptoms`
+* `mm_value` (Result of the antigen test measurement, 1 is positive, 0 is negative)
 
 To understand the PCR data, we need to know a bit more about the PCR method.
 
 ## The PCR method
 
 The PCR method not only measures **if** someone is infected, it also provides an estimate of the viral load in the sample.
-How does this work? PCR can amplify, in so-called cycles, really low quantities of viral material in a biological sample. The amount of cycles of the PCR device needed to reach a threshold of signal is called the cycle threshold or **Ct value**. The less material we have in our sample, the more cycles we need to amplify the signal to reach a certain threshold. Because the amplification is an exponential process, we get a linear inverse (negative) relationship between **ct_value** and **viral_load** if we take the log of the number of virus particles. For example, $10^6$ particles is a viral load of 6 on the log10 scale.
+How does this work? PCR can amplify, in so-called cycles, really low quantities of viral material in a biological sample. The amount of cycles of the PCR device needed to reach a threshold of signal is called the cycle threshold or **Ct value**. The less material we have in our sample, the more cycles we need to amplify the signal to reach a certain threshold. 
+
+Because the amplification is an exponential process, if we take the log of the number of virus particles, we get a linear inverse (negative) relationship between **ct_value** and **viral_load**. For example, $10^6$ particles is a viral load of 6 on the log10 scale.
 
 So let's plot the `ct_value` of the PCR test vs the viral load:
 
@@ -183,7 +195,7 @@ ggplot(df_pcr_pos, aes(x = viral_load, y = mm_value)) +
 ```
 From this plot, we can see that the probability of obtaining a False negative result (`mm_value` of 0) on the Antigen test decreases as the viral load *of the PCR sample* increases. 
 
-From the data we also see that before the antigen test to work about half of the time, the **nasopharyngeal swab** needs to contain around $5 \cdot 10^5$ viral particles (log10 scale 5.7), and for it to work reliably, we need around $10^7$ particles ("high" viral load) in the **nasopharyngeal swab** (PM or combined NP/OP?). This last bit is important: the researchers did not measure the viral load in the nasal swabs used for the antigen test, these could well be lower. 
+From the data we also see that before the antigen test to work about half of the time (blue line at 0.5), the **nasopharyngeal swab** needs to contain around $5 \cdot 10^5$ viral particles (log10 scale 5.7), and for it to work reliably, we need around $10^7$ particles ("high" viral load) in the **oro- + naso-pharyngeal swab**. This last bit is important: the researchers did not measure the viral load in the nasal swabs used for the antigen test, these could well be lower. 
 
 For really high viral loads, above $10^7$ particles in the **NP/OP sample**, the probability of a false negative result is only a few percent:
 
@@ -282,9 +294,9 @@ We use the `yardstick` package of R`s `tidymodels` family to create the 2x2 tabl
 ```{r fig.width = 3, fig.height = 3}
 options(yardstick.event_first = FALSE)
 
-cm <- yardstick::conf_mat(df_leaflet, pcr_result, ag_result)
+conf_matrix <- yardstick::conf_mat(df_leaflet, pcr_result, ag_result)
 
-autoplot(cm, type = "heatmap", title = "Truth = PCR test, Prediction = Antigen test")
+autoplot(conf_matrix, type = "heatmap", title = "Truth = PCR test, Prediction = Antigen test")
 ```
 From the heatmap (confusingly called a confusion matrix), we see that:
 
@@ -309,7 +321,7 @@ The kit leaflet mentions the following confidence intervals:
 * Sensitivity 83.3% (95%CI: 74.7% - 90.0%)
 * Specificity 99.1% (95%CI: 97.7% - 99.7%)
 
-The R-package `yardstick` does not yet include confidence intervals, so I generated these using bootstrapping. I calculate both metrics for 10.000 samples sampled from the raw data. For brevity I omitted the code here, go check out my Github for R script.
+The R-package `yardstick` does not yet include confidence intervals, so I generated these using bootstrapping. I calculate both metrics for 10.000 samples sampled from the raw data. For brevity I omitted the code here, go check out my Github for the R script.
 
 The bootstrapping approach yields the following range of plausible values given the data (95% interval):
 
@@ -322,30 +334,29 @@ The amount of data (N = 537) prevents us from getting an exact match to the leaf
 
 Especially for the sensitivity, there is quite some uncertainty, we see that plausible values range from 76% up to 90% *for this particular cohort of patients*.
 
-
 # Conclusions
 
 To summarise: we found that the numbers of the kit's leaflet are reliable and published in full detail in the scientific literature.
 Hurray! 
 
-We also found that even PCR is not able to detect all infected persons, it all depends on how much virus is present, and how the sample is obtained. From the analysis, it is clear that the rapid Antigen tests need more virus present to reliably detect infection. It is ALSO clear that the test is highly specific, with less than 1% false positives. Note that a false positive rate of 1% still means that in a healthy population of 1000, 10 are falsely detected as having COVID-19. 
-Finally, we find that the nasal swabs are less sensitive than the nasopharyngeal ("through the nose") swabs, this reduces sensitivity by 5-10% (Igloi et al 2021, Lee et al 2021). 
+We also found that even the gold standard PCR is not able to detect all infected persons, it all depends on how much virus is present, and how the sample is obtained. From the analysis, it is clear that the rapid Antigen tests need more virus present to reliably detect infection. It is ALSO clear that the test is highly specific, with less than 1% false positives. Note that a false positive rate of 1% still means that in a healthy population of 1000, 10 are falsely detected as having COVID-19. 
+Finally, we find that the nasal swabs are less sensitive than the nasopharyngeal ("deep nose") swabs, this reduces sensitivity by 5-10% (Igloi *et al.* 2021, Lee *et al.* 2021). 
 
 So both the measurement device, and the self-collection of sample contribute to reduce the sensitivity. But now comes the key insight: the persons that produce the largest amounts of virus get detected, irrespective of whether they have symptoms or not. To me, this seems a "Unique Selling Point" of the rapid tests: the ability to rapidly detect the most contagious persons in a group, after which these persons can go into quarantine and help reduce spread.
 
 # References
 
 * Head-to-head comparison of SARS-CoV-2 antigen-detecting rapid test with self-collected nasal swab versus professional-collected nasopharyngeal swab
-Andreas K. Lindner, Olga Nikolai, Franka Kausch, Mia Wintel, Franziska Hommes, Maximilian Gertler, Lisa J. Krüger, Mary Gaeddert, Frank Tobian, Federica Lainati, Lisa Köppel, Joachim Seybold, Victor M. Corman, Christian Drosten, Jörg Hofmann, Jilian A. Sacks, Frank P. Mockenhaupt, Claudia M. Denkinger, European Respiratory Journal 2021 57: 2003961
+Andreas K. Lindner, Olga Nikolai, Franka Kausch, Mia Wintel, Franziska Hommes, Maximilian Gertler, Lisa J. Krüger, Mary Gaeddert, Frank Tobian, Federica Lainati, Lisa Köppel, Joachim Seybold, Victor M. Corman, Christian Drosten, Jörg Hofmann, Jilian A. Sacks, Frank P. Mockenhaupt, Claudia M. Denkinger, [European Respiratory Journal 2021 57: 2003961](https://erj.ersjournals.com/content/57/4/2003961)
 
 * Head-to-head comparison of SARS-CoV-2 antigen-detecting rapid test with professional-collected nasal versus nasopharyngeal swab
-Andreas K. Lindner, Olga Nikolai, Chiara Rohardt, Susen Burock, Claudia Hülso, Alisa Bölke, Maximilian Gertler, Lisa J. Krüger, Mary Gaeddert, Frank Tobian, Federica Lainati, Joachim Seybold, Terry C. Jones, Jörg Hofmann, Jilian A. Sacks, Frank P. Mockenhaupt, Claudia M. Denkinger European Respiratory Journal 2021 57: 2004430;
+Andreas K. Lindner, Olga Nikolai, Chiara Rohardt, Susen Burock, Claudia Hülso, Alisa Bölke, Maximilian Gertler, Lisa J. Krüger, Mary Gaeddert, Frank Tobian, Federica Lainati, Joachim Seybold, Terry C. Jones, Jörg Hofmann, Jilian A. Sacks, Frank P. Mockenhaupt, Claudia M. Denkinger [European Respiratory Journal 2021 57: 2004430](https://erj.ersjournals.com/content/57/5/2004430)
 
 * SARS-CoV-2 patient self-testing with an antigen-detecting rapid test: a head-to-head comparison with professional testing
-Andreas K. Lindner, Olga Nikolai, Chiara Rohardt, Franka Kausch, Mia Wintel, Maximilian Gertler, Susen Burock, Merle Hörig, Julian Bernhard, Frank Tobian, Mary Gaeddert, Federica Lainati, Victor M. Corman, Terry C. Jones, Jilian A. Sacks, Joachim Seybold, Claudia M. Denkinger, Frank P. Mockenhaupt, under review, preprint on medrxiv.org
+Andreas K. Lindner, Olga Nikolai, Chiara Rohardt, Franka Kausch, Mia Wintel, Maximilian Gertler, Susen Burock, Merle Hörig, Julian Bernhard, Frank Tobian, Mary Gaeddert, Federica Lainati, Victor M. Corman, Terry C. Jones, Jilian A. Sacks, Joachim Seybold, Claudia M. Denkinger, Frank P. Mockenhaupt, under review, [preprint on medrxiv.org](https://www.medrxiv.org/content/10.1101/2021.01.06.20249009v1)
 
 * Clinical  evaluation  of  the  Roche/SD  Biosensor  rapid  antigen  test  with  symptomatic,  non-hospitalized patients in a municipal health service drive-through testing site. 
-Zsὁfia Iglὁi, Jans Velzing, Janko van Beek, David van de Vijver, Georgina Aron,  Roel Ensing, KimberleyBenschop,    Wanda   Han,    Timo   Boelsums,   Marion   Koopmans,    Corine   Geurtsvankessel,   Richard   Molenkamp
+Zsὁfia Iglὁi, Jans Velzing, Janko van Beek, David van de Vijver, Georgina Aron,  Roel Ensing, KimberleyBenschop,    Wanda   Han,    Timo   Boelsums,   Marion   Koopmans,    Corine   Geurtsvankessel,   Richard   Molenkamp [Link on medrxiv.org](https://www.medrxiv.org/content/10.1101/2020.11.18.20234104v1)
 
-* Performance of Saliva, Oropharyngeal Swabs, and Nasal Swabs for SARS-CoV-2 Molecular Detection: a Systematic Review and Meta-analysis (https://journals.asm.org/doi/epub/10.1128/JCM.02881-20)
-Rose A. Lee, Joshua C. Herigona, Andrea Benedetti, Nira R. Pollock, Claudia M. Denkinger
+* Performance of Saliva, Oropharyngeal Swabs, and Nasal Swabs for SARS-CoV-2 Molecular Detection: a Systematic Review and Meta-analysis 
+Rose A. Lee, Joshua C. Herigona, Andrea Benedetti, Nira R. Pollock, Claudia M. Denkinger [Link to paper]((https://journals.asm.org/doi/epub/10.1128/JCM.02881-20))

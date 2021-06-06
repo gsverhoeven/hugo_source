@@ -25,6 +25,7 @@ df1$pcr_assay_type <- NA
 
 
 #For study one, we want the `ag_self_nmt` variable. nmt stands for nasal measurement.
+# PCR was on OP/NP swab.
 
 ## Study 2
 
@@ -47,6 +48,7 @@ df2$pcr_assay_type <- NA
 
 
 #For study two, we want the `ag_prof_nmt` variable. nmt stands for nasal measurement.
+# PCR was on OP/NP swab.
 
 ## study 3
 
@@ -75,6 +77,7 @@ df3$study <- 3
 
 
 #For study three, we want the `ag_self_nmt` variable. nmt stands for nasal measurement.
+# PCR was on OP/NP swab.
 
 # Tech note:
 # The results for the Antigen test in the three studies are not entirely comparable:
