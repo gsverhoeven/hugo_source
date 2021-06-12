@@ -31,23 +31,25 @@ We can see that papers use this to suggest that both swab methods give "similar"
 
 A quick google scholar search turned up several studies that claim to show no difference or "similar" performance:
 
-* Irving et al 2012: Comparison of Nasal and Nasopharyngeal Swabs for Influenza Detection in Adults (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3494547/)
+*Irving et al 2012: Comparison of Nasal and Nasopharyngeal Swabs for Influenza Detection in Adults* (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3494547/)
 
 Paired samples were collected from 240 adults; 33 (14%) individuals tested positive for influenza by rRT-PCR. Using rRT-PCR, the sensitivity of the nasal swab was 89% (95% CI, 78%-99%) and the sensitivity of the nasopharyngeal swab was 94% (95% CI, 87%-100%), compared to a composite gold standard.
 
 Test sensitivity did not vary significantly by swab type when using a highly sensitive molecular diagnostic test, but power was limited to detect modest differences.
 
-* Péré et al 2020: Nasal Swab Sampling for SARS-CoV-2: a Convenient Alternative in Times of Nasopharyngeal Swab Shortage (https://jcm.asm.org/content/58/6/e00721-20)
+*Péré et al 2020: Nasal Swab Sampling for SARS-CoV-2: a Convenient Alternative in Times of Nasopharyngeal Swab Shortage* (https://jcm.asm.org/content/58/6/e00721-20)
 
 Out of 37 patients that were positive for SARS-CoV-2 by nasopharyngeal swab testing, 33 also tested positive by nasal sampling.
 
 We herein report that the molecular detection of SARS-CoV-2 using nasal swab specimens was nearly equivalent to the detection using nasopharyngeal swab considered the gold standard. (**This one is really bad**)
 
-* Head-to-head comparison of SARS-CoV-2 antigen-detecting rapid test with self-collected nasal swab versus professional-collected nasopharyngeal swab
+*Head-to-head comparison of SARS-CoV-2 antigen-detecting rapid test with self-collected nasal swab versus professional-collected nasopharyngeal swab*
 
 The STANDARD Q Ag-RDT with NMT sampling showed a sensitivity of 74.4% (29/39 PCR positives detected; 95% CI 58.9–85.4%) and specificity of 99.2% (95% CI 97.1–99.8%) compared to RT-PCR. The sensitivity with NP sampling was 79.5% (31/39 PCR positives detected; 95% CI 64.5–89.2%) and specificity was 99.6% (95% CI 97.8–100%).
 
 And from the press release: "This study shows that supervised, self-administered swabs are no less effective than professional-collected nasopharyngeal swabs when used with the antigen test selected for this research," explains PD Dr. Denkinger.(Brrr)
+
+# meta analyses
 
 * Seaman et al 2019: Self-collected compared with professional-collected swabbing in the diagnosis of influenza in symptomatic individuals: A meta-analysis and assessment of validity
 
