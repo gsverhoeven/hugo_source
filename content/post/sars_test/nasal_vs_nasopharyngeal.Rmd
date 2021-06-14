@@ -6,6 +6,18 @@ draft: TRUE
 output: pdf_document
 ---
 
+## Rebuttal
+
+Klein et al 2021: https://www.medrxiv.org/content/10.1101/2021.03.17.21253076v1.full.pdf
+The  overall  sensitivity  of  Panbio  with  NP  sampling  was  88.9%  (40/45;  95%  confidence 75interval  (CI)76.5%-95.5%)and84.4%  (38/45;  CI  71.2% -92.3%)with  NMT  sampling. 76
+
+Fourinfections  were  identified  by  NP  Ag-RDT  sampling,  which  were  negative  in  NMT 77sampling of which two had a low VL(VL<4.9 log10SARS-CoV-2RNA copies/ml) and two 78were  asymptomatic(Table  1).  Two  participantshad  a  positive  NMT  result,  not  detected  via 79NP  Ag-RDT,of  which  one  had  a  low VL(VL <4.9  log10SARS-CoV-2RNA  copies/ml).
+
+Contains also this:
+
+Sincethen,independenthead-to-30head studiesdemonstrated that nasal sampling(including self-sampling)assessed againstNP 31samplingleadsto comparable performance using the SARS-CoV-2Ag-RDT SD STANDARD 32Q[3-5]
+
+
 ## Sample size required to detect a difference between 0.8 and 0.9 probability?
 
 But what about statistical power? From glancing at the literature (N = 40 also low power) the difference seems about 5- 10%.

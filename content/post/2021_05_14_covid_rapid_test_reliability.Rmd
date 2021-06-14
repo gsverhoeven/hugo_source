@@ -131,7 +131,7 @@ Now that we have some background info, we are ready to check the data!
 
 As mentioned above, this data came from three experiments on samples from in total 547 persons. 
 
-After googling a bit, I found out that the experiments were performed by independent researchers in a famous University hospital in Berlin, [Charité](https://de.wikipedia.org/wiki/Charit%C3%A9). After googling a bit more and mailing with one of the researchers involved, Prof. Andreas Lindner, I received a list of papers that describe the research mentioned in the leaflet (References at the end of this post).
+After googling a bit, I found out that the experiments were performed by independent researchers in a famous University hospital in Berlin, [Charité](https://de.wikipedia.org/wiki/Charit%C3%A9). After googling a bit more and mailing with one of the researchers involved, Dr. Andreas Lindner, I received a list of papers that describe the research mentioned in the leaflet (References at the end of this post).
 
 The dataset for the blog post compares **nasal** samples tested with the Roche Antigen test kit, to PCR-tested **nasopharyngeal** plus **oropharyngeal** samples taken by professionals. 
 
@@ -293,15 +293,17 @@ In the same subgroup of high viral load, sensitivity of the nasal swab test is 6
 Here, we go Bayesian. What is a reasonable difference to expect, or in bayesian terminology: what is our **prior** here? Enter domain knowledge.
 
 From the literature, both the recent literature on COVID-19 testing, but also the older literature on Influenza swabbing, I estimate that self-collected nasal swabs are roughly 10% less accurate than nasopharyngeal swabs.
-For example, from the meta-analysis of Seaman *et al.* (2019):
+For example, from the meta-analysis of Seaman *et al.* (2019) on influenza sampling:
 
 *Although nasopharyngeal/nasal wash aspirates and nasopharyngeal (NP) swabs are considered the optimal sampling technique for the confirmation of influenza [3,10,11], neither is reliably self-collected*
 
 *Pooled sensitivity was 87% (95%CI:80%,92%) and specificity was 99% (95%CI:98%,100%), compared to professional-collected swabs in the diagnosis of influenza.*
 
-A recent systematic review on the various ways to "obtain a COVID-19 specimen" (Lee et al) found that
+A recent systematic review on the various ways to "obtain a COVID-19 specimen" (Lee $et al.$ 2021) found that
 
 *Three specimen types captured lower % positives (Nasal Swabs [82%, 95% CI: 73 to 90%], oropharyngeal swabs [84%, 95% CI: 57 to 100%], and saliva [88%, 95% CI: 81 to 93%]) than nasopharyngeal swabs*
+
+Note that this review compares results on the PCR test. And PCR tests can detected much lower viral loads, so the percentage itself is not directly comparable (this depends on the share of low viral loads, among others). But it does provide support for the hypothesis that nasal swabs typically contain less viral load compared to nasopharyngeal swabs, and this should affect measurement using rapid antigen tests as well.
 
 We can use simulation to get a distribution of plausible values for the sensitivity in the Berlin subset, **assuming that the true sensitivity is 85%**. 
 
@@ -396,7 +398,8 @@ But all in all, the PCR test is clearly more accurate. Why would we want to use 
 To do the PCR test you need a lab with skilled people, equipment such as PCR devices and pipets, and time, as the process takes at least a few hours to complete. The advantage of an antigen test is to have a low-tech, faster alternative that can be self-administered. But that comes at a cost, because the antigen tests are less sensitive.
 
 From the analysis, it is clear that the rapid Antigen tests need more virus present to reliably detect infection. It is ALSO clear that the test is highly specific, with less than 1% false positives. Note that a false positive rate of 1% still means that in a healthy population of 1000, 10 are falsely detected as having COVID-19. 
-Finally, we find that the nasal swabs are less sensitive than the nasopharyngeal ("deep nose") swabs, this reduces sensitivity by roughly 10% (Lindner *et al.* 2021, Igloi *et al.* 2021, Lee *et al.* 2021). 
+
+Finally, we conclude that the nasal swabs are less sensitive than the nasopharyngeal ("deep nose") swabs, this reduces sensitivity by roughly 10%. The conclusion is based on my own weighting of the evidence (see above). This conclusion does not follow from the studies on the Roche kit (Lindner *et al.* 2021, Igloi *et al.* 2021), but I think those studies are consistent with it. 
 
 So both the measurement device, and the self-collection of sample contribute to reduce the sensitivity. But now comes the key insight: the persons that produce the largest amounts of virus get detected, irrespective of whether they have symptoms or not. To me, this seems like a "Unique Selling Point" of the rapid tests: the ability to rapidly detect the most contagious persons in a group, after which these persons can go into quarantine and help reduce spread.
 
