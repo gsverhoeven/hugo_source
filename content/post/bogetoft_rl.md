@@ -1,6 +1,8 @@
 --- 
-title: "Cooperatives and payment schemes" 
-author: " Gertjan Verhoeven" 
+title: Cooperatives and payment schemes
+author: Gertjan Verhoeven
+date: '2020-09-03'
+draft: TRUE
 ---
 
 # Summary

@@ -1,7 +1,8 @@
 ---
-title: "Azure cloud"
-author: "Gertjan Verhoeven"
-date: "1/27/2021"
+title: Azure cloud
+author: Gertjan Verhoeven
+date: '2021-01-27'
+draft: TRUE
 output: html_document
 ---
 

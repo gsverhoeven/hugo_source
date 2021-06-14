@@ -7,4 +7,6 @@
 #blogdown:::build_rmds("content/post/2021_05_14_covid_rapid_test_reliability.Rmd")
 blogdown::hugo_build()
 print("site build")
-
+# NB uitzoeken waarom de azure en andere concept blog posts ook gewoon gebuild worden en zelfs gepubliceerd worden
+blogdown::serve_site()
+blogdown::stop_server()
