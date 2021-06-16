@@ -283,7 +283,7 @@ What about the effect of using self-administered nasal swabs, versus professiona
 
 Interestingly, the three Berlin studies all contain a head-to-head comparison of **nasal** versus **nasopharygeal (NP)** swabs. Lets have a look, shall we?
 
-The dataset `df_pcr_pos_np` is identical to `df_pcr_pos_np`, but contains the measurement results for the **nasopharygeal** swabs. 
+The dataset `df_pcr_pos_np` is identical to `df_pcr_pos`, but contains the measurement results for the **nasopharygeal** swabs. 
 
 To compare both measurement methods, we can plot the relationship between the probability of obtaining a positive result versus viral load. If one method gathers systematically more viral load from the patient, we expect that method to detect infection at lower patient viral loads, and the curves (nasal vs NP) would be shifted relative to each other.
 
@@ -305,16 +305,16 @@ From this plot, I conclude that:
 * The sensitivity of a test is strongly dependent on the distribution of viral loads in the population the measurement was conducted in
 * There is no evidence for any differences in sensitivity between nasal and nasopharyngeal swabs
 
-This last conclusion came as a surprise for me, as nasopharygeal swabs are long considered to be the golden standard for obtaining samples for PCR detection of respiratory viruses, such as influenza and COVID-19 (Seaman *et al.* (2019), (Lee $et al.$ 2021) ). So let's look a bit deeper still.
+This last conclusion came as a surprise for me, as nasopharygeal swabs are long considered to be the golden standard for obtaining samples for PCR detection of respiratory viruses, such as influenza and COVID-19 (Seaman *et al.* (2019), (Lee *et al.* 2021) ). So let's look a bit deeper still.
 
 # Double-check: Rotterdam vs Berlin
 
-We can compare the results from the three Berlin studies with a recent Dutch study that also used the Roche antigen test (ref: Igloi et al 2021). The study was conducted in Rotterdam, and used nasopharygeal swabs to obtain the sample for the antigen test.
+We can compare the results from the three Berlin studies with a recent Dutch study that also used the Roche antigen test (ref: Igloi *et al.* 2021). The study was conducted in Rotterdam, and used nasopharygeal swabs to obtain the sample for the antigen test.
 
 Cool! Lets try and create two comparable groups in both studies so we can compare the sensitivity. 
 
 The Igloi et al. paper reports results for a particular subset that we can also create in the Berlin dataset.
-They report that for the subset of samples with high viral load (viral load $2.17 \cdot 10^5$ particles / ml = 5.35 on the log10 scale, ct_value <= 30) **AND** who presented within 7 days of symptom onset, they found a sensitivity of 95.8% (CI95% 90.5-98.2). The percentage is based on N = 640 persons.
+They report that for the subset of samples with high viral load (viral load $2.17 \cdot 10^5$ particles / ml = 5.35 on the log10 scale, ct_value <= 30) **AND** who presented within 7 days of symptom onset, they found a sensitivity of 95.8% (CI95% 90.5-98.2). The percentage is based on N = 159 persons (or slightly less because of not subsetting on <= 7 days of symptoms, the paper is not very clear here).
 
 We can check what the sensitivity is for this subgroup in the Berlin dataset:
 
@@ -328,7 +328,7 @@ In the same subgroup of high viral load, sensitivity of the nasal swab test is 6
 
 Importantly, since the threshold to be included in this comparison (ct value <= 30, viral_load > 5.35) contains a large part of the region where the probability of a positive result is between 0 and 1, we need to compare the distributions of viral loads for both studies to make an apples to apples comparison. 
 
-The Igloi study reports their distribution of viral loads for PCR-positive samples (N=186) in five bins:
+The Igloi study reports their distribution of viral loads for PCR-positive samples (N=186) in five bins (Table 1 in their paper):
 
 ```{r}
 cat <- c("ct <= 20", "ct 20-25", "ct 25-30", "ct 30-35", "ct 35+")
