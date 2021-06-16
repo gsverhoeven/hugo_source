@@ -6,6 +6,24 @@ draft: TRUE
 output: pdf_document
 ---
 
+## Lit rev
+
+Here, we go Bayesian. What is a reasonable difference to expect, or in bayesian terminology: what is our **prior** here? Enter domain knowledge.
+
+From the literature, both the recent literature on COVID-19 testing, but also the older literature on Influenza swabbing, I estimate that self-collected nasal swabs are roughly 10% less accurate than nasopharyngeal swabs.
+For example, from the meta-analysis of Seaman *et al.* (2019) on influenza sampling:
+
+*Although nasopharyngeal/nasal wash aspirates and nasopharyngeal (NP) swabs are considered the optimal sampling technique for the confirmation of influenza [3,10,11], neither is reliably self-collected*
+
+*Pooled sensitivity was 87% (95%CI:80%,92%) and specificity was 99% (95%CI:98%,100%), compared to professional-collected swabs in the diagnosis of influenza.*
+
+A recent systematic review on the various ways to "obtain a COVID-19 specimen" (Lee $et al.$ 2021) found that
+
+*Three specimen types captured lower % positives (Nasal Swabs [82%, 95% CI: 73 to 90%], oropharyngeal swabs [84%, 95% CI: 57 to 100%], and saliva [88%, 95% CI: 81 to 93%]) than nasopharyngeal swabs*
+
+Note that this review compares results on the PCR test. And PCR tests can detected much lower viral loads, so the percentage itself is not directly comparable (this depends on the share of low viral loads, among others). But it does provide support for the hypothesis that nasal swabs typically contain less viral load compared to nasopharyngeal swabs, and this should affect measurement using rapid antigen tests as well.
+
+
 ## Rebuttal
 
 Klein et al 2021: https://www.medrxiv.org/content/10.1101/2021.03.17.21253076v1.full.pdf
@@ -17,6 +35,56 @@ Contains also this:
 
 Sincethen,independenthead-to-30head studiesdemonstrated that nasal sampling(including self-sampling)assessed againstNP 31samplingleadsto comparable performance using the SARS-CoV-2Ag-RDT SD STANDARD 32Q[3-5]
 
+# study 1
+
+The STANDARD Q Ag-RDT with NMT sampling showed a sensitivity of 74.4% (29/39 PCR positives detected; 95% CI 58.9–85.4%) and specificity of 99.2% (95% CI 97.1–99.8%) compared to RT-PCR. The sensitivity with NP sampling was 79.5% (31/39 PCR positives detected; 95% CI 64.5–89.2%) and specificity was 99.6% (95% CI 97.8–100%)
+
+# Study 2
+
+The STANDARD Q Ag-RDT with NMT sampling showed a sensitivity of 80.5% (33/41 PCR positives detected; 95% CI 66.0–89.8%) and specificity of 98.6% (95% CI 94.9–99.6%) compared to RT-PCR. The sensitivity with NP sampling was 73.2% (30/41 PCR positives detected; 95% CI 58.1–84.3%) 
+
+The samples where NP was negative and NMT was positive have symptoms > 7 days.
+
+But indeed: here nasal outperforms NP.
+
+
+# study 3
+Diagnostic accuracy and feasibility of patient self-testing with a SARS-CoV-2 antigen-detecting rapid test
+
+Among 146 symptomatic adults, 40 (27.4%) were RT-PCR-positive for SARS-CoV-2. Sensitivity with self-testing was 82.5% (33/40; 95% CI 68.1-91.3), and 85.0% (34/40; 95% CI 70.9-92.9) with professional testing. At high viral load (≥7.0 log10 SARS-CoV-2 RNA copies/ml), sensitivity was 96.6% (28/29; 95% CI 82.8-99.8) for both self- and professional testing. Deviations in sampling and testing were observed in 25 out of the 40 PCR-positives. Most participants (80.9%) considered the Ag-RDT as easy to perform.
+
+33/40, 34/40
+
+The study took place at the ambulatory SARS-CoV-2 testing facility of Charité - Universitätsmedizin Berlin, from 30 November to 11 December 2020.
+
+# study 4
+Anterior nasal versus nasal mid-turbinate sampling for a SARS-CoV-2 antigen-detecting rapid test: does localisation or professional collection matter?
+
+Among 96additional adults,selfNMT-and professional NP-sampling yielded an identical sensitivity of 91.2% (31/34; 95%CI 77.0-97.0). 
+
+
+# Pooled
+
+(29 + 33 + 33 + 31) / (31 + 30 + 34 + 31) = 100%
+
+```{r}
+set.seed(123)
+res1 <- data.frame(x = rbinom(10000, 152, p = 0.822), exp = "p_data")
+res2 <- data.frame(x = rbinom(10000, 152, p = 0.822+0.05), exp = "p_prior")
+res <- rbind(res1, res2)
+
+ggplot(res, aes(x = x, group = exp, color = exp)) + geom_density() +
+  geom_vline(xintercept = 126, linetype = "dashed")
+```
+```{r}
+set.seed(123)
+res1 <- data.frame(x = rbinom(10000, 152, p = 0.822), exp = "p_data")
+res2 <- data.frame(x = rbinom(10000, 152, p = 0.822+0.1), exp = "p_prior")
+res <- rbind(res1, res2)
+
+ggplot(res, aes(x = x, group = exp, color = exp)) + geom_density() +
+  geom_vline(xintercept = 126, linetype = "dashed")
+```
 
 ## Sample size required to detect a difference between 0.8 and 0.9 probability?
 
