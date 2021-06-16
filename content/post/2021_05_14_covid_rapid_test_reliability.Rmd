@@ -303,9 +303,9 @@ By fitting a smoother through the binary data, we obtain an estimate of the rela
 From this plot, I conclude that:
 
 * The sensitivity of a test is strongly dependent on the distribution of viral loads in the population the measurement was conducted in
-* There does not seem to be large differences in sensitivity between nasal and nasopharyngeal swabs
+* There is no evidence for any differences in sensitivity between nasal and nasopharyngeal swabs
 
-This last conclusion came as a surprise for me, as nasopharygeal swabs are long considered to be the golden standard for obtaining samples for PCR detection of respiratory viruses, such as influenza and COVID-19 (Seaman *et al.* (2019), (Lee $et al.$ 2021) )
+This last conclusion came as a surprise for me, as nasopharygeal swabs are long considered to be the golden standard for obtaining samples for PCR detection of respiratory viruses, such as influenza and COVID-19 (Seaman *et al.* (2019), (Lee $et al.$ 2021) ). So let's look a bit deeper still.
 
 # Double-check: Rotterdam vs Berlin
 
@@ -369,7 +369,7 @@ ggplot(data.frame(est_p), aes(x = est_p)) +
     geom_histogram(data = data.frame(est_p = est_p2), fill = "gray60", alpha = 0.5, binwidth = 0.005) +
   geom_vline(xintercept = prior_probability, linetype = "dashed", col= "red") +
 geom_vline(xintercept = prior_probability2, linetype = "dashed", col= "blue") +
-  ggtitle("Rotterdam (black bars) vs Berlin (grey bars) sensitivity for higher viral loads")
+  ggtitle("Berlin (black bars) vs Rotterdam (grey bars) sensitivity for higher viral loads")
 ```
 There is a region of overlap between the two distributions, so the difference between the studies could be (in part) attributed to statistical sampling variation for the same underlying process.
 
@@ -457,6 +457,8 @@ From the analysis, it is clear that the rapid Antigen tests need more virus pres
 Surprisingly, nasal swabs appear to give results that are comparable to those of nasopharyngeal swabs, while having not having the disadvantages of them (unpleasant, can only be performed by professional health worker).
 
 So the antigen tests are less sensitive than PCR tests. But now comes the key insight: the persons that produce the largest amounts of virus get detected, irrespective of whether they have symptoms or not. To me, this seems like a "Unique Selling Point" of the rapid tests: the ability to rapidly detect the most contagious persons in a group, after which these persons can go into quarantine and help reduce spread.
+
+*Thanks to dr. Andreas Lindner for providing helpful feedback and pointing out flaws in my original blog post. This should not be seen as an endorsement of the conclusions of this post, and any remaining mistakes are all my own!*
 
 # References
 
