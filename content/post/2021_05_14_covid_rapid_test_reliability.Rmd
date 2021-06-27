@@ -6,9 +6,14 @@ summary: This blog post is about the Roche Rapid Antigen Test Nasal. How accurat
 slug: covid_antigen_test_reliability
 draft: no
 categories: 
-  - Statistics, R, Measurement
+  - Statistics
+  - R
+  - Measurement
 tags:
-  - COVID-19, DAG, causal graph, bayesian statistics
+  - COVID-19
+  - DAG
+  - causal graph
+  - Bayesian statistics
 baseurl: https://gsverhoeven.github.io
 header:
   image: headers/covid_antigen_test.png
@@ -137,6 +142,9 @@ The dataset for the blog post compares **nasal** samples tested with the Roche A
 
 **This blog post is possible because the three papers by Lindner and co-workers all contain the raw data as a table in the paper. Cool!**
 Unfortunately, this means the data is not **machine readable**. However, with a combination of manual tweaking / find-replace and some coding, I tidied the data of the three studies into a single `tibble` data frame. You can grab the code and data from my [Github](https://github.com/gsverhoeven/hugo_source/tree/master/content/post/sars_test).
+
+**UPDATE**: Rein Halbersma showed me how to use web scraping to achieve the same result, with a mere 20 lines of code of either Python or R! Cool! I added his scripts to my [Github](https://github.com/gsverhoeven/hugo_source/tree/master/content/post/sars_test) as well, go check them out, I will definitely go this route next time.
+
 
 ```{r}
 # creates df_pcr_pos
