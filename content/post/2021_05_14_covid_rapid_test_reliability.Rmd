@@ -7,7 +7,7 @@ slug: covid_antigen_test_reliability
 draft: no
 categories: 
   - Statistics
-  - R
+  - Data science
   - Measurement
 tags:
   - COVID-19

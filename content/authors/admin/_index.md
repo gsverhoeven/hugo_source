@@ -18,7 +18,7 @@ organizations:
   url: "https://www.nza.nl"
 
 # Short bio (displayed in user profile at end of posts)
-bio: Gertjan Verhoeven is a research scientist currently at the Dutch Healthcare Authority, working on health policy and statistical methods.
+bio: Gertjan Verhoeven is a research scientist currently at the Dutch Healthcare Authority, working on health policy and statistical methods. Follow me on [Twitter](https://twitter.com/GertjanVerhoev1) to receive updates on new blog posts.
 
 interests:
 - Bayesian Statistics
@@ -70,5 +70,5 @@ user_groups:
 - Visitors
 ---
 
-I am a research scientist at the Dutch Healthcare Authority, working on health policy and statistical methods. 
+I am a research scientist at the Dutch Healthcare Authority and extramural fellow at Tilburg University, working on health policy and statistical methods. 
 I have a background in experimental physics, with a PhD in Biophysics.
