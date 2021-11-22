@@ -7,3 +7,5 @@ public/
 .Rproj.user
 *__pycache__*
 .ipynb_checkpoints
+content/post/fumbbl_blogpost_src/data/W_Race_Record_Full_Data_data_bb2020.csv
+content/post/fumbbl_blogpost_src/data/W_Race_Record_Full_Data_data.csv
