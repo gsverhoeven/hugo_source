@@ -8,7 +8,8 @@ summary: This blogpost is about **Blood Bowl**, a boardgame I started playing la
   ready for analysis and visualization.
 slug: blood-bowl-fumbbl-dataset
 draft: no
-categories: Data paper
+categories: 
+- Data paper
 tags:
 - Python
 - Pandas
@@ -19,42 +20,17 @@ header:
   preview: no
 ---
 
+This blogpost is about **Blood Bowl**, a boardgame I started playing last year. The goal of this blog post is to use Python API and HTML scraping to fetch online Blood Bowl match outcome data, and to create a structured dataset ready for analysis and visualization. In a [separate blog post](link/to/blog) I'll showcase some analyses on this dataset (also known as [nufflytics](https://www.nufflytics.com) in reference to Nuffle, the god of Blood Bowl). The dataset is primarily constructed to analyze rule changes that were introduced on FUMBBL.com last year, and how these affected the relative strengths of the different teams coaches can pick to field against each other.
 
-# 
-
-This blogpost is about **Blood Bowl**, a boardgame I started playing last year. The goal of this blog post is to use Python API and HTML scraping to fetch online Blood Bowl match outcome data, and to create a structured dataset ready for analysis and visualization. In a [separate blog post](link/to/blog) I'll showcase some analyses on this dataset (also known as [nufflytics](www.nufflytics.com) in reference to Nuffle, the god of Blood Bowl). The dataset was primarily constructed to analyze rule changes that were introduced on FUMBBL.com last year, and how these affected the relative strengths of the different teams coaches can pick to field against each other.
-
-In writing this blog post, I took inspiration from a relatively new development in Open Science, that of the **Data paper** or **Data publication** (Chavan & Penev, 2011). A data paper is a (ideally peer reviewed) publication of a dataset as a stand alone research output. A Data paper can be thought of similar to the Section “Methods” of a traditional research article, though with greater detail. The paper describes the contents of the dataset, the data acquisition process,  and includes a discussion of the motivation and considerations regarding experimental design (if applicable). Data papers do not provide any analysis nor results / conclusions. The dataset itself should be online available at a data repository such as **Zenodo**, **Figshare** or **Dryad**.
+In writing this blog post, I took inspiration from a relatively new development in Open Science, that of the **Data paper** (Chavan & Penev, 2011). A data paper is a (ideally peer reviewed) publication of a dataset as a stand alone research output. A Data paper can be thought of similar to the  “Methods” section of a traditional research article, though with greater detail. A data paper describes the contents of the dataset, the data acquisition process,  and includes a discussion of the motivation and considerations regarding experimental design (if applicable). Data papers do not provide any analysis nor results / conclusions. The dataset itself should be online available at a data repository such as **Zenodo**, **Figshare** or **Dryad**.
 
 To give an impression of how this works out in practice, here are two examples: The first data paper, [*A public data set of spatio-temporal match events in soccer competitions*](https://www.nature.com/articles/s41597-019-0247-7), was published in "Scientific data" with the dataset hosted at [Figshare](https://doi.org/10.6084/m9.figshare.c.4415000.v5). The second is collected from Twitter: [*A large-scale COVID-19 Twitter chatter dataset for open scientific research -- an international collaboration*](https://arxiv.org/abs/2004.03688), with the open dataset published on [Zenodo](https://doi.org/10.5281/zenodo.5775023).
 
 *Chavan, V., and Penev, L. (2011). The data paper: a mechanism to incentivize data publishing in biodiversity science. BMC Bioinformatics 12(Suppl. 15):S2. doi:10.1186/1471-2105-12-S15-S2
 
-# Legal matters: are we allowed, and what do we allow others?
-
-An important part of making data publicly available is being explicit about what is allowed if people want to use the dataset.
-However, before we do so, we have to check if **we** are actually allowed to publish the data. This is explained nicely [in a blogpost by Elizabeth Wickes](https://datacarpentry.org/blog/2016/06/data-licensing).
-
-Since our data will come from the **FUMBBL.com** website, we check the [**Privacy policy**](https://fumbbl.com/p/privacy) where all users, including myself have agreed on when signing up. It contains this part which is specific to the unauthenticated API, which we use to fetch the data, as well as additional public match data, such as which inducements are used in a match, and the Coach rankings of the playing coaches that were current when the match was played.
-
-```
-Content you provide through the website
-All the information you provide through the website is processed by FUMBBL. This includes things such as forum posts, private message posts, blog entries, team and player names and biographies and news comments. Data provided this way is visible by other people on the website and in most cases public even to individuals without accounts (not including private messages), and as such are considered of public interest. If direct personal information is posted in public view, you can contact moderators to resolve this. Match records are also considered content in this context, and is also considered of public interest. This data is collected as the primary purpose of the website and it is of course entirely up to you how much of this is provided to FUMBBL. 
-
-Third party sharing
-Some of the public data is available through a public (*i.e. unauthenticated*) API, which shares some of the information provided by FUMBBL users in a way suitable for third-party websites and services to process.
-
-The data available through the unauthenticated API is considered non-personal as it only reflects information that is public by its nature on the website. The authenticated API will only show information connected to the authenticated account.
-```
-
-I conclude that since the match data is already considered public content, there is no harm in collecting this public data in a structured dataset and placing this data in a public repository. The final step is then to decide what others are allowed to do with this data. In practice, this means choosing a license under which to release the dataset. I decided to choose a [CC0 license](https://creativecommons.org/publicdomain/zero/1.0/): this places the data in the public domain, and people can use the dataset as they wish. Citing or mentioning the source of the data would still be appreciated of course.
-
 # Software needed to reproduce this blog post
 
-This blogpost is written as a Jupyter notebook, and is fully reproducible. The idea is to make Blood Bowl data analysis accessible to others. Using only open source tooling reduces the barriers for others to take what i created and build on it. Apart from having Python (I used 3.6.9) installed, you need a code editor. Jupyter Notebooks can be read by many code editors, such as Jupyterlab, or Spyder IDE, i decided to try out [Visual Studio Code](https://code.visualstudio.com/), or **VS code** for short. It ticks all my boxes such as being cross platform (I use linux at home and Windows at work), being open source, and having a large user base, as [visible on Github](https://github.com/microsoft/vscode) with more than 125K stars.
-
-
-
+This blogpost is written as a Jupyter notebook containing Python code, and is fully reproducible. The idea is to make Blood Bowl data analysis accessible to others. Using open source tooling reduces the barriers for others to build on other people's work. 
 
 ```python
 import random
@@ -71,13 +47,13 @@ pd.set_option('display.max_columns', 500)
 
 # Blood Bowl online: FUMBBL 
 
-The **FUMBBL** website (https://fumbbl.com) is one big pile of data. From coach pages, with their teams, to team rosters, with players, and match histories. It's all there.
+The **FUMBBL** website (https://fumbbl.com) contains a large amount of data. From coach pages, with their teams, to team rosters, with players, and match histories. It's all there.
 
 To obtain **FUMBBL** data, we need to fetch it match by match, team by team. To do so, the site creator Christer Kaivo-oja, from Sweden, has made an API that allows us to easily fetch data. What follows is a short demonstration how the API works, before we fetch the **FUMBBL** match and team data of the last 12 months.
  
 
 # Behold, the power of Requests
-We use the [Python **Requests** library](https://docs.python-requests.org/en/latest/) to make the API call over HTTPS and obtain the response from the FUMBLL server. The response is in the JSON format, a [light-weight data-interchange format](https://www.json.org/json-en.html) which is both easy to read and write for humans, and easy to parse and generate by computers. So this makes it a natural choice for an API.
+I use the [Python **Requests** library](https://docs.python-requests.org/en/latest/) to make the API call over HTTPS and obtain the response from the FUMBLL server. The response is in the JSON format, a [light-weight data-interchange format](https://www.json.org/json-en.html) which is both easy to read and write for humans, and easy to parse and generate by computers. So this makes it a natural choice for an API.
 
 Here is an example of what is available at the coach level. The full documentation of the API can be found at (https://fumbbl.com/apidoc/).
 
@@ -394,7 +370,7 @@ print(n_matches)
 if(full_run):
     for i in range(n_matches):
         api_string = "https://fumbbl.com/api/match/get/" + str(end_match - i)
-        # wait 0.5 s on average between each API call
+        # wait 0.33 s on average between each API call
         wait_time = (random.uniform(0.5, 1) + 0.25)/3
         time.sleep(wait_time)
         match = requests.get(api_string)
@@ -623,8 +599,8 @@ if(full_run):
     for i in range(n_matches):
         match_id = end_match - i
         api_string = "https://fumbbl.com/FUMBBL.php?page=match&id=" + str(match_id)
-        # wait 0.5 s on average between each GET call
-        wait_time = (random.uniform(0.5, 1) + 0.25)/2
+        # wait 0.33 s on average between each GET call
+        wait_time = (random.uniform(0.5, 1) + 0.25)/3
         time.sleep(wait_time)
         response = requests.get(api_string)
 
@@ -738,7 +714,7 @@ df_inducements.query("match_id == 4347799")
 
 ## Dataprep: coach rankings
 
-We want to extract the part `CR 152.53` from the scraped coach information field. Just as we matches on `Inducements:`, we can match on `CR ` and grab the contents directly after that, stopping when we encounter a whitespace.
+We want to extract the part `CR 152.53` from the scraped coach information field. Just as we matched on `Inducements:`, we can match on `CR ` and grab the contents directly after that, stopping when we encounter a whitespace.
 
 We first play around a bit and test until we discover the proper Regular Expression to use :-)
 
@@ -1317,11 +1293,10 @@ FUMBBL allows coaches to create their own rulesets to play their own leagues and
 Since we want the team strength for the official rulesets BB2016 and BB2020, we need to distinguish those matches from the matches that are played under different rules.
 
 Lets have look at the various divisions and leagues, which rulesets are used, and which races are played how often.
-There are a lot of small leagues being played on FUMBBL, they account for maybe X% of all the matches.
-
-We only look at divisions and leagues with a sufficient volume of matches, or otherwise we do not have sufficient statistics for each race.
+There are a lot of small leagues being played on FUMBBL. We only look at divisions and leagues with a sufficient volume of matches, or otherwise we do not have sufficient statistics for each race.
 
 So I aggregated the data by division, league and ruleset, and filtered on at least 150 different teams that have played at least once last year.
+
 Apart from the main "Divisions" that are part of FUMBBL, there were a few user-run leagues present in this table, so I looked up their names on FUMBBL and what ruleset is used (BB2016, BB2020 or some other variant). This information (contained in an xlsx) is added to the dataset below.
 
 
@@ -1568,3 +1543,24 @@ target = 'data/df_mbt_final.h5'
 df_mbt.to_hdf(target, key='df_mbt', mode='w', format = 't',  complevel = 9)
 
 ```
+
+# Legal matters: are we allowed, and what do we allow others?
+
+An important part of making data publicly available is being explicit about what is allowed if people want to use the dataset.
+However, before we do so, we have to check if **we** are actually allowed to publish the data. This is explained nicely [in a blogpost by Elizabeth Wickes](https://datacarpentry.org/blog/2016/06/data-licensing).
+
+Since our data will come from the **FUMBBL.com** website, we check the [**Privacy policy**](https://fumbbl.com/p/privacy) where all users, including myself have agreed on when signing up. It contains this part which is specific to the unauthenticated API, which we use to fetch the data, as well as additional public match data, such as which inducements are used in a match, and the Coach rankings of the playing coaches that were current when the match was played.
+
+```
+Content you provide through the website
+All the information you provide through the website is processed by FUMBBL. This includes things such as forum posts, private message posts, blog entries, team and player names and biographies and news comments. Data provided this way is visible by other people on the website and in most cases public even to individuals without accounts (not including private messages), and as such are considered of public interest. If direct personal information is posted in public view, you can contact moderators to resolve this. Match records are also considered content in this context, and is also considered of public interest. This data is collected as the primary purpose of the website and it is of course entirely up to you how much of this is provided to FUMBBL. 
+
+Third party sharing
+Some of the public data is available through a public (*i.e. unauthenticated*) API, which shares some of the information provided by FUMBBL users in a way suitable for third-party websites and services to process.
+
+The data available through the unauthenticated API is considered non-personal as it only reflects information that is public by its nature on the website. The authenticated API will only show information connected to the authenticated account.
+```
+
+I conclude that since the match data is already considered public content, there is no harm in collecting this public data in a structured dataset and placing this data in a public repository. The final step is then to decide what others are allowed to do with this data. In practice, this means choosing a license under which to release the dataset. I decided to choose a [CC0 license](https://creativecommons.org/publicdomain/zero/1.0/): this places the data in the public domain, and people can use the dataset as they wish. Citing or mentioning the source of the data would still be appreciated of course.
+
+
