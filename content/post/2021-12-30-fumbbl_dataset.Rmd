@@ -47,11 +47,11 @@ Some of the public data is available through a public (*i.e. unauthenticated*) A
 The data available through the unauthenticated API is considered non-personal as it only reflects information that is public by its nature on the website. The authenticated API will only show information connected to the authenticated account.
 ```
 
-I conclude that since the match data is already considered public content, there is no harm in collecting this public data in a structured dataset and placing this data in a public repository. The final step is then to decide what others are allowed to do with this data. In practice, this means choosing a license under which to release the dataset. I decided to choose a CC0 license: this places the data in the public domain, and people can use the dataset as they wish. Citing or mentioning the source of the data would still be appreciated of course.
+I conclude that since the match data is already considered public content, there is no harm in collecting this public data in a structured dataset and placing this data in a public repository. The final step is then to decide what others are allowed to do with this data. In practice, this means choosing a license under which to release the dataset. I decided to choose a [CC0 license](https://creativecommons.org/publicdomain/zero/1.0/): this places the data in the public domain, and people can use the dataset as they wish. Citing or mentioning the source of the data would still be appreciated of course.
 
-# Python packages used in this blog post
+# Software needed to reproduce this blog post
 
-This blogpost is written as a Jupyter notebook, and is fully reproducible. The idea is to make Blood Bowl data analysis accessible to others. Using only open source tooling reduces the barriers for others to take what i created and build on it. Apart from having Python installed, you need a code editor. Jupyter Notebooks can be read by many code editors, such as Jupyterlab, or Spyder IDE, i decided to try out [Visual Studio Code](https://code.visualstudio.com/), or **VS code** for short. It ticks all my boxes such as being cross platform (I use linux at home and Windows at work), being open source, and having a large user base, as [visible on Github](https://github.com/microsoft/vscode) with more than 125K stars. It works pretty well, the only thing I really miss is have a [Python console connected to the same kernel my Notebook is running on](https://stackoverflow.com/questions/54987778/is-it-possible-to-link-the-interactive-python-window-to-a-running-jupyter-notebo).
+This blogpost is written as a Jupyter notebook, and is fully reproducible. The idea is to make Blood Bowl data analysis accessible to others. Using only open source tooling reduces the barriers for others to take what i created and build on it. Apart from having Python (I used 3.6.9) installed, you need a code editor. Jupyter Notebooks can be read by many code editors, such as Jupyterlab, or Spyder IDE, i decided to try out [Visual Studio Code](https://code.visualstudio.com/), or **VS code** for short. It ticks all my boxes such as being cross platform (I use linux at home and Windows at work), being open source, and having a large user base, as [visible on Github](https://github.com/microsoft/vscode) with more than 125K stars.
 
 
 
@@ -358,7 +358,7 @@ Let's go for roughly 12 months of `BB2016` ruleset matches, and a few months of 
 
 The easiest way to collect match data over a particular period of time is to just loop over `match_id`. The most recent match at the time of writing was 4.347.800, and since rougly 100.000 matches are played each year, we can fiddle about and we find match 4.216.258 played on august 1st, 2020.  So that means we need to collect some 130K matches. 
 
-**VERY IMPORTANT: We do not want to overload the **FUMBBL** server, so we make only three API requests per second. In this way, the server load is hardly affected and it can continue functioning properly for all the Blood Bowl coaches playing their daily games!**
+**VERY IMPORTANT**: We do not want to overload the **FUMBBL** server, so we make only three API requests per second. In this way, the server load is hardly affected and it can continue functioning properly for all the Blood Bowl coaches playing their daily games!
 
 To collect 130K matches, we will need 130000*0.333/3600 = 12 hours.
 
@@ -446,10 +446,6 @@ df_matches.shape
 
     data/df_matches_20211230_192705.h5
     131542
-
-
-
-
 
     (131542, 15)
 
@@ -564,8 +560,7 @@ len(df_matches)
 
 ## Dataprep: getting the dates right
 
-To see time trends, its useful to aggregate the data by week. For this we add `week_number` for each date, and from this week number, we convert back to a date to get a `week_date`. This last part is useful for plotting with `plotnine`, as this treats dates in a special way
-We use the ISO definition of week, this has some unexpected behavior near the beginning / end of each year. 
+To see time trends, its useful to aggregate the data by week. For this we add `week_number` for each date, and from this week number, we convert back to a date to get a `week_date`. This last part is useful for plotting with `plotnine`, as this treats dates in a special way. We use the ISO definition of week, this has some unexpected behavior near the beginning / end of each year, that we fix manually. 
 
 The data starts in week 36 (september) of 2020, and stops halfway week 44 in 2021. 
 
@@ -595,11 +590,11 @@ df_matches.loc[(df_matches['week_date'] == '2021-01-04') & (df_matches['week_num
 # Step 2: HTML Scraping the inducements and coach rankings for each match
 
 Next, we collect for all the matches in `df_matches` the **inducements** and **coach rankings**. 
-This information is not available through the API, but is presented on a HTML page at https://fumbbl.com/FUMBBL.php?page=match summarizing information on each played match.
+This information is not available through the API, but is presented on a HTML page at https://fumbbl.com/FUMBBL.php?page=match&id=4350014 summarizing information for in this case match 4350014.
 
 I highly recommend [this tutorial](https://hackersandslackers.com/scraping-urls-with-beautifulsoup/) for a great introduction to `BeautifulSoup`.
 
-In addition, to clean up the scraped text, I used the **re** Python module (Regular expressions), part of the [Python standard library](https://docs.python.org/3/library/index.html) to extract the actual inducements from the text string that contains them.
+In addition, to clean up the scraped text, I used the `re` Python module (Regular expressions), part of the [Python standard library](https://docs.python.org/3/library/index.html) to extract the actual inducements from the text string that contains them.
 
 
 
@@ -765,10 +760,6 @@ df_inducements.loc[0, 'coach2_ranking']
 
     144.51
 
-
-
-
-
     'LoxodonP Veteran CR 144.51 (-0.76)'
 
 
@@ -881,7 +872,7 @@ df_matches['match_id'] = pd.to_numeric(df_matches.match_id)
 
 When analyzing the data, we also like to have a dataframe `df_mbt (df_matches_by_team)` that contains, for each match, a separate row for each team participating in that match.
 This structure is nicely visualized [at the Nufflytics blog](https://www.nufflytics.com/post/the-value-of-tv/).
-Such a dataset is suitable for adding, at the match level, data that is specific for each team - coach pair, such as team value, coach rating etc.
+Such a dataset is suitable for analysis by team, e.g. win rates. We can extend this further by adding, at the match level, data that is specific for each team - coach pair, such as team value, coach rating etc.
 For example, we can imagine adding more team level data, such as casualties caused during the match, or team composition at the start of the match etc.
 
 
@@ -912,7 +903,7 @@ In Blood Bowl data analysis, it seems that a 2:1:0 (W / D / L) weighting scheme 
 So if we want to compare with others, it makes sense to adapt this scheme as well.
 If we divide these weights by two we get something that, if we average it, we can interpret as a win rate.
 
-This scheme has the advantage that the weighted average win percentage over all matches is always 50%, creating a nice reference point allowing conclusions such as "this and that team has an x percent above average win percentage"
+This scheme has the advantage that the weighted average win percentage over all matches is always 50%, creating a nice reference point allowing conclusions such as "this and that team has an x percent above average win percentage".
 
 
 ```python
@@ -1263,7 +1254,7 @@ So we have to fetch data for 47K different teams.
 
 We use the same approach as above, looping over all `team_id` 's and making a separate API call for each team.
 
-**IMPORTANT: here too, we limit ourselves to a maximum of 2 API calls per second to avoid overloading the FUMBBL server**
+**IMPORTANT: here too, we limit ourselves to a maximum of 3 API calls per second to avoid overloading the FUMBBL server**
 
 
 ```python
@@ -1279,7 +1270,7 @@ if fullrun:
     print('fetching team data for ', len(team_ids), ' teams')
     for t in range(len(team_ids)):    
         api_string = "https://fumbbl.com/api/team/get/" + str(int(team_ids[t]))
-        wait_time = (random.uniform(0.5, 1) + 0.25)/2
+        wait_time = (random.uniform(0.5, 1) + 0.25)/3
         time.sleep(wait_time)
         team = requests.get(api_string)
         team = team.json()
@@ -1314,10 +1305,6 @@ df_teams.shape
 ```
 
     data/df_teams_20211230_192715.h5
-
-
-
-
 
     (46831, 9)
 

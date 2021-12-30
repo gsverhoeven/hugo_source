@@ -214,11 +214,11 @@ Third party sharing
 Some of the public data is available through a public (*i.e. unauthenticated*) API, which shares some of the information provided by FUMBBL users in a way suitable for third-party websites and services to process.
 
 The data available through the unauthenticated API is considered non-personal as it only reflects information that is public by its nature on the website. The authenticated API will only show information connected to the authenticated account.</code></pre>
-<p>I conclude that since the match data is already considered public content, there is no harm in collecting this public data in a structured dataset and placing this data in a public repository. The final step is then to decide what others are allowed to do with this data. In practice, this means choosing a license under which to release the dataset. I decided to choose a CC0 license: this places the data in the public domain, and people can use the dataset as they wish. Citing or mentioning the source of the data would still be appreciated of course.</p>
+<p>I conclude that since the match data is already considered public content, there is no harm in collecting this public data in a structured dataset and placing this data in a public repository. The final step is then to decide what others are allowed to do with this data. In practice, this means choosing a license under which to release the dataset. I decided to choose a <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0 license</a>: this places the data in the public domain, and people can use the dataset as they wish. Citing or mentioning the source of the data would still be appreciated of course.</p>
 </div>
-<div id="python-packages-used-in-this-blog-post" class="section level1">
-<h1>Python packages used in this blog post</h1>
-<p>This blogpost is written as a Jupyter notebook, and is fully reproducible. The idea is to make Blood Bowl data analysis accessible to others. Using only open source tooling reduces the barriers for others to take what i created and build on it. Apart from having Python installed, you need a code editor. Jupyter Notebooks can be read by many code editors, such as Jupyterlab, or Spyder IDE, i decided to try out <a href="https://code.visualstudio.com/">Visual Studio Code</a>, or <strong>VS code</strong> for short. It ticks all my boxes such as being cross platform (I use linux at home and Windows at work), being open source, and having a large user base, as <a href="https://github.com/microsoft/vscode">visible on Github</a> with more than 125K stars. It works pretty well, the only thing I really miss is have a <a href="https://stackoverflow.com/questions/54987778/is-it-possible-to-link-the-interactive-python-window-to-a-running-jupyter-notebo">Python console connected to the same kernel my Notebook is running on</a>.</p>
+<div id="software-needed-to-reproduce-this-blog-post" class="section level1">
+<h1>Software needed to reproduce this blog post</h1>
+<p>This blogpost is written as a Jupyter notebook, and is fully reproducible. The idea is to make Blood Bowl data analysis accessible to others. Using only open source tooling reduces the barriers for others to take what i created and build on it. Apart from having Python (I used 3.6.9) installed, you need a code editor. Jupyter Notebooks can be read by many code editors, such as Jupyterlab, or Spyder IDE, i decided to try out <a href="https://code.visualstudio.com/">Visual Studio Code</a>, or <strong>VS code</strong> for short. It ticks all my boxes such as being cross platform (I use linux at home and Windows at work), being open source, and having a large user base, as <a href="https://github.com/microsoft/vscode">visible on Github</a> with more than 125K stars.</p>
 <pre class="python"><code>import random
 import time
 
@@ -459,7 +459,7 @@ response.json()</code></pre>
 <h1>Step 1: API scraping the match data: df_matches</h1>
 <p>So we are mostly interested in the current ruleset, this is <code>BB2020</code>. This ruleset became available for play on <strong>FUMBBL</strong> at september 1st 2021, and two months later, already some 5000 games have been played. We also want to compare with the previous ruleset, where we have much more data available. How far do we go back? Let’s go for roughly 12 months of <code>BB2016</code> ruleset matches, and a few months of <code>BB2020</code> matches.</p>
 <p>The easiest way to collect match data over a particular period of time is to just loop over <code>match_id</code>. The most recent match at the time of writing was 4.347.800, and since rougly 100.000 matches are played each year, we can fiddle about and we find match 4.216.258 played on august 1st, 2020. So that means we need to collect some 130K matches.</p>
-<p><strong>VERY IMPORTANT: We do not want to overload the </strong>FUMBBL** server, so we make only three API requests per second. In this way, the server load is hardly affected and it can continue functioning properly for all the Blood Bowl coaches playing their daily games!**</p>
+<p><strong>VERY IMPORTANT</strong>: We do not want to overload the <strong>FUMBBL</strong> server, so we make only three API requests per second. In this way, the server load is hardly affected and it can continue functioning properly for all the Blood Bowl coaches playing their daily games!</p>
 <p>To collect 130K matches, we will need 130000*0.333/3600 = 12 hours.</p>
 <pre class="python"><code># estimated hours fetching data
 (4347800-4216257)*0.333/3600</code></pre>
@@ -532,10 +532,6 @@ df_matches.shape
 <pre><code>data/df_matches_20211230_192705.h5
 131542
 
-
-
-
-
 (131542, 15)</code></pre>
 <p>Since we manually filled the <code>pandas</code> DataFrame, most of the columns are now of <code>object</code> datatype. We need to change this to be able to work properly with the data, as well as store it properly. Here I convert each column manually, however I later found out about <code>DataFrame.infer_objects()</code>, that can detect the proper dtype automatically. This I will try next time.</p>
 <pre class="python"><code># convert object dtype columns to proper pandas dtypes datetime and numeric
@@ -597,7 +593,7 @@ len(df_matches)</code></pre>
 </div>
 <div id="dataprep-getting-the-dates-right" class="section level2">
 <h2>Dataprep: getting the dates right</h2>
-<p>To see time trends, its useful to aggregate the data by week. For this we add <code>week_number</code> for each date, and from this week number, we convert back to a date to get a <code>week_date</code>. This last part is useful for plotting with <code>plotnine</code>, as this treats dates in a special way We use the ISO definition of week, this has some unexpected behavior near the beginning / end of each year.</p>
+<p>To see time trends, its useful to aggregate the data by week. For this we add <code>week_number</code> for each date, and from this week number, we convert back to a date to get a <code>week_date</code>. This last part is useful for plotting with <code>plotnine</code>, as this treats dates in a special way. We use the ISO definition of week, this has some unexpected behavior near the beginning / end of each year, that we fix manually.</p>
 <p>The data starts in week 36 (september) of 2020, and stops halfway week 44 in 2021.</p>
 <pre class="python"><code>df_matches[&#39;week_number&#39;] = df_matches[&#39;match_date&#39;].dt.isocalendar().week
 
@@ -621,9 +617,9 @@ df_matches.loc[(df_matches[&#39;week_date&#39;] == &#39;2021-01-04&#39;) &amp; (
 </div>
 <div id="step-2-html-scraping-the-inducements-and-coach-rankings-for-each-match" class="section level1">
 <h1>Step 2: HTML Scraping the inducements and coach rankings for each match</h1>
-<p>Next, we collect for all the matches in <code>df_matches</code> the <strong>inducements</strong> and <strong>coach rankings</strong>. This information is not available through the API, but is presented on a HTML page at <a href="https://fumbbl.com/FUMBBL.php?page=match" class="uri">https://fumbbl.com/FUMBBL.php?page=match</a> summarizing information on each played match.</p>
+<p>Next, we collect for all the matches in <code>df_matches</code> the <strong>inducements</strong> and <strong>coach rankings</strong>. This information is not available through the API, but is presented on a HTML page at <a href="https://fumbbl.com/FUMBBL.php?page=match&amp;id=4350014" class="uri">https://fumbbl.com/FUMBBL.php?page=match&amp;id=4350014</a> summarizing information for in this case match 4350014.</p>
 <p>I highly recommend <a href="https://hackersandslackers.com/scraping-urls-with-beautifulsoup/">this tutorial</a> for a great introduction to <code>BeautifulSoup</code>.</p>
-<p>In addition, to clean up the scraped text, I used the <strong>re</strong> Python module (Regular expressions), part of the <a href="https://docs.python.org/3/library/index.html">Python standard library</a> to extract the actual inducements from the text string that contains them.</p>
+<p>In addition, to clean up the scraped text, I used the <code>re</code> Python module (Regular expressions), part of the <a href="https://docs.python.org/3/library/index.html">Python standard library</a> to extract the actual inducements from the text string that contains them.</p>
 <pre class="python"><code>from bs4 import BeautifulSoup
 import re
 
@@ -783,10 +779,6 @@ else:
 df_inducements.loc[0, &#39;coach2_ranking&#39;]</code></pre>
 <pre><code>144.51
 
-
-
-
-
 &#39;LoxodonP Veteran CR 144.51 (-0.76)&#39;</code></pre>
 <p>Got ’m! Now that we have figured it out, we can write the code that extracts the coach rankings:</p>
 <pre class="python"><code># Dataprep fix match_id
@@ -869,7 +861,7 @@ df_matches[&#39;match_id&#39;] = pd.to_numeric(df_matches.match_id) </code></pre
 </div>
 <div id="step-3-create-matches-by-team-dataframe" class="section level1">
 <h1>Step 3: Create matches by team DataFrame</h1>
-<p>When analyzing the data, we also like to have a dataframe <code>df_mbt (df_matches_by_team)</code> that contains, for each match, a separate row for each team participating in that match. This structure is nicely visualized <a href="https://www.nufflytics.com/post/the-value-of-tv/">at the Nufflytics blog</a>. Such a dataset is suitable for adding, at the match level, data that is specific for each team - coach pair, such as team value, coach rating etc. For example, we can imagine adding more team level data, such as casualties caused during the match, or team composition at the start of the match etc.</p>
+<p>When analyzing the data, we also like to have a dataframe <code>df_mbt (df_matches_by_team)</code> that contains, for each match, a separate row for each team participating in that match. This structure is nicely visualized <a href="https://www.nufflytics.com/post/the-value-of-tv/">at the Nufflytics blog</a>. Such a dataset is suitable for analysis by team, e.g. win rates. We can extend this further by adding, at the match level, data that is specific for each team - coach pair, such as team value, coach rating etc. For example, we can imagine adding more team level data, such as casualties caused during the match, or team composition at the start of the match etc.</p>
 <pre class="python"><code># make two copies, one for each team in the match
 team1_data = df_matches[[&#39;match_id&#39;, &#39;match_date&#39;, &#39;week_number&#39;,   &#39;year&#39;, &#39;week_year&#39;, &#39;week_date&#39;, &#39;team1_id&#39;,
     &#39;team1_coach_id&#39;, &#39;team1_race_name&#39;, &#39;team1_value&#39;, &#39;team1_win&#39;, &#39;tv_diff&#39;, &#39;tv_match&#39;,
@@ -888,7 +880,7 @@ df_mbt = pd.concat([team1_data, team2_data])</code></pre>
 <div id="adding-outcome-weights" class="section level2">
 <h2>Adding outcome weights</h2>
 <p>One way to measure team strength is to calculate a win rate. If we want to calculate win rates, we need to decide how to weigh a draw. In Blood Bowl data analysis, it seems that a 2:1:0 (W / D / L) weighting scheme is most commonly used. So if we want to compare with others, it makes sense to adapt this scheme as well. If we divide these weights by two we get something that, if we average it, we can interpret as a win rate.</p>
-<p>This scheme has the advantage that the weighted average win percentage over all matches is always 50%, creating a nice reference point allowing conclusions such as “this and that team has an x percent above average win percentage”</p>
+<p>This scheme has the advantage that the weighted average win percentage over all matches is always 50%, creating a nice reference point allowing conclusions such as “this and that team has an x percent above average win percentage”.</p>
 <pre class="python"><code>df_mbt.loc[df_mbt[&#39;wins&#39;] == 0, &#39;wins&#39;] = 0.5
 df_mbt.loc[df_mbt[&#39;wins&#39;] == -1, &#39;wins&#39;] = 0
 
@@ -1701,7 +1693,7 @@ len(team_ids)</code></pre>
 <pre><code>46831</code></pre>
 <p>So we have to fetch data for 47K different teams.</p>
 <p>We use the same approach as above, looping over all <code>team_id</code> ’s and making a separate API call for each team.</p>
-<p><strong>IMPORTANT: here too, we limit ourselves to a maximum of 2 API calls per second to avoid overloading the FUMBBL server</strong></p>
+<p><strong>IMPORTANT: here too, we limit ourselves to a maximum of 3 API calls per second to avoid overloading the FUMBBL server</strong></p>
 <pre class="python"><code>df_teams = pd.DataFrame(columns=[&#39;team_id&#39;, &#39;division_id&#39;, &#39;division_name&#39;,  &#39;league&#39; ,
     &#39;ruleset&#39;, &#39;roster_id&#39;, &#39;race_name&#39;,  &#39;games_played&#39;])
 
@@ -1714,7 +1706,7 @@ if fullrun:
     print(&#39;fetching team data for &#39;, len(team_ids), &#39; teams&#39;)
     for t in range(len(team_ids)):    
         api_string = &quot;https://fumbbl.com/api/team/get/&quot; + str(int(team_ids[t]))
-        wait_time = (random.uniform(0.5, 1) + 0.25)/2
+        wait_time = (random.uniform(0.5, 1) + 0.25)/3
         time.sleep(wait_time)
         team = requests.get(api_string)
         team = team.json()
@@ -1747,10 +1739,6 @@ df_teams.shape
 
     </code></pre>
 <pre><code>data/df_teams_20211230_192715.h5
-
-
-
-
 
 (46831, 9)</code></pre>
 <div id="dataprep-add-ruleset_version-and-division_name" class="section level2">
