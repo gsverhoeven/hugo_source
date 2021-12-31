@@ -13,14 +13,14 @@ categories:
 tags:
 - Python
 - Pandas
-- Plotnine
+- Beautiful Soup
 baseurl: https://gsverhoeven.github.io
 header:
-  image: headers/pexels-josh-sorenson-1054387.png
+  image: headers/bloodbowl_dataset.png
   preview: no
 ---
 
-This blogpost is about **Blood Bowl**, a boardgame I started playing last year. The goal of this blog post is to use Python API and HTML scraping to fetch online Blood Bowl match outcome data, and to create a structured dataset ready for analysis and visualization. In a [separate blog post](link/to/blog) I'll showcase some analyses on this dataset (also known as [nufflytics](https://www.nufflytics.com) in reference to Nuffle, the god of Blood Bowl). The dataset is primarily constructed to analyze rule changes that were introduced on FUMBBL.com last year, and how these affected the relative strengths of the different teams coaches can pick to field against each other.
+This blogpost is about **Blood Bowl**, a boardgame of fantasy football that can also be played online at [FUMBBL.com](https://fumbbl.com). The goal of this blog post is to use Python API and HTML scraping to fetch online Blood Bowl match outcome data, and to create a publicly available dataset ready for analysis and visualization. In a [separate blog post](link/to/blog) I'll showcase some analyses on this dataset (also known as [Nufflytics](https://www.nufflytics.com) in reference to Nuffle, the god of Blood Bowl). The dataset is primarily constructed to analyze rule changes that were introduced on FUMBBL.com last year, and how these affected the relative strengths of the different teams coaches can pick to field against each other.
 
 In writing this blog post, I took inspiration from a relatively new development in Open Science, that of the **Data paper** (Chavan & Penev, 2011). A data paper is a (ideally peer reviewed) publication of a dataset as a stand alone research output. A Data paper can be thought of similar to the  “Methods” section of a traditional research article, though with greater detail. A data paper describes the contents of the dataset, the data acquisition process,  and includes a discussion of the motivation and considerations regarding experimental design (if applicable). Data papers do not provide any analysis nor results / conclusions. The dataset itself should be online available at a data repository such as **Zenodo**, **Figshare** or **Dryad**.
 
@@ -486,7 +486,7 @@ These inducements are temporary, and can consists of a famous "star player" who 
 
 It is well known that the win rates of the teams depend on how developed a team is. For example, Amazons are thought to be strongest at low team value, as they already start out with lots of *block* and *dodge* skills, whereas a Chaos team start out with almost no skills.
 So if we compare win rates, we would like take into account the current team value. 
-Now as this can differ between the two teams in a match up, I reasoned that the highest team value is most informative about the average strength level of both teams, because of the inducement mechanism described above. (In the next step, we will add information on inducements)
+Now as this can differ between the two teams in a match up, I reasoned that the highest team value is most informative about the average strength level of both teams, because of the inducement mechanism described above.
 
 In the dataset, we have for each match the current team values of both teams as a text string. 
 We transform the text string `1100k` into an integer number `1100`, so that we can calculated the difference as `tv_diff`, and pick for each match the maximum team value and store it as `tv_match`. Finally, we create a team value bin `tv_bin` to be able to compare win rates for binned groups of matches where races have comparable team strength / team development.
@@ -1544,7 +1544,7 @@ df_mbt.to_hdf(target, key='df_mbt', mode='w', format = 't',  complevel = 9)
 
 ```
 
-# Legal matters: are we allowed, and what do we allow others?
+# Choosing a license for the public dataset
 
 An important part of making data publicly available is being explicit about what is allowed if people want to use the dataset.
 However, before we do so, we have to check if **we** are actually allowed to publish the data. This is explained nicely [in a blogpost by Elizabeth Wickes](https://datacarpentry.org/blog/2016/06/data-licensing).

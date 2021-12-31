@@ -13,17 +13,17 @@ categories:
 tags:
 - Python
 - Pandas
-- Plotnine
+- Beautiful Soup
 baseurl: https://gsverhoeven.github.io
 header:
-  image: headers/pexels-josh-sorenson-1054387.png
+  image: headers/bloodbowl_dataset.png
   preview: no
 ---
 
 <script src="/rmarkdown-libs/header-attrs/header-attrs.js"></script>
 
 
-<p>This blogpost is about <strong>Blood Bowl</strong>, a boardgame I started playing last year. The goal of this blog post is to use Python API and HTML scraping to fetch online Blood Bowl match outcome data, and to create a structured dataset ready for analysis and visualization. In a <a href="link/to/blog">separate blog post</a> I’ll showcase some analyses on this dataset (also known as <a href="https://www.nufflytics.com">nufflytics</a> in reference to Nuffle, the god of Blood Bowl). The dataset is primarily constructed to analyze rule changes that were introduced on FUMBBL.com last year, and how these affected the relative strengths of the different teams coaches can pick to field against each other.</p>
+<p>This blogpost is about <strong>Blood Bowl</strong>, a boardgame of fantasy football that can also be played online at <a href="https://fumbbl.com">FUMBBL.com</a>. The goal of this blog post is to use Python API and HTML scraping to fetch online Blood Bowl match outcome data, and to create a publicly available dataset ready for analysis and visualization. In a <a href="link/to/blog">separate blog post</a> I’ll showcase some analyses on this dataset (also known as <a href="https://www.nufflytics.com">Nufflytics</a> in reference to Nuffle, the god of Blood Bowl). The dataset is primarily constructed to analyze rule changes that were introduced on FUMBBL.com last year, and how these affected the relative strengths of the different teams coaches can pick to field against each other.</p>
 <p>In writing this blog post, I took inspiration from a relatively new development in Open Science, that of the <strong>Data paper</strong> (Chavan &amp; Penev, 2011). A data paper is a (ideally peer reviewed) publication of a dataset as a stand alone research output. A Data paper can be thought of similar to the “Methods” section of a traditional research article, though with greater detail. A data paper describes the contents of the dataset, the data acquisition process, and includes a discussion of the motivation and considerations regarding experimental design (if applicable). Data papers do not provide any analysis nor results / conclusions. The dataset itself should be online available at a data repository such as <strong>Zenodo</strong>, <strong>Figshare</strong> or <strong>Dryad</strong>.</p>
 <p>To give an impression of how this works out in practice, here are two examples: The first data paper, <a href="https://www.nature.com/articles/s41597-019-0247-7"><em>A public data set of spatio-temporal match events in soccer competitions</em></a>, was published in “Scientific data” with the dataset hosted at <a href="https://doi.org/10.6084/m9.figshare.c.4415000.v5">Figshare</a>. The second is collected from Twitter: <a href="https://arxiv.org/abs/2004.03688"><em>A large-scale COVID-19 Twitter chatter dataset for open scientific research – an international collaboration</em></a>, with the open dataset published on <a href="https://doi.org/10.5281/zenodo.5775023">Zenodo</a>.</p>
 <p>*Chavan, V., and Penev, L. (2011). The data paper: a mechanism to incentivize data publishing in biodiversity science. BMC Bioinformatics 12(Suppl. 15):S2. <a href="doi:10.1186/1471-2105-12-S15-S2" class="uri">doi:10.1186/1471-2105-12-S15-S2</a></p>
@@ -392,7 +392,7 @@ The <strong>Team value difference</strong> for a match determines the amount of 
 These inducements are temporary, and can consists of a famous “star player” who joins the team just for this match. Another popular option is to hire a wizard that can be used to turn one of the opposing players into a frog.</p>
 <p>It is well known that the win rates of the teams depend on how developed a team is. For example, Amazons are thought to be strongest at low team value, as they already start out with lots of <em>block</em> and <em>dodge</em> skills, whereas a Chaos team start out with almost no skills.
 So if we compare win rates, we would like take into account the current team value.
-Now as this can differ between the two teams in a match up, I reasoned that the highest team value is most informative about the average strength level of both teams, because of the inducement mechanism described above. (In the next step, we will add information on inducements)</p>
+Now as this can differ between the two teams in a match up, I reasoned that the highest team value is most informative about the average strength level of both teams, because of the inducement mechanism described above.</p>
 <p>In the dataset, we have for each match the current team values of both teams as a text string.
 We transform the text string <code>1100k</code> into an integer number <code>1100</code>, so that we can calculated the difference as <code>tv_diff</code>, and pick for each match the maximum team value and store it as <code>tv_match</code>. Finally, we create a team value bin <code>tv_bin</code> to be able to compare win rates for binned groups of matches where races have comparable team strength / team development.</p>
 <pre class="python"><code># convert team value 1100k to 1100 integer and and above / below median (= low / high TV)
@@ -1585,10 +1585,9 @@ df_teams.shape
 <p>FUMBBL allows coaches to create their own rulesets to play their own leagues and tournaments with. For example, there is a so-called “Secret League” where coaches can play with “Ninja halflings”, “Ethereal” spirits etc. Instead of plain normal regular “Halflings” and “Shambling Undead” :-)</p>
 <p>Since we want the team strength for the official rulesets BB2016 and BB2020, we need to distinguish those matches from the matches that are played under different rules.</p>
 <p>Lets have look at the various divisions and leagues, which rulesets are used, and which races are played how often.
-There are a lot of small leagues being played on FUMBBL, they account for maybe X% of all the matches.</p>
-<p>We only look at divisions and leagues with a sufficient volume of matches, or otherwise we do not have sufficient statistics for each race.</p>
-<p>So I aggregated the data by division, league and ruleset, and filtered on at least 150 different teams that have played at least once last year.
-Apart from the main “Divisions” that are part of FUMBBL, there were a few user-run leagues present in this table, so I looked up their names on FUMBBL and what ruleset is used (BB2016, BB2020 or some other variant). This information (contained in an xlsx) is added to the dataset below.</p>
+There are a lot of small leagues being played on FUMBBL. We only look at divisions and leagues with a sufficient volume of matches, or otherwise we do not have sufficient statistics for each race.</p>
+<p>So I aggregated the data by division, league and ruleset, and filtered on at least 150 different teams that have played at least once last year.</p>
+<p>Apart from the main “Divisions” that are part of FUMBBL, there were a few user-run leagues present in this table, so I looked up their names on FUMBBL and what ruleset is used (BB2016, BB2020 or some other variant). This information (contained in an xlsx) is added to the dataset below.</p>
 <pre class="python"><code># add ruleset_version and division_name from xlsx
 ruleset_division_names = pd.read_excel(&#39;data/ruleset_division_names.xlsx&#39;,  engine=&#39;openpyxl&#39;)
 
@@ -1972,8 +1971,8 @@ df_matches.to_hdf(target, key=&#39;df_matches&#39;, mode=&#39;w&#39;, format = &
 df_mbt.to_hdf(target, key=&#39;df_mbt&#39;, mode=&#39;w&#39;, format = &#39;t&#39;,  complevel = 9)
 </code></pre>
 </div>
-<div id="legal-matters-are-we-allowed-and-what-do-we-allow-others" class="section level1">
-<h1>Legal matters: are we allowed, and what do we allow others?</h1>
+<div id="choosing-a-license-for-the-public-dataset" class="section level1">
+<h1>Choosing a license for the public dataset</h1>
 <p>An important part of making data publicly available is being explicit about what is allowed if people want to use the dataset.
 However, before we do so, we have to check if <strong>we</strong> are actually allowed to publish the data. This is explained nicely <a href="https://datacarpentry.org/blog/2016/06/data-licensing">in a blogpost by Elizabeth Wickes</a>.</p>
 <p>Since our data will come from the <strong>FUMBBL.com</strong> website, we check the <a href="https://fumbbl.com/p/privacy"><strong>Privacy policy</strong></a> where all users, including myself have agreed on when signing up. It contains this part which is specific to the unauthenticated API, which we use to fetch the data, as well as additional public match data, such as which inducements are used in a match, and the Coach rankings of the playing coaches that were current when the match was played.</p>
