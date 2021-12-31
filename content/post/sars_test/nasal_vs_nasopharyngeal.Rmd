@@ -68,6 +68,7 @@ Among 96additional adults,selfNMT-and professional NP-sampling yielded an identi
 (29 + 33 + 33 + 31) / (31 + 30 + 34 + 31) = 100%
 
 ```{r}
+library(ggplot2)
 set.seed(123)
 res1 <- data.frame(x = rbinom(10000, 152, p = 0.822), exp = "p_data")
 res2 <- data.frame(x = rbinom(10000, 152, p = 0.822+0.05), exp = "p_prior")

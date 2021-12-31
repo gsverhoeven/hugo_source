@@ -1,0 +1,116 @@
+---
+title: Antigen test blog post notes
+author: Gertjan Verhoeven
+date: '2021-05-30'
+draft: TRUE
+output: pdf_document
+---
+
+<script src="/rmarkdown-libs/header-attrs/header-attrs.js"></script>
+
+
+<div id="lit-rev" class="section level2">
+<h2>Lit rev</h2>
+<p>Here, we go Bayesian. What is a reasonable difference to expect, or in bayesian terminology: what is our <strong>prior</strong> here? Enter domain knowledge.</p>
+<p>From the literature, both the recent literature on COVID-19 testing, but also the older literature on Influenza swabbing, I estimate that self-collected nasal swabs are roughly 10% less accurate than nasopharyngeal swabs.
+For example, from the meta-analysis of Seaman <em>et al.</em> (2019) on influenza sampling:</p>
+<p><em>Although nasopharyngeal/nasal wash aspirates and nasopharyngeal (NP) swabs are considered the optimal sampling technique for the confirmation of influenza [3,10,11], neither is reliably self-collected</em></p>
+<p><em>Pooled sensitivity was 87% (95%CI:80%,92%) and specificity was 99% (95%CI:98%,100%), compared to professional-collected swabs in the diagnosis of influenza.</em></p>
+<p>A recent systematic review on the various ways to “obtain a COVID-19 specimen” (Lee <span class="math inline">\(et al.\)</span> 2021) found that</p>
+<p><em>Three specimen types captured lower % positives (Nasal Swabs [82%, 95% CI: 73 to 90%], oropharyngeal swabs [84%, 95% CI: 57 to 100%], and saliva [88%, 95% CI: 81 to 93%]) than nasopharyngeal swabs</em></p>
+<p>Note that this review compares results on the PCR test. And PCR tests can detected much lower viral loads, so the percentage itself is not directly comparable (this depends on the share of low viral loads, among others). But it does provide support for the hypothesis that nasal swabs typically contain less viral load compared to nasopharyngeal swabs, and this should affect measurement using rapid antigen tests as well.</p>
+</div>
+<div id="rebuttal" class="section level2">
+<h2>Rebuttal</h2>
+<p>Klein et al 2021: <a href="https://www.medrxiv.org/content/10.1101/2021.03.17.21253076v1.full.pdf" class="uri">https://www.medrxiv.org/content/10.1101/2021.03.17.21253076v1.full.pdf</a>
+The overall sensitivity of Panbio with NP sampling was 88.9% (40/45; 95% confidence 75interval (CI)76.5%-95.5%)and84.4% (38/45; CI 71.2% -92.3%)with NMT sampling. 76</p>
+<p>Fourinfections were identified by NP Ag-RDT sampling, which were negative in NMT 77sampling of which two had a low VL(VL&lt;4.9 log10SARS-CoV-2RNA copies/ml) and two 78were asymptomatic(Table 1). Two participantshad a positive NMT result, not detected via 79NP Ag-RDT,of which one had a low VL(VL &lt;4.9 log10SARS-CoV-2RNA copies/ml).</p>
+<p>Contains also this:</p>
+<p>Sincethen,independenthead-to-30head studiesdemonstrated that nasal sampling(including self-sampling)assessed againstNP 31samplingleadsto comparable performance using the SARS-CoV-2Ag-RDT SD STANDARD 32Q[3-5]</p>
+</div>
+<div id="study-1" class="section level1">
+<h1>study 1</h1>
+<p>The STANDARD Q Ag-RDT with NMT sampling showed a sensitivity of 74.4% (29/39 PCR positives detected; 95% CI 58.9–85.4%) and specificity of 99.2% (95% CI 97.1–99.8%) compared to RT-PCR. The sensitivity with NP sampling was 79.5% (31/39 PCR positives detected; 95% CI 64.5–89.2%) and specificity was 99.6% (95% CI 97.8–100%)</p>
+</div>
+<div id="study-2" class="section level1">
+<h1>Study 2</h1>
+<p>The STANDARD Q Ag-RDT with NMT sampling showed a sensitivity of 80.5% (33/41 PCR positives detected; 95% CI 66.0–89.8%) and specificity of 98.6% (95% CI 94.9–99.6%) compared to RT-PCR. The sensitivity with NP sampling was 73.2% (30/41 PCR positives detected; 95% CI 58.1–84.3%)</p>
+<p>The samples where NP was negative and NMT was positive have symptoms &gt; 7 days.</p>
+<p>But indeed: here nasal outperforms NP.</p>
+</div>
+<div id="study-3" class="section level1">
+<h1>study 3</h1>
+<p>Diagnostic accuracy and feasibility of patient self-testing with a SARS-CoV-2 antigen-detecting rapid test</p>
+<p>Among 146 symptomatic adults, 40 (27.4%) were RT-PCR-positive for SARS-CoV-2. Sensitivity with self-testing was 82.5% (33/40; 95% CI 68.1-91.3), and 85.0% (34/40; 95% CI 70.9-92.9) with professional testing. At high viral load (≥7.0 log10 SARS-CoV-2 RNA copies/ml), sensitivity was 96.6% (28/29; 95% CI 82.8-99.8) for both self- and professional testing. Deviations in sampling and testing were observed in 25 out of the 40 PCR-positives. Most participants (80.9%) considered the Ag-RDT as easy to perform.</p>
+<p>33/40, 34/40</p>
+<p>The study took place at the ambulatory SARS-CoV-2 testing facility of Charité - Universitätsmedizin Berlin, from 30 November to 11 December 2020.</p>
+</div>
+<div id="study-4" class="section level1">
+<h1>study 4</h1>
+<p>Anterior nasal versus nasal mid-turbinate sampling for a SARS-CoV-2 antigen-detecting rapid test: does localisation or professional collection matter?</p>
+<p>Among 96additional adults,selfNMT-and professional NP-sampling yielded an identical sensitivity of 91.2% (31/34; 95%CI 77.0-97.0).</p>
+</div>
+<div id="pooled" class="section level1">
+<h1>Pooled</h1>
+<p>(29 + 33 + 33 + 31) / (31 + 30 + 34 + 31) = 100%</p>
+<pre class="r"><code>library(ggplot2)
+set.seed(123)
+res1 &lt;- data.frame(x = rbinom(10000, 152, p = 0.822), exp = &quot;p_data&quot;)
+res2 &lt;- data.frame(x = rbinom(10000, 152, p = 0.822+0.05), exp = &quot;p_prior&quot;)
+res &lt;- rbind(res1, res2)
+
+ggplot(res, aes(x = x, group = exp, color = exp)) + geom_density() +
+  geom_vline(xintercept = 126, linetype = &quot;dashed&quot;)</code></pre>
+<p><img src="/post/sars_test/nasal_vs_nasopharyngeal_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+<pre class="r"><code>set.seed(123)
+res1 &lt;- data.frame(x = rbinom(10000, 152, p = 0.822), exp = &quot;p_data&quot;)
+res2 &lt;- data.frame(x = rbinom(10000, 152, p = 0.822+0.1), exp = &quot;p_prior&quot;)
+res &lt;- rbind(res1, res2)
+
+ggplot(res, aes(x = x, group = exp, color = exp)) + geom_density() +
+  geom_vline(xintercept = 126, linetype = &quot;dashed&quot;)</code></pre>
+<p><img src="/post/sars_test/nasal_vs_nasopharyngeal_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<div id="sample-size-required-to-detect-a-difference-between-0.8-and-0.9-probability" class="section level2">
+<h2>Sample size required to detect a difference between 0.8 and 0.9 probability?</h2>
+<p>But what about statistical power? From glancing at the literature (N = 40 also low power) the difference seems about 5- 10%.</p>
+<p>How big a sample do we we need to detect a difference of 10%?</p>
+<p>We can do a simple simulation to check the range of outcomes if we would compare two antigen tests, one with a sensitivity of 80%, and the other with a sensitivity of 90%, and a sample size of 40 pairs (so all 40 PCR positive, and then comparing both Ag tests):</p>
+<pre class="r"><code>n_iter &lt;- 10000
+n_sample &lt;- 40
+probs &lt;- c(0.80, 0.90)
+
+vec1 &lt;- rbinom(n_iter, n_sample, probs[1])
+vec2 &lt;- rbinom(n_iter, n_sample, probs[2])
+
+hist((vec1 - vec2)/n_sample)</code></pre>
+<p><img src="/post/sars_test/nasal_vs_nasopharyngeal_files/figure-html/unnamed-chunk-3-1.png" width="672" />
+We can see that the difference in sensitivity is highly uncertain, and in 0.1359 of the cases is the sign reversed, and the test with the lower sensitivity scores better!
+So with these sample sizes, common statistical testing will likely yield a result of hypothesis of no difference not rejected.
+We can see that papers use this to suggest that both swab methods give “similar” or “comparable” results.</p>
+</div>
+</div>
+<div id="mini-literature-review" class="section level1">
+<h1>Mini literature review</h1>
+<p>A quick google scholar search turned up several studies that claim to show no difference or “similar” performance:</p>
+<p><em>Irving et al 2012: Comparison of Nasal and Nasopharyngeal Swabs for Influenza Detection in Adults</em> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3494547/" class="uri">https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3494547/</a>)</p>
+<p>Paired samples were collected from 240 adults; 33 (14%) individuals tested positive for influenza by rRT-PCR. Using rRT-PCR, the sensitivity of the nasal swab was 89% (95% CI, 78%-99%) and the sensitivity of the nasopharyngeal swab was 94% (95% CI, 87%-100%), compared to a composite gold standard.</p>
+<p>Test sensitivity did not vary significantly by swab type when using a highly sensitive molecular diagnostic test, but power was limited to detect modest differences.</p>
+<p><em>Péré et al 2020: Nasal Swab Sampling for SARS-CoV-2: a Convenient Alternative in Times of Nasopharyngeal Swab Shortage</em> (<a href="https://jcm.asm.org/content/58/6/e00721-20" class="uri">https://jcm.asm.org/content/58/6/e00721-20</a>)</p>
+<p>Out of 37 patients that were positive for SARS-CoV-2 by nasopharyngeal swab testing, 33 also tested positive by nasal sampling.</p>
+<p>We herein report that the molecular detection of SARS-CoV-2 using nasal swab specimens was nearly equivalent to the detection using nasopharyngeal swab considered the gold standard. (<strong>This one is really bad</strong>)</p>
+<p><em>Head-to-head comparison of SARS-CoV-2 antigen-detecting rapid test with self-collected nasal swab versus professional-collected nasopharyngeal swab</em></p>
+<p>The STANDARD Q Ag-RDT with NMT sampling showed a sensitivity of 74.4% (29/39 PCR positives detected; 95% CI 58.9–85.4%) and specificity of 99.2% (95% CI 97.1–99.8%) compared to RT-PCR. The sensitivity with NP sampling was 79.5% (31/39 PCR positives detected; 95% CI 64.5–89.2%) and specificity was 99.6% (95% CI 97.8–100%).</p>
+<p>And from the press release: “This study shows that supervised, self-administered swabs are no less effective than professional-collected nasopharyngeal swabs when used with the antigen test selected for this research,” explains PD Dr. Denkinger.(Brrr)</p>
+</div>
+<div id="meta-analyses" class="section level1">
+<h1>meta analyses</h1>
+<ul>
+<li>Seaman et al 2019: Self-collected compared with professional-collected swabbing in the diagnosis of influenza in symptomatic individuals: A meta-analysis and assessment of validity</li>
+</ul>
+<p>Pooled sensitivity was 87% (95%CI:80%,92%) and specificity was 99% (95%CI:98%,100%), compared to professional-collected swabs in the diagnosis of influenza.</p>
+<p>Great, somebody did a meta-analysis!</p>
+<ul>
+<li>Lee et al 2021: Performance of Saliva, Oropharyngeal Swabs, and Nasal Swabs for SARS-CoV-2 Molecular Detection: a Systematic Review and Meta-analysis</li>
+</ul>
+<p>While all 3 sample types independently seemed to capture lower % positives (nasal swabs 82% [95% CI 73 to 90%], OP swabs 84% [95% CI 57 to 100%] and saliva 88%[95% CI 81 to 93%]) in comparison to NP swabs, combined OP/nasal swabs in 4 studies,interestingly, had the same % positive detection rate as NP swabs (97% [95% CI 90 to100%]) (Fig. 6).</p>
+</div>
