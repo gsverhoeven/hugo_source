@@ -2,11 +2,13 @@
 
 # NOTE TO SELF: ARGUMENT $1 DOES NOT WORK CHECK COMMITS ON GITHUB
 
-#echo 'building site with blogdown'
-#Rscript --verbose build_site.R
+# first step walk through build_site.R to preview and refine post
+
+# final contents ready in /public? then proceed
 
 echo 'cleanup: remove rds files'
 rm --force public/post/bart_vs_grf/*.rds
+rm -R --force public/post/fumbbl_blogpost_src
 rm -Rf ../gsverhoeven.github.io2
 
 echo 'create new site locally'
@@ -30,4 +32,6 @@ if [ $# -eq 1 ]
 	git push
 fi
 
+#Username for 'https://github.com': gsverhoeven
+#Password for 'https://gsverhoeven@github.com': PLAK hier het PAT uit Keepass
 
