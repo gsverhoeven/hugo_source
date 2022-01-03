@@ -1,0 +1,72 @@
+---
+title: "How to prevent overfitting with Random Forests"
+author: "Gertjan Verhoeven"
+date: '2021-05-02'
+summary: This blog post demonstrates that the Random Forest algorithm (as implemented in R by `ranger()`) suffers from overfitting by reproducing an example from the book *Applied Predictive Modeling*. The solution is to use Recursive Feature Elimination (RFE) to remove predictors with spurious correlations. We provide up to date code that can be used for workflows that use either `caret` and/or `tidymodels` .
+slug: random-forest-overfitting
+draft: no
+categories: 
+  - Random Forest
+  - Machine Learning
+  - Overfitting
+tags:
+  - caret
+  - tidymodels
+  - ranger
+baseurl: https://gsverhoeven.github.io
+header:
+  image: headers/wilhelm-gunkel-di8ognBauG0-unsplash.png
+  preview: no
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This blog post demonstrates that the Random Forest algorithm (as implemented in R by `ranger()`) suffers from overfitting by reproducing an example from the book *Applied Predictive Modeling*. The solution is to use Recursive Feature Elimination (RFE) to remove predictors with spurious correlations. We provide up to date code that can be used for workflows that use either `caret` and/or `tidymodels` .
+
+Some models are negatively affected by non-informative predictors.
+Some models are naturally resistant to non-informative predictors.
+Tree based models implicitely perform feature selection by not including non-informative predictors.
+
+19.1 QSAR data, adding 
+
+```{r}
+library(AppliedPredictiveModeling)
+```
+
+```{r}
+data(solubility)
+
+library(caret)
+
+### Cross-validation splits used in the book:
+set.seed(100)
+indx <- createFolds(solTrainY, returnTrain = TRUE)
+
+### To re-create the transformed version of the data:
+## Not run: 
+## Find the predictors that are not fingerprints
+contVars <- names(solTrainX)[!grepl("FP", names(solTrainX))]
+## Some have zero values, so we need to add one to them so that
+## we can use the Box-Cox transformation. Alternatively, we could 
+## use the Yeo-Johnson transformation without altering the data.
+contPredTrain <- solTrainX[,contVars] + 1
+contPredTest  <-  solTestX[,contVars] + 1
+
+pp <- preProcess(contPredTrain, method = "BoxCox")
+contPredTrain <- predict(pp, contPredTrain)
+contPredTest  <- predict(pp, contPredTest)
+
+## Reassemble the fingerprint data with the transformed values.
+trainXtrans <- cbind(solTrainX[,grep("FP", names(solTrainX))], contPredTrain)
+testXtrans  <- cbind( solTestX[,grep("FP", names(solTestX))],  contPredTest)
+
+all.equal(trainXtrans, solTrainXtrans)
+all.equal(testXtrans, solTestXtrans)
+	
+## End(Not run)
+```
+
+
