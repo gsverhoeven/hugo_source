@@ -1,7 +1,7 @@
 ---
 title: "How to prevent overfitting with Random Forests"
 author: "Gertjan Verhoeven"
-date: '2021-05-02'
+date: '2022-01-03'
 summary: This blog post demonstrates that the Random Forest algorithm (as implemented in R by `ranger()`) suffers from overfitting by reproducing an example from the book *Applied Predictive Modeling*. The solution is to use Recursive Feature Elimination (RFE) to remove predictors with spurious correlations. We provide up to date code that can be used for workflows that use either `caret` and/or `tidymodels` .
 slug: random-forest-overfitting
 draft: no
@@ -28,45 +28,109 @@ This blog post demonstrates that the Random Forest algorithm (as implemented in 
 
 Some models are negatively affected by non-informative predictors.
 Some models are naturally resistant to non-informative predictors.
-Tree based models implicitely perform feature selection by not including non-informative predictors.
+Tree based models implicitly perform feature selection by not including non-informative predictors.
 
-19.1 QSAR data, adding 
+19.1 QSAR data, adding 10,50,100,200,300,400,500 non-informative predictors
+
+test set profiles were calculated.
+
+https://stats.stackexchange.com/questions/50210/caret-and-randomforest-number-of-trees
+
+This code reproduces Fig 8.18 from Max Kuhn's book Applied Predictive Modelling from 2013.
 
 ```{r}
 library(AppliedPredictiveModeling)
-```
-
-```{r}
 data(solubility)
 
 library(caret)
-
-### Cross-validation splits used in the book:
 set.seed(100)
 indx <- createFolds(solTrainY, returnTrain = TRUE)
+ctrl <- trainControl(method = "cv", index = indx)
 
-### To re-create the transformed version of the data:
-## Not run: 
-## Find the predictors that are not fingerprints
-contVars <- names(solTrainX)[!grepl("FP", names(solTrainX))]
-## Some have zero values, so we need to add one to them so that
-## we can use the Box-Cox transformation. Alternatively, we could 
-## use the Yeo-Johnson transformation without altering the data.
-contPredTrain <- solTrainX[,contVars] + 1
-contPredTest  <-  solTestX[,contVars] + 1
+################################################################################
+### Section 8.5 Random Forests
 
-pp <- preProcess(contPredTrain, method = "BoxCox")
-contPredTrain <- predict(pp, contPredTrain)
-contPredTest  <- predict(pp, contPredTest)
+rangerGrid <- data.frame(mtry = floor(seq(10, ncol(solTrainXtrans), length = 10)),
+                       splitrule = "variance", 
+                       min.node.size = 5)
 
-## Reassemble the fingerprint data with the transformed values.
-trainXtrans <- cbind(solTrainX[,grep("FP", names(solTrainX))], contPredTrain)
-testXtrans  <- cbind( solTestX[,grep("FP", names(solTestX))],  contPredTest)
 
-all.equal(trainXtrans, solTrainXtrans)
-all.equal(testXtrans, solTestXtrans)
-	
-## End(Not run)
+rfTune2 <- train(x = solTrainXtrans, y = solTrainY,
+                method = "ranger",
+                tuneGrid = rangerGrid,
+                trControl = ctrl)
+rfTune2
+
+
+plot(rfTune2)
+
 ```
 
+```{r}
+### Save the test set results in a data frame                 
+testResults <- data.frame(obs = solTestY,
+                          RFtune2 =  predict(rfTune2, solTestXtrans))
+
+```
+
+Lets calculate the Test set RMSE.
+
+```{r}
+library(yardstick)
+
+metrics(testResults, truth = obs, estimate = RFtune2)
+```
+
+# adding 10,50,100,200,300,400,500 non-informative predictors
+
+# Tidymodels approach
+
+workflows, specifications etc.
+
+```{r}
+bagging_spec <- rand_forest(mtry = .cols()) %>%
+  set_engine("randomForest", importance = TRUE) %>%
+  set_mode("regression")
+
+rf_spec <- rand_forest(mtry = 6) %>%
+  set_engine("randomForest", importance = TRUE) %>%
+  set_mode("regression")
+
+set.seed(1234)
+Boston_split <- initial_split(Boston)
+
+Boston_train <- training(Boston_split)
+Boston_test <- testing(Boston_split)
+
+bagging_fit <- fit(bagging_spec, medv ~ ., data = Boston_train)
+rf_fit <- fit(rf_spec, medv ~ ., data = Boston_train)
+
+augment(bagging_fit, new_data = Boston_test) %>%
+  rmse(truth = medv, estimate = .pred)
+
+augment(bagging_fit, new_data = Boston_test) %>%
+  ggplot(aes(medv, .pred)) +
+  geom_abline() +
+  geom_point(alpha = 0.5)
+```
+
+Tune RF model.
+
+```{r}
+
+reg_tree_wf <- workflow() %>%
+  add_model(reg_tree_spec %>% set_args(cost_complexity = tune())) %>%
+  add_formula(medv ~ .)
+
+set.seed(1234)
+Boston_fold <- vfold_cv(Boston_train)
+
+param_grid <- grid_regular(cost_complexity(range = c(-4, -1)), levels = 10)
+
+tune_res <- tune_grid(
+  reg_tree_wf, 
+  resamples = Boston_fold, 
+  grid = param_grid
+)
+```
 
