@@ -1,0 +1,245 @@
+---
+title: 'OpenJDK and IcedTea: Java Web Start Forensics on Ubuntu'
+author: "Gertjan Verhoeven"
+date: '2022-01-04'
+summary: To play [Blood Bowl online on FUMBBL.com](https://www.fumbbl.com), a Java
+  client is used that works with Java Web Start. On my Ubuntu linux system,
+  open source versions of java and java web start (openJDK and IcedTea) take care
+  of this. This post describes my suffering caused by the client not working anymore
+  after a Ubuntu software update, and might be helpful for others encountering the
+  same issues.
+slug: java_webstart_forensics_unbuntu
+draft: no
+categories:
+- Linux
+- Blood Bowl
+tags:
+- Ubuntu
+- OpenJDK
+baseurl: https://gsverhoeven.github.io
+header:
+  image: headers/bloodbowl_dataset.png
+  preview: no
+---
+
+To play [Blood Bowl online on FUMBBL.com](https://www.fumbbl.com), a Java client (hereafter "the FFB client") is used that works with Java Web Start. On my Ubuntu linux systems (18.04LTS and 20.04LTS), open source versions of java and java web start (openJDK and IcedTea) take care of this. This post describes my suffering caused by the client not working anymore after a Ubuntu software update, and might be helpful for others encountering the same issues.
+
+The suffering started on December 19th 2021, when `openJDK` was automatically upgraded, installing a new `java.security` file, and left my system unable to run the FUMBBL client using `javaws`. Fixing the `java.security` file (see below for details) allowed it to start, but it gave me the dreaded **white bar**, covering part of the chat window and re-roll icons. And the classic `unset -v GNOME_DESKTOP_SESSION_ID` did not work anymore!
+
+**Update**: After writing the initial version of this post, I learned a bit more. 
+
+# Oracle, OpenJDK and Java 8, 9, 10, ... 17
+
+The FFB client is designed to work well with "Oracle Java 8 from java.com", see e.g. [here](https://fumbbl.com/index.php?name=PNphpBB2&file=viewtopic&t=31365) on FUMBBL.com.
+
+However, from the current state of affairs, written up [here by the Java Champions](https://medium.com/@javachampions/java-is-still-free-3-0-0-ocrt-2021-bca75c88d23b), I gather that both Oracle Java 8 and OpenJDK 8 come from the same codebase maintained at [https://openjdk.java.net/](https://openjdk.java.net/) and that differences are mostly in packaging & support. The release notes for the latest Oracle Java 8 version (8u311) can be found [here](https://www.oracle.com/java/technologies/javase/8u311-relnotes.html). We can see that the bug fixes point to [https://bugs.openjdk.java.net](https://bugs.openjdk.java.net) where the bugs are fixed in all affected versions, including openjdk 8.
+
+I also learned about the different versions of Java. There is 8, but also, 9, 10, 11 etc up to 17.
+Of all these versions only 8, 11 and 17 are relevant. Why? Because 8 and 11 are on "Long term support" (LTS), and 17 is the most recent Java version (and also destined to be a LTS version). In the Java champions medium article, a nice table is shown with all the different versions and how long they will be supported by the community. 
+
+![](openjdk_schedule.png)
+
+Since our goal is to keep on using a Java app written for Java 8, we focus on 8 and 11 for the rest of this post.
+Can apps written for Java 8 also be run in a Java 11 environment? In a [Medium blog post on migrating from Java 8 to Java 11](https://medium.com/uptake-tech/migrating-to-java-11-while-maintaining-a-java-8-client-library-f618a3ca6499) it is mentioned that Java is famous for its backward compatibility. Indeed, my own experience is that the FFB client can also be run with Java 11.
+
+Finally, there is the web start technology:
+
+From [wikipedia](https://en.wikipedia.org/wiki/Java_Web_Start):
+
+*Java Web Start was distributed as part of the Java Platform, and included in downloads of the JRE and JDK. It was deprecated by Oracle in Java SE 9 and removed in Java SE 11. The code for Java Web Start was not released by Oracle as part of OpenJDK, and thus OpenJDK originally did not support it. IcedTea-Web provides an independent open source implementation of Java Web Start that is currently developed by the AdoptOpenJDK community, RedHat and Karakun AG, and which is bundled in the official OpenJDK installer.[1]*
+
+Icedtea is available for both OpenJDK 8 and OpenJDK 11, so no problem there.
+
+# This blog post
+
+The "forensics" below were directed to getting Java 8 in the form of openjdk-8 on my Ubuntu systems, and getting the FFB to work on that.
+However, in the meantime I also figured out why the FFB client stopped working on Java 11, and how to fix that. 
+
+From the openJDK schedule we can see that both Java 8 and 11 in the form of OpenJDK 8 and 11 are supported until sept 2026, so we have at least four more years of online Blood Bowl :-)
+
+# What is up with GNOME_DESKTOP_SESSION_ID?
+
+SInce playing online Blood Bowl on Ubuntu, I just did `unset -v GNOME_DESKTOP_SESSION_ID` and started playing.
+However, since the latest openjdk-11, this stopped working, and I decided to look into it.
+
+```
+gertjan:~$ env | grep GNOME_DESK
+GNOME_DESKTOP_SESSION_ID=this-is-deprecated
+```
+
+In Ubuntu 20.04LTS, this variable is not even present anymore.
+
+It turns out that Java tries to detect whether it is on a Gnome / GTK system. If GTK is detected, it changes its "Look and feel" of the FFB client: widgets, creating the white bar below, and uses a different font. 
+
+Previously, by unsetting the environment variable `GNOME_DESKTOP_SESSION_ID`, we could prevent the client from detecting GTK.
+But since the latest openJDK 11 version, there is now a different way in which it detects GTK:
+
+https://bugs.openjdk.java.net/browse/JDK-8247753
+
+*Java relies on an environment variable GNOME_DESKTOP_SESSION_ID for getting GTK desktop theme. This environmental variable was deprecated earlier and now this got removed in the latest version*
+
+The issue is discussed in detail [here](https://github.com/adoptium/adoptium-support/issues/94) on Github.
+
+The solution the JDK developers went for is to start checking the `XDG_CURRENT_DESKTOP` variable as well.
+This change appears to be "backported" to Java 11 (but not Java 8).
+So on Ubuntu 18.04, we have to unset both `GNOME_DESKTOP_SESSION_ID` **and** `XDG_CURRENT_DESKTOP` before starting `javaws` with Java 11.
+On ubuntu 20.04, only unsetting `XDG_CURRENT_DESKTOP` is sufficient.
+
+Before finding this fix for Java 11, I went for a workaround instead: downgrading the JRE from version 11 to 8.
+The rest of the blog post describes this journey.
+
+# Fixing the problem
+
+So I decided to look into the matter, forensics style.
+
+From the `apt` history (`/var/log/apt/history.1.gz`), I found that on 19 december 2021, a new version of `openjdk-11` was installed automatically:
+
+```
+Start-Date: 2021-12-19  09:31:26
+Commandline: aptdaemon role='role-commit-packages' sender=':1.154'
+Upgrade: openjdk-11-jre-headless:amd64 (11.0.11+9-0ubuntu2~18.04, 11.0.13+8-0ubuntu1~18.04), openjdk-11-jre:amd64 (11.0.11+9-0ubuntu2~18.04, 11.0.13+8-0ubuntu1~18.04)
+End-Date: 2021-12-19  09:35:00
+```
+It seems that we went from `11.0.11+9-0ubuntu2~18.04` to `11.0.13+8-0ubuntu1~18.04`.
+(Which is strange since there were a few releases in between as well according to the CHANGELOG)
+
+Trying to go back using `sudo apt-get install openjdk-11-jre-headless:amd64=11.0.11+9-0ubuntu2` did not work.
+From browsing https://packages.ubuntu.com/ it seems that only the latest version of the `openjdk-11-jre` package is available (18.04LTS, codename **bionic**).
+
+Remembering that the FUMBBL client always complains about "requesting JRE 1.6 and getting JRE 11.0" , I decided to try and downgrade openJDK: remove openJDK 11 and only install `openJDK-8` to force `javaws` to use JRE 1.8.
+
+To get a clean reproducible situation, I first removed all openJDK software from my system:
+
+```
+sudo apt remove openjdk-11-jdk-headless
+sudo apt remove jdk-11.0.9  #(installed this manually in a distant past apparently)
+sudo apt remove openjdk-8-jre-headless
+```
+
+This removes all openjdk packages, including `icedtea-netx`, the package which contains the `javaws` Java web start to start `*.jnlp` files.
+`/usr/lib/jvm` is empty now on my system.
+
+I then installed the `openjdk-8-jre-headless` package:
+
+```
+sudo apt install openjdk-8-jre-headless
+```
+
+After this, I have indeed a working JRE 1.8 environment:
+
+```
+gertjan:~$ java -version
+openjdk version "1.8.0_312"
+OpenJDK Runtime Environment (build 1.8.0_312-8u312-b07-0ubuntu1~18.04-b07)
+OpenJDK 64-Bit Server VM (build 25.312-b07, mixed mode)
+```
+
+However, no `javaws` (Web start) is present. This is in a separate package called `icedtea` (something to do with licensing or .
+
+So we do
+`sudo apt install icedtea-plugin`
+
+```
+The following NEW packages will be installed:
+  default-jre default-jre-headless icedtea-8-plugin icedtea-netx
+  icedtea-plugin openjdk-11-jre openjdk-11-jre-headless
+```
+
+So if we want `icedtea`, we also get `openjdk-11` as a hard dependency.
+Lets play along and install those packages.
+
+This brings `javaws` to our system:
+
+```
+javaws --version
+selected jre: /usr/lib/jvm/default-java
+WARNING: package javax.jnlp not in java.desktop
+icedtea-web 1.8 (1.8)
+```
+It displays a text that gives us a hint how `javaws` chooses its JRE: by looking at `/usr/lib/jvm/default-java`.
+This is at this point a symbolic link pointing at `openjdk-11`.
+Indeed, starting the FUMBBL client with `javaws` chooses openjdk 11 automatically.
+
+```
+gertjan:~$ javaws ffblive.jnlp
+
+selected jre: /usr/lib/jvm/default-java
+WARNING: package javax.jnlp not in java.desktop
+Warning - your JRE - 11.0.13 - does not match requested JRE - 1.6
+Warning - your JRE - 11.0.13 - does not match requested JRE - 1.6
+Warning - your JRE - 11.0.13 - does not match requested JRE - 1.6
+Warning - your JRE - 11.0.13 - does not match requested JRE - 1.6
+Codebase matches codebase manifest attribute, and application is signed. Continuing. See: http://docs.oracle.com/javase/7/docs/technotes/guides/jweb/security/no_redeploy.html for details.
+Starting application [com.fumbbl.ffb.client.FantasyFootballClient] ...
+```
+This gives us the Blood client with the larger font and white bar covering the lower part of the screen.
+
+At first I played with the `JAVA_HOME` variable, pointing it to `/usr/lib/jvm/java-8-openjdk-amd64`. This does have effect on `javaws`, but it gives an error:
+
+```
+thread 'main' panicked at 'Error spawning JVM process, java executable: [/usr/lib/jvm/java-8-oracle], arguments: [["-splash:/usr/share/icedtea-web/javaws_splash.png", "-Xbootclasspath/a:/usr/share/icedtea-web/javaws.jar:/usr/share/java/js.jar:/usr/share/java/tagsoup.jar:/usr/lib/jvm/java-8-oracle/lib/ext/nashorn.jar:", "-classpath", "/usr/lib/jvm/java-8-oracle/lib/rt.jar:/usr/lib/jvm/java-8-oracle/lib/ext/jfxrt.jar:", "-Dicedtea-web.bin.name=javaws", "-Dicedtea-web.bin.location=/usr/lib/icedtea-web/bin/javaws", "net.sourceforge.jnlp.runtime.Boot"]]', src/os_access.rs:36:19
+note: Run with `RUST_BACKTRACE=1` for a backtrace
+```
+So no messing around with `JAVA_HOME`.
+
+The trick in the end was to change the symbolic link in `/usr/lib/jvm/default-java` to point at `java-8-openjdk-amd64` instead of pointing at `java-11-openjdk-amd64`.
+
+```
+gertjan:~$ ls /usr/lib/jvm -lt
+total 8
+drwxr-xr-x 7 root root 4096 jan  4 19:46 java-11-openjdk-amd64
+drwxr-xr-x 5 root root 4096 jan  4 19:43 java-8-openjdk-amd64
+lrwxrwxrwx 1 root root   20 nov  3 14:54 java-1.8.0-openjdk-amd64 -> java-8-openjdk-amd64
+lrwxrwxrwx 1 root root   21 okt 29 11:11 java-1.11.0-openjdk-amd64 -> java-11-openjdk-amd64
+lrwxrwxrwx 1 root root   25 feb 20  2019 default-java -> java-1.11.0-openjdk-amd64
+
+gertjan:~$ sudo rm /usr/lib/jvm/default-java
+
+gertjan:~$ cd /usr/lib/jvm/
+
+gertjan:/usr/lib/jvm$ sudo ln -ns java-1.8.0-openjdk-amd64 default-java
+```
+
+Finally, we need fix the `java.security` thingy by commenting out the following lines in `java.security` (located somewhere in the `/usr/lib/jvm/java-8-openjdk-amd64` file tree) with a text editor:
+
+```
+sudo gedit /usr/lib/jvm/default-java/jre/lib/security/java.security 
+```
+
+These lines must be commented:
+
+```
+#jdk.jar.disabledAlgorithms=MD2, MD5, RSA keySize < 1024, \
+#      DSA keySize < 1024, include jdk.disabled.namedCurves
+```
+
+However, the hurting has not stopped yet on Ubuntu 18.04. `openjdk-8` throws a new error, about "Assistive Technology" (not seen on Ubuntu 20.04LTS, where I first fixed these problems):
+```
+gertjan:~/Downloads$ javaws ffblive.jnlp
+
+selected jre: /usr/lib/jvm/default-java
+Exception in thread "main" java.awt.AWTError: Assistive Technology not found: org.GNOME.Accessibility.AtkWrapper
+	at java.awt.Toolkit.loadAssistiveTechnologies(Toolkit.java:807)
+	at java.awt.Toolkit.getDefaultToolkit(Toolkit.java:886)
+	at javax.swing.UIManager.getSystemLookAndFeelClassName(UIManager.java:611)
+	at net.sourceforge.jnlp.runtime.JNLPRuntime.initialize(JNLPRuntime.java:221)
+	at net.sourceforge.jnlp.runtime.Boot.init(Boot.java:349)
+	at net.sourceforge.jnlp.runtime.JnlpBoot.run(JnlpBoot.java:58)
+	at net.sourceforge.jnlp.runtime.Boot.run(Boot.java:270)
+	at net.sourceforge.jnlp.runtime.Boot.run(Boot.java:63)
+	at java.security.AccessController.doPrivileged(Native Method)
+	at net.sourceforge.jnlp.runtime.Boot.main(Boot.java:210)
+```
+
+Fortunately, this is a well documented error with an easy solution.
+
+https://askubuntu.com/questions/695560/assistive-technology-not-found-awterror
+
+Provided in the form of this oneliner:
+```
+sudo sed -i -e '/^assistive_technologies=/s/^/#/' /etc/java-*-openjdk/accessibility.properties`
+```
+
+And finally ... we have a working FUMBBL client again, without the white bar! Hurrah!
+As long as `openjdk-8-jre` stays available on Ubuntu universe, I think were good.
+Judging from [package.ubuntu.com](https://packages.ubuntu.com/search?keywords=openjdk-8-jre), this package is broadly available, up to the latest Ubuntu versions, so fingers crossed.
