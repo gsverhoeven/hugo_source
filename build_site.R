@@ -6,7 +6,7 @@
 #blogdown:::build_rmds("content/post/2021-05-02-workflow_scientific_papers.Rmd")
 #blogdown:::build_rmds("content/post/2021_05_14_covid_rapid_test_reliability.Rmd")
 #blogdown:::build_rmds("content/post/2021_12_30_fumbbl_dataset.Rmd")
-blogdown:::build_rmds("content/post/2022-01-04_java_webstart_forensics_ubuntu.Rmd")
+#blogdown:::build_rmds("content/post/2022-01-04_java_webstart_forensics_ubuntu.Rmd")
 ############################################################
 # https://bookdown.org/yihui/blogdown/local-preview.html
 
@@ -14,7 +14,6 @@ blogdown:::build_rmds("content/post/2022-01-04_java_webstart_forensics_ubuntu.Rm
 # Do not call build_site(), but blogdown::hugo_build() instead. 
 # The latter does not compile any Rmd files, but simply runs the hugo command to build the site. 
 # Please use this method only if you are sure that your Rmd files do not need to be recompiled.
-
 
 blogdown::hugo_build()
 print("site build")
@@ -37,3 +36,6 @@ print("site build")
 # and your sensitive information may be rendered by a certain blogdown::hugo_build() call last time and left in the directory.
 
 # Nb public folder staat NIET onder versie beheer.
+
+# Toevoegen: deleten public folder voordat we hugo_build doen
+# en uitzoeken hoe ik losse pngs automatisch in post/*-files/x.png krijg

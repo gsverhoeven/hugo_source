@@ -18,10 +18,10 @@ echo 'copy git folder'
 cp -r ../gsverhoeven.github.io/.git/ ../new_site_version/.git/
 
 echo 'remove old site locally'
-#rm -R --force ../gsverhoeven.github.io
+rm -R --force ../gsverhoeven.github.io
 
 echo 'rename new site dir'
-mv ../new_site_version ../gsverhoeven.github.io2
+mv ../new_site_version ../gsverhoeven.github.io
 
 if [ $# -eq 1 ]
   then
