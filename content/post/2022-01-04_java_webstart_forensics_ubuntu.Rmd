@@ -52,7 +52,7 @@ Icedtea is available for both OpenJDK 8 and OpenJDK 11, so no problem there.
 
 # This blog post
 
-The "forensics" below were directed to getting Java 8 in the form of openjdk-8 on my Ubuntu systems, and getting the FFB client to run in that Java environement. However, in the meantime I also figured out why the FFB client stopped working on Java 11, and how to fix that. 
+The "forensics" below were directed to getting Java 8 in the form of openjdk-8 on my Ubuntu systems, and getting the FFB client to run in that Java environment. However, in the meantime I also figured out why the FFB client stopped working on Java 11, and how to fix that. 
 
 From the openJDK schedule above we can see that both Java 8 and 11 in the form of OpenJDK 8 and 11 are supported until sept 2026, so we have at least four more years of online Blood Bowl :-)
 
@@ -60,6 +60,7 @@ From the openJDK schedule above we can see that both Java 8 and 11 in the form o
 
 Ever since I first started playing online Blood Bowl using the FFB client on Ubuntu, I just did the `unset -v GNOME_DESKTOP_SESSION_ID` trick and started playing.
 However, since the latest `openjdk-11`, this stopped working, forcing me to look into it.
+This is what I get in Ubuntu 18.04LTS:
 
 ```
 gertjan:~$ env | grep GNOME_DESK
@@ -68,9 +69,9 @@ GNOME_DESKTOP_SESSION_ID=this-is-deprecated
 
 In Ubuntu 20.04LTS, this variable is not even present anymore.
 
-It turns out that Java tries to detect whether it is on a Gnome / GTK system. If Gnome / GTK is detected, it changes its "Look and feel" of the FFB client: widgets, creating the white bar below, and uses a different font. 
+It turns out that Java tries to detect whether it is on a Gnome / GTK system. If Gnome / GTK is detected, it changes its "Look and feel" of the FFB client: widgets, creating the white bar blocking part of the screen, and uses a different font. 
 
-Previously, by unsetting the environment variable `GNOME_DESKTOP_SESSION_ID`, we could prevent the client from detecting GTK.
+Previously, by unsetting the environment variable `GNOME_DESKTOP_SESSION_ID`, we could prevent the client from detecting GTK and changing the "look and feel".
 But since the latest openJDK 11 version, there is now a different way in which it detects GTK:
 
 https://bugs.openjdk.java.net/browse/JDK-8247753
@@ -80,7 +81,7 @@ https://bugs.openjdk.java.net/browse/JDK-8247753
 The issue is discussed in detail [here](https://github.com/adoptium/adoptium-support/issues/94) on Github.
 
 The solution the JDK developers went for is to start checking the `XDG_CURRENT_DESKTOP` variable as well.
-This change appears to be "backported" to Java 11 (but not Java 8).
+This change appears to be "backported" from the latest Java versions to Java 11 (but not Java 8).
 So on Ubuntu 18.04, we have to unset both `GNOME_DESKTOP_SESSION_ID` **and** `XDG_CURRENT_DESKTOP` before starting `javaws` with Java 11.
 On ubuntu 20.04, only unsetting `XDG_CURRENT_DESKTOP` is sufficient.
 
@@ -126,7 +127,7 @@ sudo apt remove openjdk-8-jre-headless
 This removes all openjdk packages, including `icedtea-netx`, the package which contains the `javaws` Java web start to start `*.jnlp` files.
 `/usr/lib/jvm` is empty now on my system.
 
-I then installed the `openjdk-8-jre` package (plus the `openjdk-8-jre-headless` just to be safe):
+I then installed the `openjdk-8-jre` package (plus the `openjdk-8-jre-headless` just to be safe, although I think that the first depends on the latter):
 
 ```
 sudo apt install openjdk-8-jre
@@ -143,7 +144,7 @@ OpenJDK Runtime Environment (build 1.8.0_312-8u312-b07-0ubuntu1~18.04-b07)
 OpenJDK 64-Bit Server VM (build 25.312-b07, mixed mode)
 ```
 
-However, no `javaws` (Web start) is present. This is in a separate package called `icedtea` (something to do with licensing or ?).
+However, no `javaws` (Web start) is present. This is in a separate package called `icedtea` (something to do with licensing?).
 
 So we do `sudo apt install icedtea-plugin`:
 
@@ -153,7 +154,7 @@ The following NEW packages will be installed:
   icedtea-plugin openjdk-11-jre openjdk-11-jre-headless
 ```
 
-So if we want `icedtea`, we also get `openjdk-11` as a hard dependency.
+So if we want `icedtea`, we also get `openjdk-11` as a hard dependency, which is the `default-jre` on Ubuntu 18 and 20.
 Lets play along and install those packages.
 
 This brings `javaws` to our system:
@@ -182,7 +183,7 @@ Starting application [com.fumbbl.ffb.client.FantasyFootballClient] ...
 ```
 This gives us the FFB client with the larger font and white bar covering the lower part of the screen.
 
-At first I tried setting the `JAVA_HOME` variable, pointing it to `/usr/lib/jvm/java-8-openjdk-amd64`. Previously, this did not work, but possible because I had only installed the `headless` version of openjdk-8.
+At first I tried setting the `JAVA_HOME` variable, pointing it to `/usr/lib/jvm/java-8-openjdk-amd64`. Previously, this did not work, but possible because I had only installed the `headless` version of `openjdk-8`.
 
 ```
 gertjan:~/Downloads$ export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
