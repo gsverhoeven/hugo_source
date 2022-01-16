@@ -22,9 +22,16 @@ header:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+library(AppliedPredictiveModeling)
+library(caret)
+library(tidyverse)
+
 ```
 
-This blog post demonstrates that the Random Forest algorithm (as implemented in R by `ranger()`) suffers from overfitting by reproducing an example from the book *Applied Predictive Modeling*. The solution is to use Recursive Feature Elimination (RFE) to remove predictors with spurious correlations. We provide up to date code that can be used for workflows that use either `caret` and/or `tidymodels` .
+This blog post demonstrates that the Random Forest algorithm (as implemented in R by `ranger()`) suffers from overfitting by reproducing an example from the book *Applied Predictive Modeling*. 
+
+The solution is to use **Recursive Feature Elimination (RFE)** to remove predictors with spurious correlations. We provide up to date code that can be used for workflows that use either `caret` and/or `tidymodels` .
 
 Some models are negatively affected by non-informative predictors.
 Some models are naturally resistant to non-informative predictors.
@@ -34,42 +41,92 @@ Tree based models implicitly perform feature selection by not including non-info
 
 test set profiles were calculated.
 
+Do we have to tune the number of trees?
 https://stats.stackexchange.com/questions/50210/caret-and-randomforest-number-of-trees
 
 This code reproduces Fig 8.18 from Max Kuhn's book Applied Predictive Modelling from 2013.
 
+as well as Fig 19.1
+
+Ref https://www.pnas.org/content/99/10/6562.short
+
+Tidymodels companion at https://github.com/topepo/tidy-apm
+
+https://bookdown.org/max/FES/feature-selection-simulation.html
+
+https://github.com/topepo/FES_Selection_Simulation
+
+# Tuned model without removing spurious features
+
 ```{r}
-library(AppliedPredictiveModeling)
 data(solubility)
 
-library(caret)
-set.seed(100)
-indx <- createFolds(solTrainY, returnTrain = TRUE)
-ctrl <- trainControl(method = "cv", index = indx)
+test <- 0
 
-################################################################################
-### Section 8.5 Random Forests
+if(test){
+  # replace full training dataset with a smaller subset
+  set.seed(123)
+  ss <- sample(x = 1:nrow(solTrainXtrans), size = 100, replace = F)
+  
+  solTrainXtrans <- solTrainXtrans[ss,]
+  solTrainY <- solTrainY[ss]
+}
+```
+
+Description of the dataset:
+
+```
+Tetko et al. (2001) and Huuskonen (2000) investigated a set of compounds with corresponding experimental solubility values using complex sets of descriptors. They used linear regression and neural network models to estimate the relationship between chemical structure and solubility. For our analyses, we will use 1267 compounds and a set of more understandable descriptors that fall into one of three groups: 208 binary "fingerprints" that indicate the presence or absence of a particular chemical sub-structure, 16 count descriptors (such as the number of bonds or the number of Bromine atoms) and 4 continuous descriptors (such as molecular weight or surface area).
+```
+
+75% of the data was used for training the models, and 25% of the data was used for testing the final model performance.
+
+```{r}
+set.seed(123)
+
+indx <- createFolds(solTrainY, returnTrain = TRUE)
+
+# use 10-fold CV
+ctrl <- trainControl(method = "cv", 
+                     index = indx, 
+                     verboseIter = FALSE)
 
 rangerGrid <- data.frame(mtry = floor(seq(10, ncol(solTrainXtrans), length = 10)),
                        splitrule = "variance", 
                        min.node.size = 5)
 
+```
 
-rfTune2 <- train(x = solTrainXtrans, y = solTrainY,
-                method = "ranger",
-                tuneGrid = rangerGrid,
-                trControl = ctrl)
-rfTune2
+```{r}
+fullrun <- 0
 
+if(fullrun){
+  set.seed(100)
+  
+  rfTune2 <- train(x = solTrainXtrans, y = solTrainY,
+                  method = "ranger",
+                  tuneGrid = rangerGrid,
+                  trControl = ctrl)
+  
+  saveRDS(rfTune2, file = "rf_rfe_post/rfTune2_ss.rds")
+} else {
+  rfTune2 <- readRDS(file = "rf_rfe_post/rfTune2_ss.rds")
+}
 
 plot(rfTune2)
 
 ```
 
 ```{r}
+rfTune2
+```
+So there we have it: a tuned Random Forest model, using 228 predictors (properties of the molecules) to predict the solubility of a chemical compound.
+
+
+```{r}
 ### Save the test set results in a data frame                 
 testResults <- data.frame(obs = solTestY,
-                          RFtune2 =  predict(rfTune2, solTestXtrans))
+                          RFtune2 =  predict(rfTune2, solTestXtrans), n_spurious = 0)
 
 ```
 
@@ -80,8 +137,89 @@ library(yardstick)
 
 metrics(testResults, truth = obs, estimate = RFtune2)
 ```
+From here, we can go either way: we can add uninformative predictors, and check if performance suffers, or we can try to  remove uninformative predictors to further improve the model. 
+We start with adding noise predictors to check if performance suffers.
+If so, then we have shown that the RF has overfitted the data.
 
-# adding 10,50,100,200,300,400,500 non-informative predictors
+PM definition of overfitting (should performance suffer? or difference between train and test performance)
+
+# adding non-informative predictors
+
+```{r}
+source("rf_rfe_post/add_spurious_predictors.R")
+
+spurious_vec <- c(10, 50, 100, 200, 300, 400, 500)
+
+fullrun <- 0
+
+for(i in 1:length(spurious_vec)){
+  target <- paste0("rf_rfe_post/rfTune2_ss", spurious_vec[i], ".rds")
+  
+  if(fullrun){
+    print(paste0("running with ", spurious_vec[i], " spurious vars added"))
+    set.seed(100)
+    solTrainXtrans_spur <- add_spurious_predictors(solTrainXtrans, spurious_vec[i])
+
+    rfTune2 <- train(x = solTrainXtrans_spur, y = solTrainY,
+                    method = "ranger",
+                    tuneGrid = rangerGrid,
+                    trControl = ctrl)
+    
+    saveRDS(rfTune2, file = target)
+  } else {
+    print("here")
+    rfTune2 <- readRDS(file = target)
+  }
+  # add spurious predictors to test data as well
+  solTestXtrans_spur <- add_spurious_predictors(solTestXtrans, spurious_vec[i])
+
+  testResults <- rbind(testResults,
+                       data.frame(obs = solTestY,
+                       RFtune2 =  predict(rfTune2, solTestXtrans_spur), n_spurious = spurious_vec[i]))
+}
+```
+This gives us a dataset with for each of the models build, with increasing amounts of spurious predictors added, predictions on the test set, i.e. the dataset that was not used in anyway during model building.
+
+It has the following structure:
+
+```{r}
+testResults %>% 
+  group_by(n_spurious) %>% 
+  summarise(n())
+```
+Using the `yardstick` library, part of `tidymodels`, we can easily calculate performance metrics such as RMSE and R-squared for the prediction models.
+
+```{r}
+library(yardstick)
+
+res <- testResults %>% 
+  group_by(n_spurious) %>% 
+  metrics(truth = obs, estimate = RFtune2)
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(res %>% filter(.metric == "rmse"), aes(x = n_spurious, y = .estimate)) +
+  geom_point() +
+  geom_line()
+```
+It is clear from the graph that the prediction error increases with more spurious predictors present.
+However, if we look at the R-squared, and include zero on the y-axis, it is also apparent that the decrease in performance is relatively small, from 91% down to 86%. 
+
+```{r}
+ggplot(res %>% filter(.metric == "rsq"), aes(x = n_spurious, y = .estimate)) +
+  geom_point() +
+  geom_line() #+
+  #expand_limits(y=0)
+```
+
+Now lets go the other way: we try to remove all the spurious predictors and leave only the informative predictors.
+
+# Recursive feature elimination (RFE)
+
+For this, we use the recursive feature elimination (RFE) procedure, implemented for `ranger` in `caret`.
+
 
 # Tidymodels approach
 
@@ -114,7 +252,7 @@ augment(bagging_fit, new_data = Boston_test) %>%
   geom_point(alpha = 0.5)
 ```
 
-Tune RF model.
+# Tune RF model.
 
 ```{r}
 
