@@ -154,11 +154,11 @@ fullrun <- 0
 
 for(i in 1:length(spurious_vec)){
   target <- paste0("rf_rfe_post/rfTune2_ss", spurious_vec[i], ".rds")
-  
-  if(fullrun){
+  set.seed(100)
+  solTrainXtrans_spur <- add_spurious_predictors(solTrainXtrans, spurious_vec[i])
+
+    if(fullrun){
     print(paste0("running with ", spurious_vec[i], " spurious vars added"))
-    set.seed(100)
-    solTrainXtrans_spur <- add_spurious_predictors(solTrainXtrans, spurious_vec[i])
 
     rfTune2 <- train(x = solTrainXtrans_spur, y = solTrainY,
                     method = "ranger",
@@ -167,7 +167,6 @@ for(i in 1:length(spurious_vec)){
     
     saveRDS(rfTune2, file = target)
   } else {
-    print("here")
     rfTune2 <- readRDS(file = target)
   }
   # add spurious predictors to test data as well
@@ -202,16 +201,18 @@ library(ggplot2)
 
 ggplot(res %>% filter(.metric == "rmse"), aes(x = n_spurious, y = .estimate)) +
   geom_point() +
-  geom_line()
+  geom_line() +
+  expand_limits(y=c(0.6,1.2))
 ```
 It is clear from the graph that the prediction error increases with more spurious predictors present.
 However, if we look at the R-squared, and include zero on the y-axis, it is also apparent that the decrease in performance is relatively small, from 91% down to 86%. 
 
 ```{r}
-ggplot(res %>% filter(.metric == "rsq"), aes(x = n_spurious, y = .estimate)) +
+ggplot(res %>% filter(.metric == "rsq"), aes(x = n_spurious, y = .estimate*100)) +
   geom_point() +
-  geom_line() #+
-  #expand_limits(y=0)
+  geom_line() +
+  expand_limits(y=0) +
+  geom_label(aes(label = paste(round(.estimate*100,0), "%")), nudge_y = -5)
 ```
 
 Now lets go the other way: we try to remove all the spurious predictors and leave only the informative predictors.
@@ -220,6 +221,81 @@ Now lets go the other way: we try to remove all the spurious predictors and leav
 
 For this, we use the recursive feature elimination (RFE) procedure, implemented for `ranger` in `caret`.
 
+
+From the article by de Korte et al:
+
+```
+Random Forest is to a large extent immune to the presence of irrelevant variables in the model. However, if more irrelevant variables are added to a Random Forest model, at some point its performance will be adversely affected. We therefore performed recursive feature elimination (RFE) with Random Forest for all models in order to obtain models with optimal predictive performance. The rfe() function of the caret package in R was used, with the rangerFuncs set of helper functions (Kuhn book)3. Permutation importance was used as the variable importance mode. The Root Mean Squared Error (RMSE) was the performance metric used to choose the optimal subset size of the variables. Ten different subset sizes were tested by the RFE. These ranged from the first to the tenth decile of the number of variables when the model contained more than 10 variables; for models containing less than or exactly 10 variables, all possible subset sizes were considered.
+
+For the analyses reported in this paper, no variable selection was performed, as random forest is to a large extent immune to the presence of irrelevant variables in the model. However, as more irrelevant variables are added to a random forest model, at some point performance will drop [@hastie_elements_2009; @genuer_variable_2010]. For our main results (the predictive accuracies on the total study sample), we checked the impact of irrelevant variables using recursive feature elimination (RFE) (SDC eTable 2). We found that the impact was small.
+```
+
+## RFE settings
+
+```{r}
+source("rf_rfe_post/rangerFuncs.R")
+
+RFEctrl <- rfeControl(functions = rangerFuncs,
+                   method = "repeatedcv",
+                   rerank = F,
+                   returnResamp = "all",
+                   number = 10,
+                   repeats = 1, # 3x 10 folds?
+                   verbose = TRUE,
+                   saveDetails = T)
+
+```
+
+# Permutate y settings
+
+We can do a robustness check if the procedure works by permutating the `y` variable and running the same analysis again.
+All metrics should drop to zero, as there is no signal anymore to discover in the predictors.
+
+```{r}
+permutate_y <- FALSE
+n_perm_runs <- 1
+```
+
+# Do the work
+
+```{r eval = FALSE}
+source("rf_rfe_post/RunRFEandTuneRF.R")
+
+library(data.table)
+fullrun <- 1
+
+if(fullrun){
+  set.seed(1234)
+  n_rows <- length(solTrainY)
+  
+  if(permutate_y) solTrainY <- solTrainY[sample(1:length(n_rows), size = n_rows, replace = F)]
+  
+  for(run_nr in 1:n_perm_runs){
+    ss <- sample(1:n_rows, size = n_rows, replace = FALSE)
+    
+    finalModel <- RunRFEandTuneRF(solTrainXtrans_spur[ss,], solTrainY[ss], ctrl_object = RFEctrl, run_nr = run_nr)
+  }
+}
+# wegschrijven finalModel
+```
+```{r}
+finalModel
+```
+
+```{r}
+testResults <- rbind(testResults,
+                     data.frame(obs = solTestY,
+                     RFtune2 =  predict(finalModel, solTestXtrans_spur), n_spurious = -1))
+```
+
+```{r}
+res <- testResults %>% 
+  group_by(n_spurious) %>% 
+  metrics(truth = obs, estimate = RFtune2)
+
+res
+```
+So we find that the RFE procedure identified a model with 
 
 # Tidymodels approach
 
