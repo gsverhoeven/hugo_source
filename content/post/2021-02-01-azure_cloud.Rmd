@@ -1,5 +1,5 @@
 ---
-title: Azure cloud
+title: Infrastructure as Code with Terraform on Azure
 author: Gertjan Verhoeven
 date: '2021-01-27'
 draft: TRUE
@@ -11,7 +11,43 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 Time to explore what the cloud is all about.
-Our goal is to set up a Virtual Machine running Windows 10, and install tinytex on it.
+
+Our goal is to use an open-source script language to automatically set up cloud infrastructure.
+The grand idea here is that scripting the compute resources that made an analysis possible is the next level in reproducibility.
+In addition, we hope to avoid cloud vendor lock-in if we automate the cloud infrastructure using open source tooling.
+The reasoning is, since both the hardware and software are just a bunch of open source scripts, we can pick up our bags and leave as soon as things stagnate or we can get a better deal elsewhere.
+
+# Cloud components
+
+So what components do we need for our project?
+
+# Design of our cloud infrastructure
+
+It would be nice to have a VM running that scrapes online gaming match results, and runs a Python pipeline that processes the data and hosts them as downloadable datasets on a small static website.
+
+# Hashicorp Terraform
+
+# Ansible
+
+We can use Ansible to script the configuration of our Azure infrastructure.
+
+Ansible is an open-source tool that automates cloud provisioning, configuration management, and application deployments. Using Ansible you can provision virtual machines, containers, network, and complete cloud infrastructures. In addition, Ansible allows you to automate the deployment and configuration of resources in your environment.
+
+Ansible includes a suite of Ansible modules that can be executed directly on remote hosts or via playbooks. Users can also create their own modules. Modules can be used to control system resources - such as services, packages, or files - or execute system commands.
+
+For interacting with Azure services, Ansible includes a suite of Ansible cloud modules that provides the tools to easily create and orchestrate your infrastructure on Azure.
+
+
+# Azure cloud
+
+We start with creating a free account on Azure. This comes with 170 Euro free credit to spent within a month.
+Cost (81 euro p/m D2 v2)
+
+https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-linux?pivots=apt
+
+# Setting things up manually within Azure
+
+set up a Virtual Machine running Windows 10, and install tinytex on it.
 To make this happen, we need it to have an IP, and we need disks.
 
 * Subscription
@@ -21,7 +57,6 @@ Access will be through RDP (Remote Desktop Protocol). Ubuntu provides the `Remmi
 
 # Getting access
 
-We start with creating a free account on Azure. This comes with 170 Euro free credit to spent within a month.
+
   
 
-# Cost (81 euro p/m D2 v2)
