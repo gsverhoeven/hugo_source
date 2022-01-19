@@ -232,18 +232,26 @@ For the analyses reported in this paper, no variable selection was performed, as
 
 ## RFE settings
 
+We use repeated k-fold Cross Validation as resampling method.
+
 ```{r}
 source("rf_rfe_post/rangerFuncs.R")
 
-RFEctrl <- rfeControl(functions = rangerFuncs,
+RFE_ctrl <- rfeControl(functions = rangerFuncs,
                    method = "repeatedcv",
                    rerank = F,
                    returnResamp = "all",
-                   number = 10,
-                   repeats = 1, # 3x 10 folds?
-                   verbose = TRUE,
+                   number = 2,
+                   repeats = 3, # 3x 10 folds?
+                   verbose = FALSE, # creates a lot of output if set TRUE
                    saveDetails = T)
 
+# Tuning the model after feature selection
+
+train_ctrl <- trainControl(method = "repeatedcv",
+                           number = 3, 
+                           repeats = 2,
+                           savePredictions = TRUE)
 ```
 
 # Permutate y settings
@@ -253,7 +261,7 @@ All metrics should drop to zero, as there is no signal anymore to discover in th
 
 ```{r}
 permutate_y <- FALSE
-n_perm_runs <- 1
+n_runs <- 1
 ```
 
 # Do the work
@@ -261,19 +269,18 @@ n_perm_runs <- 1
 ```{r eval = FALSE}
 source("rf_rfe_post/RunRFEandTuneRF.R")
 
-library(data.table)
 fullrun <- 1
 
 if(fullrun){
   set.seed(1234)
   n_rows <- length(solTrainY)
   
-  if(permutate_y) solTrainY <- solTrainY[sample(1:length(n_rows), size = n_rows, replace = F)]
+  if(permutate_y) solTrainY <- solTrainY[sample(1:n_rows, size = n_rows, replace = F)]
   
-  for(run_nr in 1:n_perm_runs){
-    ss <- sample(1:n_rows, size = n_rows, replace = FALSE)
+  for(run_nr in 1:n_runs){
+    ss <- sample(1:n_rows, size = 50, replace = FALSE)
     
-    finalModel <- RunRFEandTuneRF(solTrainXtrans_spur[ss,], solTrainY[ss], ctrl_object = RFEctrl, run_nr = run_nr)
+    finalModel <- RunRFEandTuneRF(solTrainXtrans_spur[ss,], solTrainY[ss], rfe_ctrl = RFE_ctrl, train_ctrl = train_ctrl)
   }
 }
 # wegschrijven finalModel
@@ -296,55 +303,4 @@ res <- testResults %>%
 res
 ```
 So we find that the RFE procedure identified a model with 
-
-# Tidymodels approach
-
-workflows, specifications etc.
-
-```{r}
-bagging_spec <- rand_forest(mtry = .cols()) %>%
-  set_engine("randomForest", importance = TRUE) %>%
-  set_mode("regression")
-
-rf_spec <- rand_forest(mtry = 6) %>%
-  set_engine("randomForest", importance = TRUE) %>%
-  set_mode("regression")
-
-set.seed(1234)
-Boston_split <- initial_split(Boston)
-
-Boston_train <- training(Boston_split)
-Boston_test <- testing(Boston_split)
-
-bagging_fit <- fit(bagging_spec, medv ~ ., data = Boston_train)
-rf_fit <- fit(rf_spec, medv ~ ., data = Boston_train)
-
-augment(bagging_fit, new_data = Boston_test) %>%
-  rmse(truth = medv, estimate = .pred)
-
-augment(bagging_fit, new_data = Boston_test) %>%
-  ggplot(aes(medv, .pred)) +
-  geom_abline() +
-  geom_point(alpha = 0.5)
-```
-
-# Tune RF model.
-
-```{r}
-
-reg_tree_wf <- workflow() %>%
-  add_model(reg_tree_spec %>% set_args(cost_complexity = tune())) %>%
-  add_formula(medv ~ .)
-
-set.seed(1234)
-Boston_fold <- vfold_cv(Boston_train)
-
-param_grid <- grid_regular(cost_complexity(range = c(-4, -1)), levels = 10)
-
-tune_res <- tune_grid(
-  reg_tree_wf, 
-  resamples = Boston_fold, 
-  grid = param_grid
-)
-```
 
