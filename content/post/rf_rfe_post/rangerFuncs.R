@@ -8,7 +8,8 @@ rangerFuncs <-  list(summary = defaultSummary,
                          x else as.data.frame(x)
                        dat$.outcome <- y
                        # return a model object to generate preds
-                       ranger::ranger(.outcome ~ ., data = dat, 
+                       ranger::ranger(.outcome ~ ., 
+                                      data = dat, 
                                       importance = if(first) "permutation" else "none", # we use permutation importance 
                                       probability = is.factor(y), # TRUE if the outcome is a factor
                                       write.forest = TRUE, # Save ranger.forest object, required for prediction

@@ -29,9 +29,27 @@ library(tidyverse)
 
 ```
 
-This blog post demonstrates that the Random Forest algorithm (as implemented in R by `ranger()`) suffers from overfitting by reproducing an example from the book *Applied Predictive Modeling*. 
+The Random Forest algorithm can provide a quick benchmark for the predictive performance of a set of predictors, that is hard to beat with models that explicitly formulate a interpretable model of a dependent variable, for example a linear regression model with interactions and non-linear transformations of the predictors.
 
-The solution is to use **Recursive Feature Elimination (RFE)** to remove predictors with spurious correlations. We provide up to date code that can be used for workflows that use either `caret` and/or `tidymodels` .
+    When the full model is created, a measure of variable importance is computed that ranks the predictors from most important to least. […] At each stage of the search, the least important predictors are iteratively eliminated prior to rebuilding the model.
+
+— Pages 494-495, Applied Predictive Modeling, 2013.
+
+data leakage
+
+
+Random Forest is to a large extent immune to the presence of irrelevant variables in the model. However, if more irrelevant variables are added to a Random Forest model, at some point its performance will be adversely affected [@hastie_elements_2009; @genuer_variable_2010]. We therefore performed recursive feature elimination (RFE) with Random Forest for all models in order to obtain models with optimal predictive performance. The rfe() function of the caret package in R was used, with the rangerFuncs set of helper functions (Kuhn book)3. Permutation importance was used as the variable importance mode. The Root Mean Squared Error (RMSE) was the performance metric used to choose the optimal subset size of the variables. Ten different subset sizes were tested by the RFE. These ranged from the first to the tenth decile of the number of variables when the model contained more than 10 variables; for models containing less than or exactly 10 variables, all possible subset sizes were considered.
+
+
+However, simply using all the predictors 
+
+scikit-learn RFE.
+
+This blog post demonstrates that the Random Forest algorithm (as implemented in R by `ranger()`) suffers from overfitting by reproducing an example from the book *Applied Predictive Modeling*. This reduces model performance on the test set.
+
+The solution is to use **Recursive Feature Elimination (RFE)** to remove predictors with spurious correlations. We provide up to date code for R using `caret`  and `tidyverse`.
+
+
 
 Some models are negatively affected by non-informative predictors.
 Some models are naturally resistant to non-informative predictors.
@@ -142,6 +160,7 @@ We start with adding noise predictors to check if performance suffers.
 If so, then we have shown that the RF has overfitted the data.
 
 PM definition of overfitting (should performance suffer? or difference between train and test performance)
+Overfitting is anything that does not generalize to new samples.
 
 # adding non-informative predictors
 
@@ -221,18 +240,18 @@ Now lets go the other way: we try to remove all the spurious predictors and leav
 
 For this, we use the recursive feature elimination (RFE) procedure, implemented for `ranger` in `caret`.
 
+PM it is possibly not OK to refit / tune after / outside the RFE loop.
 
-From the article by de Korte et al:
+"If the model is refit using only the important predictors, model performance almost certainly improves"
 
-```
-Random Forest is to a large extent immune to the presence of irrelevant variables in the model. However, if more irrelevant variables are added to a Random Forest model, at some point its performance will be adversely affected. We therefore performed recursive feature elimination (RFE) with Random Forest for all models in order to obtain models with optimal predictive performance. The rfe() function of the caret package in R was used, with the rangerFuncs set of helper functions (Kuhn book)3. Permutation importance was used as the variable importance mode. The Root Mean Squared Error (RMSE) was the performance metric used to choose the optimal subset size of the variables. Ten different subset sizes were tested by the RFE. These ranged from the first to the tenth decile of the number of variables when the model contained more than 10 variables; for models containing less than or exactly 10 variables, all possible subset sizes were considered.
-
-For the analyses reported in this paper, no variable selection was performed, as random forest is to a large extent immune to the presence of irrelevant variables in the model. However, as more irrelevant variables are added to a random forest model, at some point performance will drop [@hastie_elements_2009; @genuer_variable_2010]. For our main results (the predictive accuracies on the total study sample), we checked the impact of irrelevant variables using recursive feature elimination (RFE) (SDC eTable 2). We found that the impact was small.
-```
 
 ## RFE settings
 
-We use repeated k-fold Cross Validation as resampling method.
+We use repeated k-fold Cross Validation as resampling method. By repeating this a few times and averaging the results we get some more precision in our estimates. Both the Recursive Feature Elimination and the model tuning functions of `caret` require a Control object with settings. `PicksizeTolerance` is used both to select the best model with the least features, and when tuning the Random Forest model for the selected features. This way, the results are less sensitive to small fluctuations.
+
+ Svetnik et al (2004) showed that, for random forest models, there was a decrease in performance when the rankings were re-computed at every step.
+ 
+ So only the first run uses permutation importance to create the variable ordering.
 
 ```{r}
 source("rf_rfe_post/rangerFuncs.R")
@@ -241,58 +260,79 @@ RFE_ctrl <- rfeControl(functions = rangerFuncs,
                    method = "repeatedcv",
                    rerank = F,
                    returnResamp = "all",
-                   number = 2,
-                   repeats = 3, # 3x 10 folds?
+                   number = 10,
+                   repeats = 1, 
                    verbose = FALSE, # creates a lot of output if set TRUE
                    saveDetails = T)
 
 # Tuning the model after feature selection
 
 train_ctrl <- trainControl(method = "repeatedcv",
-                           number = 3, 
-                           repeats = 2,
+                           number = 10, 
+                           repeats = 1,
+                           selectionFunction = "tolerance",
                            savePredictions = TRUE)
+
 ```
 
-# Permutate y settings
+I wrote a wrapper function that hides some detail of the `caret` functions used, to focus on the actual settings and parameters. 
 
-We can do a robustness check if the procedure works by permutating the `y` variable and running the same analysis again.
-All metrics should drop to zero, as there is no signal anymore to discover in the predictors.
-
-```{r}
-permutate_y <- FALSE
-n_runs <- 1
-```
+https://github.com/topepo/caret/issues/439
 
 # Do the work
 
-```{r eval = FALSE}
+```{r}
 source("rf_rfe_post/RunRFEandTuneRF.R")
 
 fullrun <- 1
+outdir = "rf_rfe_post/"
+target <-  paste0(outdir, c("rfe_rf_tmp.rds"))
+permutate_y <- FALSE
 
 if(fullrun){
-  set.seed(1234)
+  set.seed(123)
   n_rows <- length(solTrainY)
   
   if(permutate_y) solTrainY <- solTrainY[sample(1:n_rows, size = n_rows, replace = F)]
   
-  for(run_nr in 1:n_runs){
-    ss <- sample(1:n_rows, size = 50, replace = FALSE)
+  ss <- sample(1:n_rows, size = 100, replace = FALSE)
+  #ss <- 1:n_rows
     
-    finalModel <- RunRFEandTuneRF(solTrainXtrans_spur[ss,], solTrainY[ss], rfe_ctrl = RFE_ctrl, train_ctrl = train_ctrl)
-  }
+  res <- RunRFEandTuneRF(X = solTrainXtrans_spur[ss,], 
+                         Y = solTrainY[ss], 
+                         rfe_ctrl = RFE_ctrl, 
+                         train_ctrl = train_ctrl,
+                         seed = 123)
+  saveRDS(res, target)
+
+} else{
+  res <- readRDS(target)
 }
-# wegschrijven finalModel
+
+rfeObject <- res[[1]]
+trainObject <- res[[2]]
 ```
+
+A model with 74 predictors is found to be the smallest model with optimal performance.
+
 ```{r}
-finalModel
+rfeObject$fit
 ```
+
+
+```{r}
+print(rfeObject)
+```
+
+```{r}
+trainObject
+```
+
 
 ```{r}
 testResults <- rbind(testResults,
                      data.frame(obs = solTestY,
-                     RFtune2 =  predict(finalModel, solTestXtrans_spur), n_spurious = -1))
+                     RFtune2 =  unlist(predict(trainObject, solTestXtrans_spur)), n_spurious = -1))
 ```
 
 ```{r}
@@ -302,5 +342,82 @@ res <- testResults %>%
 
 res
 ```
-So we find that the RFE procedure identified a model with 
+So we find that the RFE procedure identified a model with 74 predictors that has identical performance 90% R-squared as the model with all the 228 original predictors.
 
+# Sanity check: shuffle the dependent variable column
+
+As a sanity check, we shuffle the outcome variable column and repeat the same procedure.
+This was also done is Ambroise et at.
+We know now for a fact that there is no true predictive value in the set of predictors, since the 500 spurious predictors were already unrelated to the outcome, and after shuffling (permutating), the relationships (if any) between the original 228 predictors and the outcome should be lost as well.
+All metrics should drop to zero, as there is no signal anymore to discover in the predictors.
+
+It would be a worrying sign if we would be able to build a prediction model for the outcome.
+
+# Do the work after permutation
+
+
+
+```{r}
+source("rf_rfe_post/RunRFEandTuneRF.R")
+
+fullrun <- 0
+outdir = "rf_rfe_post/"
+target <-  paste0(outdir, c("rfe_rf_permute_tmp.rds"))
+permutate_y <- TRUE
+
+if(fullrun){
+  set.seed(123)
+  n_rows <- length(solTrainY)
+  
+  if(permutate_y) solTrainY <- solTrainY[sample(1:n_rows, size = n_rows, replace = F)]
+  
+  #ss <- sample(1:n_rows, size = 100, replace = FALSE)
+  ss <- 1:n_rows
+    
+  res <- RunRFEandTuneRF(X = solTrainXtrans_spur[ss,], 
+                         Y = solTrainY[ss], 
+                         rfe_ctrl = RFE_ctrl, 
+                         train_ctrl = train_ctrl,
+                         seed = 123)
+  saveRDS(res, target)
+
+} else{
+  res <- readRDS(target)
+}
+
+rfeObject <- res[[1]]
+trainObject <- res[[2]]
+```
+
+The cross-validated model contains as top 5 predictors SPUR148, SPUR2, SPUR406, SPUR161, SPUR487, and has an cross validated R2 of 11%!!!
+This is purely the result of our massive data dredging exercise, where we have screened 951 observations with 728 variables for correlation with an outcome variable. This demonstrates the value of keeping some of the data purely to safeguard us against such findings.
+
+```{r}
+rfeObject
+```
+
+```{r}
+trainObject
+```
+
+
+PM large diff between RFE and RF R2
+
+
+```{r}
+testResults <- rbind(testResults,
+                     data.frame(obs = solTestY,
+                     RFtune2 =  predict(trainObject, solTestXtrans_spur), n_spurious = -10))
+```
+
+```{r}
+res <- testResults %>% 
+  group_by(n_spurious) %>% 
+  metrics(truth = obs, estimate = RFtune2)
+
+res
+```
+
+Indeed, for the test set, the R2 drops back to 0.0%. 
+
+An alternative sanity check would be to shuffle the outcome of the train set and ... PM
