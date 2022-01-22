@@ -1,6 +1,6 @@
 # Complete procedure: RFE + tuning
 
-RunRFEandTuneRF <- function(X, Y, rfe_ctrl, train_ctrl, outdir = "./", seed = 123){
+RunRFEandTuneRF <- function(X, Y, rfe_ctrl, train_ctrl, seed = 123){
 
   set.seed(seed)
   
@@ -16,9 +16,6 @@ RunRFEandTuneRF <- function(X, Y, rfe_ctrl, train_ctrl, outdir = "./", seed = 12
   rfeObject <- rfe(X, Y,
                 sizes = subsets,
                 rfeControl = rfe_ctrl)
-  
-  filename <- paste0("model_", run_nr,"_rfe.rds")
-  saveRDS(rfeObject, paste0(outdir, filename))
   
   # step two: tune mtry for optimal set of predictors
   print("Tuning the model after feature elimination ...")
@@ -40,8 +37,33 @@ RunRFEandTuneRF <- function(X, Y, rfe_ctrl, train_ctrl, outdir = "./", seed = 12
                trControl = train_ctrl,
                tuneGrid = tune_grid)
   
-  filename <- paste0("model_", run_nr, "_fit.rds")
-  saveRDS(trainObject, paste0(outdir, filename))
-  
-  return(trainObject)
+  return(list(rfeObject, trainObject))
 }
+
+RunRFEwithTuning <- function(X, Y, rfe_ctrl, train_ctrl, seed = 123){
+  
+  set.seed(seed)
+  
+  # RFE subsets to use during backward feature selection
+  if(ncol(X) >= 10){
+    subsets <- round(exp(seq(log(1), log(ncol(X)), length.out=sqrt(ncol(X))))) # can also use 2^(1:5)
+  } else{ 
+    subsets <- 1:(ncol(X) - 1)
+  }
+  
+  print("starting the rfe procedure ..")
+  
+  # check mtry at different orders of magnitude
+  tune_grid <- expand.grid(mtry = round(exp(seq(log(1), log(length(preds)), length.out=sqrt(length(preds))))),
+                           splitrule = "variance",
+                           min.node.size = 5)
+  
+  rfeObject <- rfe(X, Y,
+                   sizes = subsets,
+                   rfeControl = rfe_ctrl,
+                   trControl = train_ctrl,
+                   tuneGrid = tune_grid)
+
+  return(list(rfeObject))
+}
+
