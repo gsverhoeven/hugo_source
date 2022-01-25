@@ -157,7 +157,7 @@ metrics(testResults, truth = obs, estimate = RFtune2)
 ```
 From here, we can go either way: we can add uninformative predictors, and check if performance suffers, or we can try to  remove uninformative predictors to further improve the model. 
 We start with adding noise predictors to check if performance suffers.
-If so, then we have shown that the RF has overfitted the data.
+If so, then we have shown that the RF has overfitted the data, because it has fitted a pattern that does not generalize to new data.
 
 PM definition of overfitting (should performance suffer? or difference between train and test performance)
 Overfitting is anything that does not generalize to new samples.
@@ -284,7 +284,7 @@ https://github.com/topepo/caret/issues/439
 ```{r}
 source("rf_rfe_post/RunRFEandTuneRF.R")
 
-fullrun <- 1
+fullrun <- 0
 outdir = "rf_rfe_post/"
 target <-  paste0(outdir, c("rfe_rf_tmp.rds"))
 permutate_y <- FALSE
@@ -421,3 +421,64 @@ res
 Indeed, for the test set, the R2 drops back to 0.0%. 
 
 An alternative sanity check would be to shuffle the outcome of the train set and ... PM
+
+# DO RFE with Tuning included
+
+```{r}
+source("rf_rfe_post/RunRFEandTuneRF.R")
+source("rf_rfe_post/rangerFuncs.R")
+
+RFE_ctrl <- rfeControl(functions = rangerTuneFuncs, #,
+                   method = "repeatedcv",
+                   rerank = FALSE,
+                   returnResamp = "all",
+                   number = 10,
+                   repeats = 1, 
+                   verbose = TRUE, # creates a lot of output if set TRUE
+                   saveDetails = T)
+
+train_ctrl <- trainControl(method = "repeatedcv",
+                           number = 10, 
+                           repeats = 1,
+                           verboseIter = TRUE,
+                           selectionFunction = "tolerance",
+                           savePredictions = TRUE)
+
+```
+
+```{r}
+fullrun <- 0
+outdir = "rf_rfe_post/"
+target <-  paste0(outdir, c("rfe_tune.rds"))
+permutate_y <- FALSE
+
+if(fullrun){
+  set.seed(123)
+  n_rows <- length(solTrainY)
+  
+  if(permutate_y) solTrainY <- solTrainY[sample(1:n_rows, size = n_rows, replace = F)]
+  
+  #ss <- sample(1:n_rows, size = 100, replace = FALSE)
+  ss <- 1:n_rows
+    
+  res <- RunRFEwithTuning(X = solTrainXtrans_spur[ss,], 
+                         Y = solTrainY[ss], 
+                         rfe_ctrl = RFE_ctrl, 
+                         train_ctrl = train_ctrl,
+                         seed = 123)
+  saveRDS(res, target)
+
+} else{
+  res <- readRDS(target)
+}
+
+rfeObject <- res[[1]]
+```
+
+```{r}
+rfeObject
+```
+
+This took about 12 hours on two cores.
+Remember that the mtry sequence was basically 1-728 and something in between.
+

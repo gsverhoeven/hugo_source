@@ -39,6 +39,56 @@ rangerFuncs <-  list(summary = defaultSummary,
                      selectVar = pickVars)
 
 
+rangerTuneFuncs <- rangerFuncs
+
+# PM split off to separate rangerTuneFuncs.R
+rangerTuneFuncs$fit <- function(x, y, first, last, ...){
+    if(first){ 
+      n_preds <- ncol(x)
+      # check mtry at different orders of magnitude
+      tune_grid <- expand.grid(mtry = round(exp(seq(log(1), log(n_preds), length.out= 3))), #length.out=sqrt(n_preds)))),
+                               splitrule = "variance",
+                               min.node.size = 5)
+
+      train(x, y, method = "ranger", tuneGrid = tune_grid, verbose = TRUE, importance = "permutation",...)
+    } else {
+      n_preds <- ncol(x)
+      # check mtry at different orders of magnitude
+      tune_grid <- expand.grid(mtry = round(exp(seq(log(1), log(n_preds), length.out= 3))), #length.out=sqrt(n_preds)))),
+                               splitrule = "variance",
+                               min.node.size = 5)
+      train(x, y, method = "ranger", tuneGrid = tune_grid, verbose = TRUE, importance = "none", ...)
+    }
+}
+
+rangerTuneFuncs$pred <- function(object, x)  {
+  if(!is.data.frame(x)) x <- as.data.frame(x)
+  out <- predict(object, x)
+  # Only works for Regression
+  # if(object$treetype == "Probability estimation") {
+  #   out <- cbind(pred = colnames(out)[apply(out, 1, which.max)],
+  #                out)
+  # }
+  out
+}
+
+# stolen from caretFuncs
+rangerTuneFuncs$rank <- function(object, x, y) {
+  vimp <- varImp(object, scale = FALSE)$importance
+  if(!is.data.frame(vimp)) vimp <- as.data.frame(vimp, stringsAsFactors = TRUE)
+  if(object$modelType == "Regression") {
+    vimp <- vimp[order(vimp[,1], decreasing = TRUE),,drop = FALSE]
+  } else {
+    if(all(levels(y) %in% colnames(vimp)) & !("Overall" %in% colnames(vimp))) {
+      avImp <- apply(vimp[, levels(y), drop = TRUE], 1, mean)
+      vimp$Overall <- avImp
+    }
+  }
+  vimp <- vimp[order(vimp$Overall, decreasing = TRUE),, drop = FALSE]
+  vimp$var <- rownames(vimp)
+  vimp
+}
+
 # this version calculates new variable importance measures every time a model is fit
 # has a higher computational cost
 
@@ -49,7 +99,7 @@ rangerFuncsRerank <-  list(summary = defaultSummary,
                               x else as.data.frame(x)
                             dat$.outcome <- y
                             ranger::ranger(.outcome ~ ., data = dat, 
-                                           importance = "permutation", 
+                                           importance = "permutation", # ONLY DIFFERENCCE!!! WHAT WITH RERANK TRUE
                                            probability = is.factor(y),
                                            write.forest = TRUE,
                                            ...)

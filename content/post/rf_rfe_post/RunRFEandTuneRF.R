@@ -52,17 +52,12 @@ RunRFEwithTuning <- function(X, Y, rfe_ctrl, train_ctrl, seed = 123){
   }
   
   print("starting the rfe procedure ..")
-  
-  # check mtry at different orders of magnitude
-  tune_grid <- expand.grid(mtry = round(exp(seq(log(1), log(length(preds)), length.out=sqrt(length(preds))))),
-                           splitrule = "variance",
-                           min.node.size = 5)
-  
+
   rfeObject <- rfe(X, Y,
                    sizes = subsets,
                    rfeControl = rfe_ctrl,
-                   trControl = train_ctrl,
-                   tuneGrid = tune_grid)
+                   trControl = train_ctrl
+                   )
 
   return(list(rfeObject))
 }
