@@ -165,11 +165,24 @@ Overfitting is anything that does not generalize to new samples.
 # adding non-informative predictors
 
 ```{r}
+ctrl <- trainControl(method = "cv", 
+                     index = indx, 
+                     verboseIter = FALSE)
+
+rangerGrid <- data.frame(mtry = floor(seq(10, ncol(solTrainXtrans), length = 10)),
+                       splitrule = "variance", 
+                       min.node.size = 5)
+```
+
+
+```{r}
 source("rf_rfe_post/add_spurious_predictors.R")
 
 spurious_vec <- c(10, 50, 100, 200, 300, 400, 500)
 
-fullrun <- 0
+fullrun <- 1
+
+
 
 for(i in 1:length(spurious_vec)){
   target <- paste0("rf_rfe_post/rfTune2_ss", spurious_vec[i], ".rds")
@@ -177,14 +190,17 @@ for(i in 1:length(spurious_vec)){
   solTrainXtrans_spur <- add_spurious_predictors(solTrainXtrans, spurious_vec[i])
 
     if(fullrun){
-    print(paste0("running with ", spurious_vec[i], " spurious vars added"))
-
-    rfTune2 <- train(x = solTrainXtrans_spur, y = solTrainY,
-                    method = "ranger",
-                    tuneGrid = rangerGrid,
-                    trControl = ctrl)
-    
-    saveRDS(rfTune2, file = target)
+      start_time <- Sys.time()
+      print(paste0("running with ", spurious_vec[i], " spurious vars added"))
+  
+      rfTune2 <- train(x = solTrainXtrans_spur, y = solTrainY,
+                      method = "ranger",
+                      tuneGrid = rangerGrid,
+                      trControl = ctrl)
+      
+      saveRDS(rfTune2, file = target)
+      end_time <- Sys.time()
+      print(end_time - start_time)
   } else {
     rfTune2 <- readRDS(file = target)
   }
