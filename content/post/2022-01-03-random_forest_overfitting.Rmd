@@ -74,7 +74,7 @@ https://bookdown.org/max/FES/feature-selection-simulation.html
 
 https://github.com/topepo/FES_Selection_Simulation
 
-# Tuned model without removing spurious features
+# Tuned ranger model without removing spurious features
 
 ```{r}
 data(solubility)
@@ -138,7 +138,7 @@ plot(rfTune2)
 ```{r}
 rfTune2
 ```
-So there we have it: a tuned Random Forest model, using 228 predictors (properties of the molecules) to predict the solubility of a chemical compound.
+So there we have it: a tuned Random Forest model, using 228 predictors (properties of the molecules) to predict the solubility of a chemical compound. We find that `mtry` should be at least 82.
 
 
 ```{r}
@@ -155,9 +155,15 @@ library(yardstick)
 
 metrics(testResults, truth = obs, estimate = RFtune2)
 ```
-From here, we can go either way: we can add uninformative predictors, and check if performance suffers, or we can try to  remove uninformative predictors to further improve the model. 
+So far there is no indication that Random Forest has overfitted, since the CV error on the train set is virtually identical to the Test set error (Although we do not know the uncertainty in this metric yet, we could bootstrap it though)
+
+From here, we can go either way: 
+
+* we can add uninformative predictors, and check if performance suffers, or 
+* we can try to  remove uninformative predictors (using RFE) to further improve the model. 
+
 We start with adding noise predictors to check if performance suffers.
-If so, then we have shown that the RF has overfitted the data, because it has fitted a pattern that does not generalize to new data.
+If so, then we have shown that the RF CAN overfit the data, because it has fitted a pattern that does not generalize to new data.
 
 PM definition of overfitting (should performance suffer? or difference between train and test performance)
 Overfitting is anything that does not generalize to new samples.
@@ -237,7 +243,8 @@ library(ggplot2)
 ggplot(res %>% filter(.metric == "rmse"), aes(x = n_spurious, y = .estimate)) +
   geom_point() +
   geom_line() +
-  expand_limits(y=c(0.6,1.2))
+  expand_limits(y=c(0.6,1.2)) +
+  ggtitle("RMSE increases as more irrelevant features are added")
 ```
 It is clear from the graph that the prediction error increases with more spurious predictors present.
 However, if we look at the R-squared, and include zero on the y-axis, it is also apparent that the decrease in performance is relatively small, from 91% down to 86%. 
@@ -247,7 +254,8 @@ ggplot(res %>% filter(.metric == "rsq"), aes(x = n_spurious, y = .estimate*100))
   geom_point() +
   geom_line() +
   expand_limits(y=0) +
-  geom_label(aes(label = paste(round(.estimate*100,0), "%")), nudge_y = -5)
+  geom_label(aes(label = paste(round(.estimate*100,0), "%")), nudge_y = -5) +
+  ggtitle("R-squared decreases as more irrelevant features are added")
 ```
 
 Now lets go the other way: we try to remove all the spurious predictors and leave only the informative predictors.
@@ -255,13 +263,17 @@ Now lets go the other way: we try to remove all the spurious predictors and leav
 # Recursive feature elimination (RFE)
 
 For this, we use the recursive feature elimination (RFE) procedure, implemented for `ranger` in `caret`.
+As this is procedure that drops predictors that do not correlate with the outcome, we have to be extremely carefull that we end up with something that generalizes to unseen data.
+In the book **Applied predictive Modeling** the authors convincingly show that a special procedure is necessary, with two loops of cross validation. The outer loop sets aside one fold that is not used for feature selection (and optionally model tuning), whereas the inner loop selects features and tunes the model.
+
+What happens if we do not follow this procedure, and refit the model using only the selected features from the selection procedure. To make sure there are no patterns in the data, we shuffle the outcome.
 
 PM it is possibly not OK to refit / tune after / outside the RFE loop.
 
 "If the model is refit using only the important predictors, model performance almost certainly improves"
 
 
-## RFE settings
+# Wrong procedure
 
 We use repeated k-fold Cross Validation as resampling method. By repeating this a few times and averaging the results we get some more precision in our estimates. Both the Recursive Feature Elimination and the model tuning functions of `caret` require a Control object with settings. `PicksizeTolerance` is used both to select the best model with the least features, and when tuning the Random Forest model for the selected features. This way, the results are less sensitive to small fluctuations.
 
@@ -295,7 +307,7 @@ I wrote a wrapper function that hides some detail of the `caret` functions used,
 
 https://github.com/topepo/caret/issues/439
 
-# Do the work
+## Do the work (PM done on 100 samples)
 
 ```{r}
 source("rf_rfe_post/RunRFEandTuneRF.R")
@@ -369,20 +381,18 @@ All metrics should drop to zero, as there is no signal anymore to discover in th
 
 It would be a worrying sign if we would be able to build a prediction model for the outcome.
 
-# Do the work after permutation
-
-
+## Do the work after permutation
 
 ```{r}
 source("rf_rfe_post/RunRFEandTuneRF.R")
 
-fullrun <- 0
+fullrun <- 1
 outdir = "rf_rfe_post/"
-target <-  paste0(outdir, c("rfe_rf_permute_tmp.rds"))
+target <-  paste0(outdir, c("rfe_rf_permute_tmp1234.rds"))
 permutate_y <- TRUE
 
 if(fullrun){
-  set.seed(123)
+  set.seed(1234)
   n_rows <- length(solTrainY)
   
   if(permutate_y) solTrainY <- solTrainY[sample(1:n_rows, size = n_rows, replace = F)]
@@ -416,10 +426,6 @@ rfeObject
 trainObject
 ```
 
-
-PM large diff between RFE and RF R2
-
-
 ```{r}
 testResults <- rbind(testResults,
                      data.frame(obs = solTestY,
@@ -436,13 +442,13 @@ res
 
 Indeed, for the test set, the R2 drops back to 0.0%. 
 
-An alternative sanity check would be to shuffle the outcome of the train set and ... PM
+
 
 # DO RFE with Tuning included
 
 ```{r}
 source("rf_rfe_post/RunRFEandTuneRF.R")
-source("rf_rfe_post/rangerFuncs.R")
+source("rf_rfe_post/rangerTuneFuncs.R")
 
 RFE_ctrl <- rfeControl(functions = rangerTuneFuncs, #,
                    method = "repeatedcv",
@@ -496,5 +502,5 @@ rfeObject
 ```
 
 This took about 12 hours on two cores.
-Remember that the mtry sequence was basically 1-728 and something in between.
+Remember that the mtry sequence was basically 1, max and something in between.
 
