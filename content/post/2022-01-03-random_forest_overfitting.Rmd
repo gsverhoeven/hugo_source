@@ -76,19 +76,16 @@ https://github.com/topepo/FES_Selection_Simulation
 
 # Tuned ranger model without removing spurious features
 
+Loading the `solubility` dataset gives us not one but six datasets! We only the transformed features (predictors, X-values), so we remove the datasets with the untransformed features, leaving us with four datasets:
+
+* 228 predictors train dataset, 951 observations
+* 228 predictors test dataset, 316 observations
+* Vector of Y-values (the solubility), train set
+* Vector of Y-values (the solubility), test set
+
 ```{r}
 data(solubility)
-
-test <- 0
-
-if(test){
-  # replace full training dataset with a smaller subset
-  set.seed(123)
-  ss <- sample(x = 1:nrow(solTrainXtrans), size = 100, replace = F)
-  
-  solTrainXtrans <- solTrainXtrans[ss,]
-  solTrainY <- solTrainY[ss]
-}
+rm(solTrainX, solTestX)
 ```
 
 Description of the dataset:
@@ -97,7 +94,7 @@ Description of the dataset:
 Tetko et al. (2001) and Huuskonen (2000) investigated a set of compounds with corresponding experimental solubility values using complex sets of descriptors. They used linear regression and neural network models to estimate the relationship between chemical structure and solubility. For our analyses, we will use 1267 compounds and a set of more understandable descriptors that fall into one of three groups: 208 binary "fingerprints" that indicate the presence or absence of a particular chemical sub-structure, 16 count descriptors (such as the number of bonds or the number of Bromine atoms) and 4 continuous descriptors (such as molecular weight or surface area).
 ```
 
-75% of the data was used for training the models, and 25% of the data was used for testing the final model performance.
+75% of the data was used for training the models, and 25% of the data was used for testing the final model performance. In this blog post, we use `mtry` as the only tuning parameter of Random Forest, and choose "variance" as the splitrule (alternative is "extratrees" which is more recent but to my knowledge not necessarily better, update it is better because it has lower computational cost!)
 
 ```{r}
 set.seed(123)
@@ -110,8 +107,8 @@ ctrl <- trainControl(method = "cv",
                      verboseIter = FALSE)
 
 rangerGrid <- data.frame(mtry = floor(seq(10, ncol(solTrainXtrans), length = 10)),
-                       splitrule = "variance", 
-                       min.node.size = 5)
+                       splitrule = "extratrees", 
+                       min.node.size = 20)
 
 ```
 
@@ -120,7 +117,7 @@ fullrun <- 0
 
 if(fullrun){
   set.seed(100)
-  
+  begin_time <- sys.
   rfTune2 <- train(x = solTrainXtrans, y = solTrainY,
                   method = "ranger",
                   tuneGrid = rangerGrid,
