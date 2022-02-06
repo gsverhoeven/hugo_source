@@ -186,9 +186,7 @@ source("rf_rfe_post/add_spurious_predictors.R")
 
 spurious_vec <- c(10, 50, 100, 200, 300, 400, 500)
 
-fullrun <- 1
-
-
+fullrun <- 0
 
 for(i in 1:length(spurious_vec)){
   target <- paste0("rf_rfe_post/rfTune2_ss", spurious_vec[i], ".rds")
@@ -218,6 +216,7 @@ for(i in 1:length(spurious_vec)){
                        RFtune2 =  predict(rfTune2, solTestXtrans_spur), n_spurious = spurious_vec[i]))
 }
 ```
+
 This gives us a dataset with for each of the models build, with increasing amounts of spurious predictors added, predictions on the test set, i.e. the dataset that was not used in anyway during model building.
 
 It has the following structure:
@@ -273,7 +272,7 @@ PM it is possibly not OK to refit / tune after / outside the RFE loop.
 "If the model is refit using only the important predictors, model performance almost certainly improves"
 
 
-# Wrong procedure
+# Wrong procedure: tuning after feature selection
 
 We use repeated k-fold Cross Validation as resampling method. By repeating this a few times and averaging the results we get some more precision in our estimates. Both the Recursive Feature Elimination and the model tuning functions of `caret` require a Control object with settings. `PicksizeTolerance` is used both to select the best model with the least features, and when tuning the Random Forest model for the selected features. This way, the results are less sensitive to small fluctuations.
 
@@ -286,7 +285,7 @@ source("rf_rfe_post/rangerFuncs.R")
 
 RFE_ctrl <- rfeControl(functions = rangerFuncs,
                    method = "repeatedcv",
-                   rerank = F,
+                   rerank = FALSE,
                    returnResamp = "all",
                    number = 10,
                    repeats = 1, 
@@ -307,30 +306,31 @@ I wrote a wrapper function that hides some detail of the `caret` functions used,
 
 https://github.com/topepo/caret/issues/439
 
-## Do the work (PM done on 100 samples)
+## Do the work
 
 ```{r}
 source("rf_rfe_post/RunRFEandTuneRF.R")
 
 fullrun <- 0
 outdir = "rf_rfe_post/"
-target <-  paste0(outdir, c("rfe_rf_tmp.rds"))
-permutate_y <- FALSE
+target <-  paste0(outdir, c("rfe_rf.rds"))
+
 
 if(fullrun){
+  begin_time <- Sys.time()
   set.seed(123)
   n_rows <- length(solTrainY)
   
-  if(permutate_y) solTrainY <- solTrainY[sample(1:n_rows, size = n_rows, replace = F)]
-  
-  ss <- sample(1:n_rows, size = 100, replace = FALSE)
-  #ss <- 1:n_rows
+  #ss <- sample(1:n_rows, size = 100, replace = FALSE)
+  ss <- 1:n_rows
     
   res <- RunRFEandTuneRF(X = solTrainXtrans_spur[ss,], 
                          Y = solTrainY[ss], 
                          rfe_ctrl = RFE_ctrl, 
                          train_ctrl = train_ctrl,
                          seed = 123)
+  end_time <- Sys.time()
+  print(end_time - begin_time)
   saveRDS(res, target)
 
 } else{
@@ -349,11 +349,11 @@ rfeObject$fit
 
 
 ```{r}
-print(rfeObject)
+plot(rfeObject)
 ```
 
 ```{r}
-trainObject
+plot(trainObject)
 ```
 
 
@@ -370,7 +370,7 @@ res <- testResults %>%
 
 res
 ```
-So we find that the RFE procedure identified a model with 74 predictors that has identical performance 90% R-squared as the model with all the 228 original predictors.
+So we find that the RFE procedure identified a model with 58/74 predictors that has almost identical performance (89% vs 90%) R-squared as the model with all the 228 original predictors.
 
 # Sanity check: shuffle the dependent variable column
 
@@ -386,18 +386,18 @@ It would be a worrying sign if we would be able to build a prediction model for 
 ```{r}
 source("rf_rfe_post/RunRFEandTuneRF.R")
 
-fullrun <- 1
+fullrun <- 0
 outdir = "rf_rfe_post/"
-target <-  paste0(outdir, c("rfe_rf_permute_tmp1234.rds"))
+target <-  paste0(outdir, c("rfe_rf_permute.rds"))
 permutate_y <- TRUE
 
 if(fullrun){
   set.seed(1234)
+  begin_time <- Sys.time()
   n_rows <- length(solTrainY)
   
   if(permutate_y) solTrainY <- solTrainY[sample(1:n_rows, size = n_rows, replace = F)]
   
-  #ss <- sample(1:n_rows, size = 100, replace = FALSE)
   ss <- 1:n_rows
     
   res <- RunRFEandTuneRF(X = solTrainXtrans_spur[ss,], 
@@ -405,6 +405,8 @@ if(fullrun){
                          rfe_ctrl = RFE_ctrl, 
                          train_ctrl = train_ctrl,
                          seed = 123)
+  end_time <- Sys.time()
+  print(end_time - begin_time)
   saveRDS(res, target)
 
 } else{
@@ -415,7 +417,7 @@ rfeObject <- res[[1]]
 trainObject <- res[[2]]
 ```
 
-The cross-validated model contains as top 5 predictors SPUR148, SPUR2, SPUR406, SPUR161, SPUR487, and has an cross validated R2 of 11%!!!
+The cross-validated model contains as top 5 predictors SPUR148, SPUR2, SPUR406, SPUR161, SPUR487, and has an cross validated R2 of 3 / 6 / 11%!!! It depends on pickSizeBest vs pickSizeTolerance, because when only a few predictors are selected, prediction suffers.
 This is purely the result of our massive data dredging exercise, where we have screened 951 observations with 728 variables for correlation with an outcome variable. This demonstrates the value of keeping some of the data purely to safeguard us against such findings.
 
 ```{r}
@@ -446,6 +448,14 @@ Indeed, for the test set, the R2 drops back to 0.0%.
 
 # DO RFE with Tuning included
 
+Fig x shows the RFE algorithm as implemented in caret using the rfe() function.
+It fits a fully tuned RF model 10 times, each time using 9 folds.
+For this tuned RF model, permutation variable importance is calculated. This determines the order in which the features are eliminated. Then in 10 steps, the features are reduced, everytime retuning the ranger model.
+This procedure results in an optimal number of features to select, and an optimal tuning parameter. This model is used to predict on the one fold that was not used at all, obtaining an unbiased estimate.
+Then after doing this 10 times, estimates are pooled, and again 
+
+For each step in the outer CV loop, 
+
 ```{r}
 source("rf_rfe_post/RunRFEandTuneRF.R")
 source("rf_rfe_post/rangerTuneFuncs.R")
@@ -462,7 +472,7 @@ RFE_ctrl <- rfeControl(functions = rangerTuneFuncs, #,
 train_ctrl <- trainControl(method = "repeatedcv",
                            number = 10, 
                            repeats = 1,
-                           verboseIter = TRUE,
+                           verboseIter = FALSE,
                            selectionFunction = "tolerance",
                            savePredictions = TRUE)
 
@@ -498,9 +508,23 @@ rfeObject <- res[[1]]
 ```
 
 ```{r}
-rfeObject
+plot(rfeObject)
 ```
 
 This took about 12 hours on two cores.
 Remember that the mtry sequence was basically 1, max and something in between.
 
+
+```{r}
+testResults <- rbind(testResults,
+                     data.frame(obs = solTestY,
+                     RFtune2 =  predict(rfeObject, solTestXtrans_spur), n_spurious = -100))
+```
+
+```{r}
+res <- testResults %>% 
+  group_by(n_spurious) %>% 
+  metrics(truth = obs, estimate = RFtune2)
+
+res
+```
