@@ -29,31 +29,48 @@ library(tidyverse)
 
 ```
 
+This blog post demonstrates that the Random Forest algorithm (as implemented in R by `ranger()`) suffers from overfitting by reproducing an example from the book *Applied Predictive Modeling*. This reduces model performance on the test set. The solution is to use **Recursive Feature Elimination (RFE)** to remove predictors with spurious correlations. We provide up to date code for R using `caret`  and `tidyverse`. Importantly, we show that if both Recursive feature elimination **AND** model tuning is used **AND** the predictive accuracy of the final model is estimated on training data using cross-validation, a special nested cross-validation procedure is needed. We show how this can be achieved with the `rfe()` framework of `caret`, by creating a set of custom helper functions for `rfe()`.
+
+# Random Forest algorithm
+
+The random Forest algorithm is my favorite ML algorithm for cross-sectional, tabular data. Thanks to [Marvin Wright](https://mnwright.github.io/) a fast and reliable implementation exists for R. Compared to other popular ML methods, such as Deep learning or XGBoost, it seems the offer the highest value per unit of compute, and in absolute terms does it generate predictions that often are either on par with Neural networks or Gradient boosting, or only slightly worse. For a great talk on the method, check out [Marvin Wright's UseR talk from 2019](https://www.youtube.com/watch?v=iVmsJJYjgNs).
+
 The Random Forest algorithm can provide a quick benchmark for the predictive performance of a set of predictors, that is hard to beat with models that explicitly formulate a interpretable model of a dependent variable, for example a linear regression model with interactions and non-linear transformations of the predictors.
 
-    When the full model is created, a measure of variable importance is computed that ranks the predictors from most important to least. […] At each stage of the search, the least important predictors are iteratively eliminated prior to rebuilding the model.
+# Introduction: Sensitivity to irrelevant predictors
 
-— Pages 494-495, Applied Predictive Modeling, 2013.
+Some models are negatively affected by non-informative predictors. Simply using all the predictors available will negatively impact performance for some "learner" methods. For example, linear regression (OLS) automatically includes all supplied variables in the final model, and this can cause the trained model to perform worse on unseen data. This is a form of overfitting: ideally variables that do not contribute to the prediction should have their weights set to zero, effectively excluding them from the model. For OLS, the elastic net / LASSO / ridge regression variants have this.
 
-data leakage
+Other models are naturally resistant to non-informative predictors. For example, decision tree models implicitly perform feature selection by not including non-informative predictors.
+
+For random forest, it is often said or assumed to be 
+Random Forest is to a large extent immune to the presence of irrelevant variables in the model. However, if more irrelevant variables are added to a Random Forest model, at some point its performance will be adversely affected [@hastie_elements_2009; @genuer_variable_2010]. In the book *Applied Predictive Modeling*, by Max Kuhn and Kjell Johnson, the authors demonstrate this by adding more and more irrelevant predictors to an existing dataset related to molecular solubility, the `solubility` dataset.
+
+# The dataset
+
+Loading the `solubility` dataset gives us not one but six datasets! We only the transformed features (predictors, X-values), so we remove the datasets with the untransformed features, leaving us with four datasets:
+
+* 228 predictors train dataset, 951 observations
+* 228 predictors test dataset, 316 observations
+* Vector of Y-values (the solubility), train set
+* Vector of Y-values (the solubility), test set
+
+```{r}
+data(solubility)
+rm(solTrainX, solTestX)
+```
+
+Description of the dataset:
+
+```
+Tetko et al. (2001) and Huuskonen (2000) investigated a set of compounds with corresponding experimental solubility values using complex sets of descriptors. They used linear regression and neural network models to estimate the relationship between chemical structure and solubility. For our analyses, we will use 1267 compounds and a set of more understandable descriptors that fall into one of three groups: 208 binary "fingerprints" that indicate the presence or absence of a particular chemical sub-structure, 16 count descriptors (such as the number of bonds or the number of Bromine atoms) and 4 continuous descriptors (such as molecular weight or surface area).
+```
+
+75% of the data was used for training the models, and 25% of the data was used for testing the final model performance. 
 
 
-Random Forest is to a large extent immune to the presence of irrelevant variables in the model. However, if more irrelevant variables are added to a Random Forest model, at some point its performance will be adversely affected [@hastie_elements_2009; @genuer_variable_2010]. We therefore performed recursive feature elimination (RFE) with Random Forest for all models in order to obtain models with optimal predictive performance. The rfe() function of the caret package in R was used, with the rangerFuncs set of helper functions (Kuhn book)3. Permutation importance was used as the variable importance mode. The Root Mean Squared Error (RMSE) was the performance metric used to choose the optimal subset size of the variables. Ten different subset sizes were tested by the RFE. These ranged from the first to the tenth decile of the number of variables when the model contained more than 10 variables; for models containing less than or exactly 10 variables, all possible subset sizes were considered.
 
 
-However, simply using all the predictors 
-
-scikit-learn RFE.
-
-This blog post demonstrates that the Random Forest algorithm (as implemented in R by `ranger()`) suffers from overfitting by reproducing an example from the book *Applied Predictive Modeling*. This reduces model performance on the test set.
-
-The solution is to use **Recursive Feature Elimination (RFE)** to remove predictors with spurious correlations. We provide up to date code for R using `caret`  and `tidyverse`.
-
-
-
-Some models are negatively affected by non-informative predictors.
-Some models are naturally resistant to non-informative predictors.
-Tree based models implicitly perform feature selection by not including non-informative predictors.
 
 19.1 QSAR data, adding 10,50,100,200,300,400,500 non-informative predictors
 
@@ -76,28 +93,7 @@ https://github.com/topepo/FES_Selection_Simulation
 
 # Tuned ranger model without removing spurious features
 
-```{r}
-data(solubility)
-
-test <- 0
-
-if(test){
-  # replace full training dataset with a smaller subset
-  set.seed(123)
-  ss <- sample(x = 1:nrow(solTrainXtrans), size = 100, replace = F)
-  
-  solTrainXtrans <- solTrainXtrans[ss,]
-  solTrainY <- solTrainY[ss]
-}
-```
-
-Description of the dataset:
-
-```
-Tetko et al. (2001) and Huuskonen (2000) investigated a set of compounds with corresponding experimental solubility values using complex sets of descriptors. They used linear regression and neural network models to estimate the relationship between chemical structure and solubility. For our analyses, we will use 1267 compounds and a set of more understandable descriptors that fall into one of three groups: 208 binary "fingerprints" that indicate the presence or absence of a particular chemical sub-structure, 16 count descriptors (such as the number of bonds or the number of Bromine atoms) and 4 continuous descriptors (such as molecular weight or surface area).
-```
-
-75% of the data was used for training the models, and 25% of the data was used for testing the final model performance.
+In this blog post, we use `mtry` as the only tuning parameter of Random Forest, and choose "variance" as the splitrule (alternative is "extratrees" which is more recent but to my knowledge not necessarily better, on this dataset it seems worse, and takes more compute)
 
 ```{r}
 set.seed(123)
@@ -107,11 +103,11 @@ indx <- createFolds(solTrainY, returnTrain = TRUE)
 # use 10-fold CV
 ctrl <- trainControl(method = "cv", 
                      index = indx, 
-                     verboseIter = FALSE)
+                     verboseIter = TRUE)
 
 rangerGrid <- data.frame(mtry = floor(seq(10, ncol(solTrainXtrans), length = 10)),
                        splitrule = "variance", 
-                       min.node.size = 5)
+                       min.node.size = 10)
 
 ```
 
@@ -120,12 +116,13 @@ fullrun <- 0
 
 if(fullrun){
   set.seed(100)
-  
+  begin_time <- Sys.time()
   rfTune2 <- train(x = solTrainXtrans, y = solTrainY,
                   method = "ranger",
                   tuneGrid = rangerGrid,
                   trControl = ctrl)
-  
+  end_time <- Sys.time()
+  print(end_time - begin_time)
   saveRDS(rfTune2, file = "rf_rfe_post/rfTune2_ss.rds")
 } else {
   rfTune2 <- readRDS(file = "rf_rfe_post/rfTune2_ss.rds")
@@ -134,6 +131,43 @@ if(fullrun){
 plot(rfTune2)
 
 ```
+Random Forest 
+
+951 samples
+228 predictors
+
+No pre-processing
+Resampling: Cross-Validated (10 fold) 
+Summary of sample sizes: 855, 856, 855, 857, 857, 855, ... 
+Resampling results across tuning parameters:
+
+  mtry  RMSE       Rsquared   MAE      
+   10   0.8588962  0.8480163  0.6580583
+   34   0.7524335  0.8750395  0.5699110
+   58   0.7311974  0.8799670  0.5516170
+   82   0.7179389  0.8831068  0.5367177
+  106   0.7123788  0.8843594  0.5310332
+  131   0.7105462  0.8843946  0.5295748
+  155   0.7066657  0.8855717  0.5249173
+  179   0.7051144  0.8855549  0.5225659
+  203   0.7025755  0.8864378  0.5198557
+  228   0.6993537  0.8873945  0.5169941
+
+Tuning parameter 'splitrule' was held constant at a value of extratrees
+Tuning parameter 'min.node.size'
+ was held constant at a value of 20
+RMSE was used to select the optimal model using the smallest value.
+The final values used for the model were mtry = 228, splitrule = extratrees and min.node.size = 20.
+
+Extratrees took 10 min.
+Fitting mtry = 228, splitrule = extratrees, min.node.size = 20 on full training set
+Time difference of 9.450788 mins
+
+Fitting mtry = 155, splitrule = variance, min.node.size = 20 on full training set
+Time difference of 5.369846 mins
+
+Fitting mtry = 131, splitrule = variance, min.node.size = 5 on full training set
+Time difference of 7.595714 mins
 
 ```{r}
 rfTune2
@@ -175,11 +209,11 @@ ctrl <- trainControl(method = "cv",
                      index = indx, 
                      verboseIter = FALSE)
 
-rangerGrid <- data.frame(mtry = floor(seq(10, ncol(solTrainXtrans), length = 10)),
-                       splitrule = "variance", 
-                       min.node.size = 5)
+
 ```
 
+
+PM increase
 
 ```{r}
 source("rf_rfe_post/add_spurious_predictors.R")
@@ -189,17 +223,20 @@ spurious_vec <- c(10, 50, 100, 200, 300, 400, 500)
 fullrun <- 0
 
 for(i in 1:length(spurious_vec)){
-  target <- paste0("rf_rfe_post/rfTune2_ss", spurious_vec[i], ".rds")
+  target <- paste0("rf_rfe_post/rfTune2_spur_mtry_", spurious_vec[i], ".rds")
   set.seed(100)
   solTrainXtrans_spur <- add_spurious_predictors(solTrainXtrans, spurious_vec[i])
-
+  # create tuning grid
+  TuneGrid <- data.frame(mtry = floor(seq(10, ncol(solTrainXtrans), length = 10)),
+                   splitrule = "variance", 
+                   min.node.size = 5)
     if(fullrun){
       start_time <- Sys.time()
       print(paste0("running with ", spurious_vec[i], " spurious vars added"))
   
       rfTune2 <- train(x = solTrainXtrans_spur, y = solTrainY,
                       method = "ranger",
-                      tuneGrid = rangerGrid,
+                      tuneGrid = TuneGrid,
                       trControl = ctrl)
       
       saveRDS(rfTune2, file = target)
@@ -217,9 +254,10 @@ for(i in 1:length(spurious_vec)){
 }
 ```
 
-This gives us a dataset with for each of the models build, with increasing amounts of spurious predictors added, predictions on the test set, i.e. the dataset that was not used in anyway during model building.
 
-It has the following structure:
+This gives us a dataset with for each of the models build, with increasing amounts of spurious predictors added, predictions on the test set with 316 observations, i.e. a dataset that was not used in any way during model building.
+
+The `testResults` dataset has the following structure:
 
 ```{r}
 testResults %>% 
@@ -256,13 +294,28 @@ ggplot(res %>% filter(.metric == "rsq"), aes(x = n_spurious, y = .estimate*100))
   geom_label(aes(label = paste(round(.estimate*100,0), "%")), nudge_y = -5) +
   ggtitle("R-squared decreases as more irrelevant features are added")
 ```
+# mtry increases as more irrelevant features are added
+
+```{r}
+
+```
+
 
 Now lets go the other way: we try to remove all the spurious predictors and leave only the informative predictors.
 
 # Recursive feature elimination (RFE)
 
 For this, we use the recursive feature elimination (RFE) procedure, implemented for `ranger` in `caret`.
-As this is procedure that drops predictors that do not correlate with the outcome, we have to be extremely carefull that we end up with something that generalizes to unseen data.
+As this is procedure that drops predictors that do not correlate with the outcome, we have to be extremely careful that we end up with something that generalizes to unseen data.
+
+
+    When the full model is created, a measure of variable importance is computed that ranks the predictors from most important to least. […] At each stage of the search, the least important predictors are iteratively eliminated prior to rebuilding the model.
+
+— Pages 494-495, Applied Predictive Modeling, 2013.
+
+
+We therefore performed recursive feature elimination (RFE) with Random Forest for all models in order to obtain models with optimal predictive performance. The `rfe()` function of the caret package in R was used, with the `rangerFuncs` set of helper functions (Kuhn book)3. Permutation importance was used as the variable importance mode. The Root Mean Squared Error (RMSE) was the performance metric used to choose the optimal subset size of the variables. Ten different subset sizes were tested by the RFE. These ranged from the first to the tenth decile of the number of variables when the model contained more than 10 variables; for models containing less than or exactly 10 variables, all possible subset sizes were considered.
+
 In the book **Applied predictive Modeling** the authors convincingly show that a special procedure is necessary, with two loops of cross validation. The outer loop sets aside one fold that is not used for feature selection (and optionally model tuning), whereas the inner loop selects features and tunes the model.
 
 What happens if we do not follow this procedure, and refit the model using only the selected features from the selection procedure. To make sure there are no patterns in the data, we shuffle the outcome.
