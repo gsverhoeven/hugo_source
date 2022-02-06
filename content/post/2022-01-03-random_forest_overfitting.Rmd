@@ -33,7 +33,19 @@ This blog post demonstrates that the Random Forest algorithm (as implemented in 
 
 # Random Forest algorithm
 
-The random Forest algorithm is my favorite ML algorithm for cross-sectional, tabular data. Thanks to [Marvin Wright](https://mnwright.github.io/) a fast and reliable implementation exists for R. Compared to other popular ML methods, such as Deep learning or XGBoost, it seems the offer the highest value per unit of compute, and in absolute terms does it generate predictions that often are either on par with Neural networks or Gradient boosting, or only slightly worse. For a great talk on the method, check out [Marvin Wright's UseR talk from 2019](https://www.youtube.com/watch?v=iVmsJJYjgNs).
+The random Forest algorithm is my favorite ML algorithm for cross-sectional, tabular data. Thanks to [Marvin Wright](https://mnwright.github.io/) a fast and reliable implementation exists for R. Compared to other popular ML methods, such as Deep learning or XGBoost, it seems to offer the highest value per unit of compute, and in absolute terms generates predictions that often are either on par with Neural networks or Gradient boosting, or only slightly worse. For a great talk on the method, check out [Marvin Wright's UseR talk from 2019](https://www.youtube.com/watch?v=iVmsJJYjgNs). 
+
+Interestingly, Marvin evaluates various claims that also feature in this blog: For example the claim from Breiman 2001 that "RF does not suffer from overfitting". Here the precise definition of overfitting matters, as we shall see. And the claim "Works well on high-dimensional data": he evaluates this claim by adding up to 100 noise variables to the `iris` dataset, and shows that RF is unaffected by adding the irrelevant features. It must be noted that this is a relatively clean classification problem. He also quotes Biau and Scornet 2016 (A random forest guided tour) who write: the rate of convergence only depends on the number of strong variables, not on the dimension of the data ... (PM theory for stylized version of ?). Indeed, a strong assumption is needed: **Of course, this is achieved by assuming that the procedure succeeds in selecting the informative variables for splitting, which is indeed a strong assumption.**
+
+```{r}
+library(ranger)
+df <- add_spurious_predictors(iris, 100)
+
+res <- ranger(Species ~ ., data = df)
+res2 <- ranger(Species ~ ., data = iris)
+```
+
+
 
 The Random Forest algorithm can provide a quick benchmark for the predictive performance of a set of predictors, that is hard to beat with models that explicitly formulate a interpretable model of a dependent variable, for example a linear regression model with interactions and non-linear transformations of the predictors.
 
