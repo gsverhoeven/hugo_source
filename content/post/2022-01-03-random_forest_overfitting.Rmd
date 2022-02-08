@@ -26,19 +26,65 @@ knitr::opts_chunk$set(echo = TRUE)
 library(AppliedPredictiveModeling)
 library(caret)
 library(tidyverse)
-
+library(mlbench)
+library(ranger)
 ```
 
 This blog post demonstrates that the Random Forest algorithm (as implemented in R by `ranger()`) suffers from overfitting by reproducing an example from the book *Applied Predictive Modeling*. This reduces model performance on the test set. The solution is to use **Recursive Feature Elimination (RFE)** to remove predictors with spurious correlations. We provide up to date code for R using `caret`  and `tidyverse`. Importantly, we show that if both Recursive feature elimination **AND** model tuning is used **AND** the predictive accuracy of the final model is estimated on training data using cross-validation, a special nested cross-validation procedure is needed. We show how this can be achieved with the `rfe()` framework of `caret`, by creating a set of custom helper functions for `rfe()`.
 
+PM: als we toch niet refitten, waarom dan eigenlijk niet van de andere kant komen, dus inderdaad ascending a la Genuer. Svetnik et al (2004) showed that, for random forest models, there was a decrease in performance when the rankings were re-computed at every step.
+https://topepo.github.io/caret/recursive-feature-elimination.html
+friedmans dataset rfFUncs laat ook overfitting zien!! maar weer geen tuning, mtry via de vaste formule p/3
+
 # Random Forest algorithm
 
-The random Forest algorithm is my favorite ML algorithm for cross-sectional, tabular data. Thanks to [Marvin Wright](https://mnwright.github.io/) a fast and reliable implementation exists for R. Compared to other popular ML methods, such as Deep learning or XGBoost, it seems to offer the highest value per unit of compute, and in absolute terms generates predictions that often are either on par with Neural networks or Gradient boosting, or only slightly worse. For a great talk on the method, check out [Marvin Wright's UseR talk from 2019](https://www.youtube.com/watch?v=iVmsJJYjgNs). 
+The random Forest algorithm is my favorite ML algorithm for cross-sectional, tabular data. Thanks to [Marvin Wright](https://mnwright.github.io/) a fast and reliable implementation exists for R. Compared to other popular ML methods, such as Deep learning or Gradient Boosting algorithms such as XGBoost, it seems to offer the highest value per unit of compute, and in absolute terms generates predictions that often are either on par with Neural networks or Gradient boosting, or only slightly worse. For a great talk on the method, check out [Marvin Wright's UseR talk from 2019](https://www.youtube.com/watch?v=iVmsJJYjgNs). 
 
 Interestingly, Marvin evaluates various claims that also feature in this blog: For example the claim from Breiman 2001 that "RF does not suffer from overfitting". Here the precise definition of overfitting matters, as we shall see. And the claim "Works well on high-dimensional data": he evaluates this claim by adding up to 100 noise variables to the `iris` dataset, and shows that RF is unaffected by adding the irrelevant features. It must be noted that this is a relatively clean classification problem. He also quotes Biau and Scornet 2016 (A random forest guided tour) who write: the rate of convergence only depends on the number of strong variables, not on the dimension of the data ... (PM theory for stylized version of ?). Indeed, a strong assumption is needed: **Of course, this is achieved by assuming that the procedure succeeds in selecting the informative variables for splitting, which is indeed a strong assumption.**
 
 ```{r}
-library(ranger)
+n <- 100
+p <- 40
+sigma <- 1
+set.seed(1)
+sim <- mlbench.friedman1(n, sd = sigma)
+colnames(sim$x) <- c(paste("real", 1:5, sep = ""),
+                     paste("bogus", 1:5, sep = ""))
+bogus <- matrix(rnorm(n * p), nrow = n)
+colnames(bogus) <- paste("bogus", 5+(1:ncol(bogus)), sep = "")
+x <- cbind(sim$x, bogus)
+y <- sim$y
+
+normalization <- preProcess(x)
+x <- predict(normalization, x)
+x <- as.data.frame(x)
+subsets <- c(1:5, 10, 15, 20, 25)
+```
+
+```{r}
+train(x = x, y =y, method = "rf", trControl = trainControl(method = "cv"))
+```
+
+```{r}
+train(x = x[,1:5], y =y, method = "rf", trControl = trainControl(method = "cv"))
+```
+
+```{r}
+ctrl <- rfeControl(functions = rfFuncs,
+                   method = "repeatedcv",
+                   repeats = 1,
+                   verbose = FALSE,
+                   saveDetails = TRUE)
+
+ctrl$returnResamp <- "all"
+set.seed(10)
+rfProfile <- rfe(x, y, sizes = subsets, rfeControl = ctrl)
+rfProfile
+```
+
+
+```{r}
+
 df <- add_spurious_predictors(iris, 100)
 
 res <- ranger(Species ~ ., data = df)
@@ -56,7 +102,7 @@ Some models are negatively affected by non-informative predictors. Simply using 
 Other models are naturally resistant to non-informative predictors. For example, decision tree models implicitly perform feature selection by not including non-informative predictors.
 
 For random forest, it is often said or assumed to be 
-Random Forest is to a large extent immune to the presence of irrelevant variables in the model. However, if more irrelevant variables are added to a Random Forest model, at some point its performance will be adversely affected [@hastie_elements_2009; @genuer_variable_2010]. In the book *Applied Predictive Modeling*, by Max Kuhn and Kjell Johnson, the authors demonstrate this by adding more and more irrelevant predictors to an existing dataset related to molecular solubility, the `solubility` dataset.
+Random Forest is to a large extent immune to the presence of irrelevant variables in the model. However, if more irrelevant variables are added to a Random Forest model, at some point its performance will be adversely affected [; @genuer_variable_2010]. In the book *Applied Predictive Modeling*, by Max Kuhn and Kjell Johnson, the authors demonstrate this by adding more and more irrelevant predictors to an existing dataset related to molecular solubility, the `solubility` dataset. Simulations on a combination of relevant and noise variables have also been performed by Hastie et al. [@hastie_elements_2009], but focus on the artificial situation of using a fixed choice rule of `mtry` (square root of $p$). Especially when adding lots of noise variables, it is important to increase `mtry` to increase the probability that relevant variables are included at each split.
 
 # The dataset
 
