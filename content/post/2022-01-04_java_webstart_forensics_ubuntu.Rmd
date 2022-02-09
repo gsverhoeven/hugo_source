@@ -275,4 +275,4 @@ sudo sed -i -e '/^assistive_technologies=/s/^/#/' /etc/java-*-openjdk/accessibil
 
 And finally ... we have a working FFB client again, without the white bar! Hurrah!
 
-**Update**: Turns out i had some remaining issues with sound. When using the replay functionality, some sounds work, and some sounds don't, and throw a ` could not get audio input stream from input URL Unsupported audio resource!` error. This is using either openJDK 8 or 11. When spectating these sounds do work.  On my Ubuntu 20.04 system, using replay, I get a `TinySound not initialized` error, and sound does not work at all.
+**Update**: Turns out i had some remaining issues with sound. When using the replay functionality, some sounds work, and some sounds don't, and throw a ` could not get audio input stream from input URL Unsupported audio resource!` error. This is using either openJDK 8 or 11. When spectating these sounds do work.  On my Ubuntu 20.04 system, using replay and openjdk 8, I get a `TinySound not initialized` error, and sound does not work at all. Switching to OpenJDK 11, and sound works as described on my other system.
