@@ -1,5 +1,5 @@
 ---
-title: "How to prevent overfitting with Random Forests"
+title: "How to prevent overfitting on irrelevant variables with Random Forests"
 author: "Gertjan Verhoeven"
 date: '2022-01-03'
 summary: This blog post demonstrates that the Random Forest algorithm (as implemented in R by `ranger()`) suffers from overfitting by reproducing an example from the book *Applied Predictive Modeling*. The solution is to use Recursive Feature Elimination (RFE) to remove predictors with spurious correlations. We provide up to date code that can be used for workflows that use either `caret` and/or `tidymodels` .
@@ -30,68 +30,253 @@ library(mlbench)
 library(ranger)
 ```
 
-This blog post demonstrates that the Random Forest algorithm (as implemented in R by `ranger()`) suffers from overfitting by reproducing an example from the book *Applied Predictive Modeling*. This reduces model performance on the test set. The solution is to use **Recursive Feature Elimination (RFE)** to remove predictors with spurious correlations. We provide up to date code for R using `caret`  and `tidyverse`. Importantly, we show that if both Recursive feature elimination **AND** model tuning is used **AND** the predictive accuracy of the final model is estimated on training data using cross-validation, a special nested cross-validation procedure is needed. We show how this can be achieved with the `rfe()` framework of `caret`, by creating a set of custom helper functions for `rfe()`.
+Here we show that Random Forests can easily overfit, and if we want a model that has optimal predictive accuracy, we need to remove the irrelevant features from the model.
 
-PM: als we toch niet refitten, waarom dan eigenlijk niet van de andere kant komen, dus inderdaad ascending a la Genuer. Svetnik et al (2004) showed that, for random forest models, there was a decrease in performance when the rankings were re-computed at every step.
-https://topepo.github.io/caret/recursive-feature-elimination.html
-friedmans dataset rfFUncs laat ook overfitting zien!! maar weer geen tuning, mtry via de vaste formule p/3
+This blog post demonstrates that the Random Forest algorithm (as implemented in R by `ranger()`) suffers from overfitting on irrelevant variables by reproducing an example from the book *Applied Predictive Modeling*. This reduces model performance on the test set. The solution is to use **Recursive Feature Elimination (RFE)** to remove predictors with spurious correlations. We provide up to date code for R using `caret`  and `tidyverse`. Importantly, we show that if both Recursive feature elimination **AND** model tuning is used **AND** the predictive accuracy of the final model is estimated on training data using cross-validation, a special nested cross-validation procedure is needed. We show how this can be achieved with the `rfe()` framework of `caret`, by creating a set of custom helper functions for `rfe()`.
 
 # Random Forest algorithm
 
 The random Forest algorithm is my favorite ML algorithm for cross-sectional, tabular data. Thanks to [Marvin Wright](https://mnwright.github.io/) a fast and reliable implementation exists for R. Compared to other popular ML methods, such as Deep learning or Gradient Boosting algorithms such as XGBoost, it seems to offer the highest value per unit of compute, and in absolute terms generates predictions that often are either on par with Neural networks or Gradient boosting, or only slightly worse. For a great talk on the method, check out [Marvin Wright's UseR talk from 2019](https://www.youtube.com/watch?v=iVmsJJYjgNs). 
 
-Interestingly, Marvin evaluates various claims that also feature in this blog: For example the claim from Breiman 2001 that "RF does not suffer from overfitting". Here the precise definition of overfitting matters, as we shall see. And the claim "Works well on high-dimensional data": he evaluates this claim by adding up to 100 noise variables to the `iris` dataset, and shows that RF is unaffected by adding the irrelevant features. It must be noted that this is a relatively clean classification problem. He also quotes Biau and Scornet 2016 (A random forest guided tour) who write: the rate of convergence only depends on the number of strong variables, not on the dimension of the data ... (PM theory for stylized version of ?). Indeed, a strong assumption is needed: **Of course, this is achieved by assuming that the procedure succeeds in selecting the informative variables for splitting, which is indeed a strong assumption.**
+Interestingly, Marvin evaluates various claims that also feature in this blog: For example the claim from Breiman 2001 that "RF does not suffer from overfitting". Here the precise definition of overfitting matters, as we shall see. 
 
-```{r}
-n <- 100
-p <- 40
-sigma <- 1
-set.seed(1)
-sim <- mlbench.friedman1(n, sd = sigma)
-colnames(sim$x) <- c(paste("real", 1:5, sep = ""),
-                     paste("bogus", 1:5, sep = ""))
-bogus <- matrix(rnorm(n * p), nrow = n)
-colnames(bogus) <- paste("bogus", 5+(1:ncol(bogus)), sep = "")
-x <- cbind(sim$x, bogus)
-y <- sim$y
+# Random forests and overfitting
 
-normalization <- preProcess(x)
-x <- predict(normalization, x)
-x <- as.data.frame(x)
-subsets <- c(1:5, 10, 15, 20, 25)
+So what are we talking about when we state that algorithm XYZ does not overfit? An algorithm is said to **overfit** when it is sufficiently flexible to fit patterns in the training set that are absent in a new batch of data. With "a new batch of data" we mean data that was generated according to the same Data generating process (DGP) as the training data, but was not used in model building. Such data is often called "test data". Overfitting causes model prediction errors to be higher on test data compared to the prediction errors on the training data.
+
+In the context of random forest, there is a additional claim related to overfitting, that has caused confusion. The claim by the inventor of the algorithm, Leo Breiman, himself, taken out of context, is that "random forest does not overfit". [This blog post by Piotr Płoński](https://mljar.com/blog/random-forest-overfitting/) is a good write up on that claim (as well as on the overfitting decribed above) . The claim is that adding more trees to the forest does not hurt the predictions, but only improves them. In practice, the default setting of `ranger()`, 500 trees, is sufficient to get stable predictions, and adding even more is not worth the extra computational cost.
+
+# Random forest does automatic feature selection?
+
+Another common claim about RF that Marvin takes on is that "Random Forest works well on high-dimensional data". High-dimensional data is related to the ratio between number of observations and number of variables. Data is called high-dimensional if there are many variables relative to the number of observations. This is common in genetics, when we have say complete genomes for only a handful of subjects. The suggestion is that RF can be used on small datasets with lots of features without having to do variable selection first. 
+
+He quotes theoretical results from [Biau and Scornet 2016 (A random forest guided tour)]() who write: 
+
+```
+the rate of convergence only depends on the number of strong variables S, not on the dimension of the data p....[]
+```
+However, it turns out that a strong assumption is needed for this claim to hold: 
+
+```
+Of course, this is achieved by assuming that the procedure succeeds in selecting the informative variables for splitting. which is indeed a strong assumption.
 ```
 
+In his presentation, Wright shows that RF performance is unaffected by adding 100 noise variables to the `iris` dataset, a famous example classification problem with three different species. The fact the Random Forest performs "intrinsic variable selection" at each split is used to explain this result. 
+
+Let's try that ourselves as well.
+
+# Adding irrelevant variables to the Iris dataset
+
+First the benchmark, using `ranger()` on the `iris` dataset, with 10-fold Cross validation:
+
 ```{r}
-train(x = x, y =y, method = "rf", trControl = trainControl(method = "cv"))
+set.seed(123)
+rangerGrid <- data.frame(mtry = 2:4,
+                       splitrule = "gini", 
+                       min.node.size = 10)
+
+res <- train(Species ~ ., 
+             data = iris, 
+             method = "ranger", 
+             tuneGrid = rangerGrid,            
+             trControl = trainControl(method = "cv"))
+res
 ```
+We get an cross-validated accuracy of 95-96% (so CV error of around 5%).
+
+We add a 100 irrelevant predictors to the `iris` dataset (I wrote a function `add_spurious_predictors()` for this), and check whether accuracy suffers.
 
 ```{r}
-train(x = x[,1:5], y =y, method = "rf", trControl = trainControl(method = "cv"))
-```
-
-```{r}
-ctrl <- rfeControl(functions = rfFuncs,
-                   method = "repeatedcv",
-                   repeats = 1,
-                   verbose = FALSE,
-                   saveDetails = TRUE)
-
-ctrl$returnResamp <- "all"
-set.seed(10)
-rfProfile <- rfe(x, y, sizes = subsets, rfeControl = ctrl)
-rfProfile
-```
-
-
-```{r}
+source("rf_rfe_post/add_spurious_predictors.R")
 
 df <- add_spurious_predictors(iris, 100)
 
-res <- ranger(Species ~ ., data = df)
-res2 <- ranger(Species ~ ., data = iris)
+rangerGrid <- data.frame(mtry = c(2:4,40,80,104),
+                       splitrule = "gini", 
+                       min.node.size = 10)
+
+res <- train(Species ~ ., 
+             data = df, 
+             method = "ranger", 
+             tuneGrid = rangerGrid,
+             trControl = trainControl(method = "cv"))
+res
+```
+We can see that if we do not choose really low values of `mtry`, performance hardly suffers, with 94-96% Accuracy.
+So indeed, we confirm the conclusion of Wright: For the `iris` classification problem, Random Forest does not suffer when we add a lot of noise variables, and using the default settings (`mtry = p/3`).
+
+However, it turns that it is easy to generate a counter-example where RF severely overfits.
+
+# An example where Random Forests overfit
+
+This example is taken from the documentation of `caret`, by Max Kuhn, in particular the section on [RFE](https://topepo.github.io/caret/recursive-feature-elimination.html). In that section, no tuning is done, which means that the most RF important tuning parameter `mtry` is determined by $p/3$.
+
+PM Here we repeat the analysis using `ranger`, and also include tuning of `mtry`, to rule out that the overfitting is caused by a poor choice of hyperparameters.
+
+`mlbench.friedman1()` simulates the regression problem **Friedman 1** as described in Friedman (1991) and Breiman (1996). Inputs are 10 independent variables uniformly distributed on the interval [0,1], only 5 out of these 10 are actually used. Outputs are created according to the formula:
+
+$y = 10 sin(\pi x_1 x_2) + 20 (x_3 - 0.5)^2 + 10 x_4 + 5 x_5 + \epsilon$
+
+where $\epsilon$ is distributed $Normal(0, 1)$.
+
+```{r}
+set.seed(1)
+
+sim <- mlbench.friedman1(n = 100, sd = 1)
+
+df <- data.frame(sim$x)
+colnames(df) <- paste0("X",1:10)
+
+df <- add_spurious_predictors(df, 100)
+
+df$y <- sim$y
+```
+
+First we establish the performance of the optimal model, including only relevant predictors X1-X5:
+
+```{r}
+set.seed(1234)
+
+rangerGrid <- data.frame(mtry = c(2:5),
+                       splitrule = "variance", 
+                       min.node.size = 5)
+
+res <- train(y ~ X1 + X2 + X3 + X4 + X5, data = df, 
+      method = "ranger", 
+      tuneGrid = rangerGrid,
+      trControl = trainControl(method = "cv"))
+
+res 
+```
+So the optimal model has R-squared of around 75-80%. Interestingly, even with only relevant variables, tuning `mtry` results in an average improvement of a few % points R-squared.
+
+Now after including the irrelevant variables:
+
+```{r}
+set.seed(1234)
+
+rangerGrid <- data.frame(mtry = c(2:5, 30, 60, 110),
+                       splitrule = "variance", 
+                       min.node.size = 5)
+
+res <- train(y ~ ., data = df, 
+      method = "ranger", 
+      metric = "Rsquared",
+      tuneGrid = rangerGrid,
+      trControl = trainControl(method = "cv"))
+
+plot(res)
+```
+
+The horror! R-squared has dropped to around 63%. Note that tuning the `mtry` is important, with the optimal value somewhere around $p/3 = 36$. 
+
+Does this rule of thumb to choose `mtry` keep being optimal, even if we add more irrelevant variables?
+
+```{r}
+set.seed(1234)
+
+df2 <- data.frame(sim$x)
+colnames(df2) <- paste0("X",1:10)
+
+df2 <- add_spurious_predictors(df2, 500)
+df2$y <- sim$y
+
+rangerGrid <- data.frame(mtry = c(5, 30, 60, 110, 160, 220, 300, 400, 510),
+                       splitrule = "variance", 
+                       min.node.size = 5)
+
+res <- train(y ~ ., data = df2, 
+      method = "ranger", 
+      metric = "Rsquared",
+      tuneGrid = rangerGrid,
+      trControl = trainControl(method = "cv"))
+
+plot(res)
+```
+```{r}
+res
+```
+
+Surprisingly, it appears so! So there might not be much benefit to tuning when doing RFE using Random Forest.
+
+What if we do not know which variables are irrelevant? 
+
+The `caret` package has the `rfe()` function for us, with a set of helper functions for the original `RandomForest` package. This fits a random forest using `mtry = p/3` so **without any tuning**. 
+
+
+Strangely enough, expect 9/10 x 9/10 folds
+
+```{r}
+rfFuncs$fit <- function (x, y, first, last, ...) 
+{
+    loadNamespace("randomForest")
+    print(dim(x))
+    randomForest::randomForest(x, y, importance = TRUE, ...)
+}
+
+ctrl <- rfeControl(functions = rfFuncs,
+                   method = "cv",
+                   returnResamp = "all",
+                   verbose = TRUE,
+                   saveDetails = TRUE)
+
+#subsets <- c(1:10, 150, 200, 300)
+subsets <- c(1:10, 30, 60, 90)
+
+set.seed(10)
+rfProfile <- rfe(y ~ ., 
+                 data = df, 
+                 metric = "Rsquared",
+                 sizes = subsets, 
+                 rfeControl = ctrl)
+
+plot(rfProfile)
+```
+```{r}
+rfProfile$
 ```
 
 
+And BAM! It has identified four of the five relevant features, giving us a model that has 79% R-squared, just as our optimal benchmark that included X1 to X5.
+
+Finally, we switch to `ranger()` and introduce tuning.
+
+```{r}
+source("rf_rfe_post/rangerTuneFuncs.R")
+
+RFE_ctrl <- rfeControl(functions = rangerTuneFuncs,
+                   method = "cv",
+                   rerank = FALSE,
+                   returnResamp = "all",
+                   verbose = TRUE,
+                   saveDetails = TRUE)
+
+# Tuning the model after feature selection
+
+train_ctrl <- trainControl(method = "cv",
+                           selectionFunction = "tolerance",
+                           savePredictions = TRUE)
+
+#subsets <- c(1:10, 30, 60, 90)
+subsets <- c(5, 60)
+
+set.seed(10)
+rfProfile2 <- rfe(y ~ ., 
+                 data = df, 
+                 metric = "Rsquared",
+                 sizes = subsets, 
+                 rfeControl = RFE_ctrl,
+                 trControl = train_ctrl)
+
+plot(rfProfile2)
+```
+
+```{r}
+rfProfile$fit
+```
+
+We realize that combining RFE and tuning reduces the observations available.
+In the outer loop, 10 observations are set apart, leaving 90 observations for the inner loop.
 
 The Random Forest algorithm can provide a quick benchmark for the predictive performance of a set of predictors, that is hard to beat with models that explicitly formulate a interpretable model of a dependent variable, for example a linear regression model with interactions and non-linear transformations of the predictors.
 
@@ -101,7 +286,6 @@ Some models are negatively affected by non-informative predictors. Simply using 
 
 Other models are naturally resistant to non-informative predictors. For example, decision tree models implicitly perform feature selection by not including non-informative predictors.
 
-For random forest, it is often said or assumed to be 
 Random Forest is to a large extent immune to the presence of irrelevant variables in the model. However, if more irrelevant variables are added to a Random Forest model, at some point its performance will be adversely affected [; @genuer_variable_2010]. In the book *Applied Predictive Modeling*, by Max Kuhn and Kjell Johnson, the authors demonstrate this by adding more and more irrelevant predictors to an existing dataset related to molecular solubility, the `solubility` dataset. Simulations on a combination of relevant and noise variables have also been performed by Hastie et al. [@hastie_elements_2009], but focus on the artificial situation of using a fixed choice rule of `mtry` (square root of $p$). Especially when adding lots of noise variables, it is important to increase `mtry` to increase the probability that relevant variables are included at each split.
 
 # The dataset
@@ -275,7 +459,7 @@ ctrl <- trainControl(method = "cv",
 PM increase
 
 ```{r}
-source("rf_rfe_post/add_spurious_predictors.R")
+
 
 spurious_vec <- c(10, 50, 100, 200, 300, 400, 500)
 
@@ -533,6 +717,7 @@ As this is procedure that drops predictors that do not correlate with the outcom
 
 — Pages 494-495, Applied Predictive Modeling, 2013.
 
+PM: als we toch niet refitten, waarom dan eigenlijk niet van de andere kant komen, dus inderdaad ascending a la Genuer. Svetnik et al (2004) showed that, for random forest models, there was a decrease in performance when the rankings were re-computed at every step.
 
 We therefore performed recursive feature elimination (RFE) with Random Forest for all models in order to obtain models with optimal predictive performance. The `rfe()` function of the caret package in R was used, with the `rangerFuncs` set of helper functions (Kuhn book)3. Permutation importance was used as the variable importance mode. The Root Mean Squared Error (RMSE) was the performance metric used to choose the optimal subset size of the variables. Ten different subset sizes were tested by the RFE. These ranged from the first to the tenth decile of the number of variables when the model contained more than 10 variables; for models containing less than or exactly 10 variables, all possible subset sizes were considered.
 
@@ -801,3 +986,30 @@ res <- testResults %>%
 
 res
 ```
+
+# Conclusions
+
+
+It must be noted that this is a relatively clean classification problem where the classes are well separated in feature space. 
+
+Fan Zhou https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5603346/
+
+Many data-mining and statistical machine learning algorithms have been developed to *select a subset of covariates to associate with a response variable*. *Spurious discoveries can easily arise in high-dimensional data analysis due to enormous possibilities of such selections*. How can we know statistically our discoveries better than those by chance? In this paper, we define a measure of goodness of spurious fit, which shows how good a response variable can be fitted by an optimally selected subset of covariates under the null model, and propose a simple and effective LAMM algorithm to compute it. It coincides with the maximum spurious correlation for linear models and can be regarded as a generalized maximum spurious correlation. We derive the asymptotic distribution of such goodness of spurious fit for generalized linear models and L1-regression. Such an asymptotic distribution depends on the sample size, ambient dimension, the number of variables used in the fit, and the covariance information. It can be consistently estimated by multiplier bootstrapping and used as a benchmark to guard against spurious discoveries. It can also be applied to model selection, which considers only candidate models with goodness of fits better than those by spurious fits. The theory and method are convincingly illustrated by simulated examples and an application to the binary outcomes from German Neuroblastoma Trials.
+
+Measuring the bias of incorrect application of feature selection when using cross-validation in radiomics
+
+https://insightsimaging.springeropen.com/articles/10.1186/s13244-021-01115-1
+
+Measuring the bias of incorrect application of feature selection when using cross-validation in radiomics
+Aydin Demircioğlu 
+Insights into Imaging volume 12, Article number: 172 (2021) Cite this article
+
+794 Accesses
+
+1 Altmetric
+
+Metricsdetails
+
+Abstract
+Background
+Many studies in radiomics are using feature selection methods to identify the most predictive features. At the same time, they employ cross-validation to estimate the performance of the developed models. However, if the feature selection is performed before the cross-validation, data leakage can occur, and the results can be biased. To measure the extent of this bias, we collected ten publicly available radiomics datasets and conducted two experiments. First, the models were developed by incorrectly applying the feature selection prior to cross-validation. Then, the same experiment was conducted by applying feature selection correctly within cross-validation to each fold. The resulting models were then evaluated against each other in terms of AUC-ROC, AUC-F1, and Accuracy.

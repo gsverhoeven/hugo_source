@@ -6,18 +6,27 @@ rangerTuneFuncs <-  list(summary = defaultSummary,
                        if(first){ 
                          n_preds <- ncol(x)
                          # check mtry at different orders of magnitude
-                         tune_grid <- expand.grid(mtry = round(exp(seq(log(1), log(n_preds), length.out= 3))), #length.out=sqrt(n_preds)))),
+                         tune_grid <- expand.grid(mtry = round(exp(seq(log(1), log(n_preds), length.out= 5))), #length.out=sqrt(n_preds)))),
                                                   splitrule = "variance",
-                                                  min.node.size = 5)
+                                                  min.node.size = 10)
                          
-                         train(x, y, method = "ranger", tuneGrid = tune_grid, verbose = TRUE, importance = "permutation",...)
+                         train(x, y, 
+                               method = "ranger", 
+                               tuneGrid = tune_grid,
+                               metric = "Rsquared",
+                               importance = "permutation",
+                               ...)
                        } else {
                          n_preds <- ncol(x)
                          # check mtry at different orders of magnitude
                          tune_grid <- expand.grid(mtry = round(exp(seq(log(1), log(n_preds), length.out= 3))), #length.out=sqrt(n_preds)))),
                                                   splitrule = "variance",
-                                                  min.node.size = 5)
-                         train(x, y, method = "ranger", tuneGrid = tune_grid, verbose = TRUE, importance = "none", ...)
+                                                  min.node.size = 10)
+                         train(x, y, 
+                               method = "ranger", 
+                               tuneGrid = tune_grid, 
+                               metric = "Rsquared",
+                               importance = "none", ...)
                        }
                      },
                      pred = function(object, x)  {
