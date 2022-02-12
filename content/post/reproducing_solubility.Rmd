@@ -1,0 +1,584 @@
+---
+title: "Reproducing Kuhns example"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(AppliedPredictiveModeling)
+library(caret)
+library(tidyverse)
+library(mlbench)
+library(ranger)
+```
+
+# The dataset
+
+Loading the `solubility` dataset gives us not one but six datasets! We only the transformed features (predictors, X-values), so we remove the datasets with the untransformed features, leaving us with four datasets:
+
+* 228 predictors train dataset, 951 observations
+* 228 predictors test dataset, 316 observations
+* Vector of Y-values (the solubility), train set
+* Vector of Y-values (the solubility), test set
+
+```{r}
+data(solubility)
+rm(solTrainX, solTestX)
+```
+
+Description of the dataset:
+
+```
+Tetko et al. (2001) and Huuskonen (2000) investigated a set of compounds with corresponding experimental solubility values using complex sets of descriptors. They used linear regression and neural network models to estimate the relationship between chemical structure and solubility. For our analyses, we will use 1267 compounds and a set of more understandable descriptors that fall into one of three groups: 208 binary "fingerprints" that indicate the presence or absence of a particular chemical sub-structure, 16 count descriptors (such as the number of bonds or the number of Bromine atoms) and 4 continuous descriptors (such as molecular weight or surface area).
+```
+
+75% of the data was used for training the models, and 25% of the data was used for testing the final model performance. 
+
+In the book *Applied Predictive Modeling*, by Max Kuhn and Kjell Johnson, the authors demonstrate this by adding more and more irrelevant predictors to an existing dataset related to molecular solubility, the `solubility` dataset. 
+
+
+This code reproduces Fig 8.18 from Max Kuhn's book Applied Predictive Modelling from 2013. as well as Fig 19.1.
+
+# Tuned ranger model without removing spurious features
+
+
+```{r}
+set.seed(123)
+
+indx <- createFolds(solTrainY, returnTrain = TRUE)
+
+# use 10-fold CV
+ctrl <- trainControl(method = "cv", 
+                     index = indx, 
+                     verboseIter = TRUE)
+
+rangerGrid <- data.frame(mtry = floor(seq(10, ncol(solTrainXtrans), length = 10)),
+                       splitrule = "variance", 
+                       min.node.size = 5)
+
+```
+
+Use train, 10fold CV, ranger, tuning mtry.
+
+```{r}
+fullrun <- 0
+
+if(fullrun){
+  set.seed(100)
+  begin_time <- Sys.time()
+  rfTune2 <- train(x = solTrainXtrans, y = solTrainY,
+                  method = "ranger",
+                  tuneGrid = rangerGrid,
+                  trControl = ctrl)
+  end_time <- Sys.time()
+  print(end_time - begin_time)
+  saveRDS(rfTune2, file = "rf_rfe_post/rfTune2_ss.rds")
+} else {
+  rfTune2 <- readRDS(file = "rf_rfe_post/rfTune2_ss.rds")
+}
+
+plot(rfTune2)
+
+```
+
+
+```{r}
+rfTune2
+```
+
+
+So there we have it: a tuned Random Forest model, using 228 predictors (properties of the molecules) to predict the solubility of a chemical compound. We find that `mtry` should be at least 82.
+
+
+```{r}
+### Save the test set results in a data frame                 
+testResults <- data.frame(obs = solTrainY,
+                          RFtune2 =  predict(rfTune2, solTrainXtrans), n_spurious = 0,
+                          tuned_mtry = rfTune2$finalModel$mtry)
+
+```
+
+```{r}
+library(yardstick)
+
+metrics(testResults, truth = obs, estimate = RFtune2)
+```
+Clearly, RF overfits, because the prediction R-squared on the training data is 98%, whereas teh R-squared on the test set is 90%, roughly equal to the CV R-squared (89%)
+
+
+```{r}
+### Save the test set results in a data frame                 
+testResults <- data.frame(obs = solTestY,
+                          RFtune2 =  predict(rfTune2, solTestXtrans), n_spurious = 0,
+                          tuned_mtry = rfTune2$finalModel$mtry)
+
+```
+
+Lets calculate the Test set RMSE.
+
+```{r}
+library(yardstick)
+
+metrics(testResults, truth = obs, estimate = RFtune2)
+```
+
+From here, we can go either way: 
+
+* we can add uninformative predictors, and check if performance suffers, or 
+* we can try to  remove uninformative predictors (using RFE) to further improve the model. 
+
+We start with adding noise predictors to check if performance suffers.
+If so, then we have shown that the RF CAN overfit the predictors as well, because it has fitted a pattern that does not generalize as well  to new data compared to without the noise predictors.
+
+# adding non-informative predictors
+
+```{r}
+ctrl <- trainControl(method = "cv", 
+                     index = indx, 
+                     verboseIter = FALSE)
+
+
+```
+
+This run takes about 1.5 h. For each model, 20 values of `mtry` are evaluated.
+
+```{r}
+source("rf_rfe_post/add_spurious_predictors.R")
+spurious_vec <- c(10, 50, 100, 200, 300, 400, 500)
+
+fullrun <- 0
+
+for(i in 1:length(spurious_vec)){
+  target <- paste0("rf_rfe_post/rfTune2_spur_mtry_equi_", spurious_vec[i], ".rds")
+  set.seed(100)
+  solTrainXtrans_spur <- add_spurious_predictors(solTrainXtrans, spurious_vec[i])
+  # create tuning grid
+  n_preds <- ncol(solTrainXtrans_spur)
+  TuneGrid <- data.frame(#mtry = round(exp(seq(log(1), log(n_preds), length.out= 10))),
+                    mtry = floor(seq(10, n_preds, length = 20)),
+                   splitrule = "variance", 
+                   min.node.size = 5)
+    if(fullrun){
+      start_time <- Sys.time()
+      print(paste0("running with ", spurious_vec[i], " spurious vars added"))
+  
+      rfTune2 <- train(x = solTrainXtrans_spur, y = solTrainY,
+                      method = "ranger",
+                      tuneGrid = TuneGrid,
+                      trControl = ctrl)
+      
+      saveRDS(rfTune2, file = target)
+      end_time <- Sys.time()
+      print(end_time - start_time)
+  } else {
+    rfTune2 <- readRDS(file = target)
+    print(rfTune2$finalModel$mtry)
+    print(dim(rfTune2$trainingData))
+  }
+  # add spurious predictors to test data as well
+  solTestXtrans_spur <- add_spurious_predictors(solTestXtrans, spurious_vec[i])
+
+  testResults <- rbind(testResults,
+                       data.frame(obs = solTestY,
+                       RFtune2 =  predict(rfTune2, solTestXtrans_spur), 
+                       n_spurious = spurious_vec[i], 
+                       tuned_mtry = rfTune2$finalModel$mtry))
+}
+plot(rfTune2)
+```
+We can see that the optimal `mtry` roughly follows the `p/3` heuristic. Thus tuning might not be needed here?
+
+This gives us a dataset with for each of the models build, with increasing amounts of spurious predictors added, predictions on the test set with 316 observations, i.e. a dataset that was not used in any way during model building.
+
+The `testResults` dataset has the following structure:
+
+```{r}
+testResults %>% 
+  group_by(n_spurious) %>% 
+  summarise(n())
+```
+Using the `yardstick` library, part of `tidymodels`, we can easily calculate performance metrics such as RMSE and R-squared for the prediction models.
+
+```{r}
+library(yardstick)
+
+res <- testResults %>% 
+  group_by(n_spurious) %>% 
+  metrics(truth = obs, estimate = RFtune2)
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(res %>% filter(.metric == "rmse"), aes(x = n_spurious, y = .estimate)) +
+  geom_point() +
+  geom_line() +
+  expand_limits(y=c(0.6,1.2)) +
+  ggtitle("RMSE increases as more irrelevant features are added")
+```
+It is clear from the graph that the prediction error increases with more spurious predictors present.
+However, if we look at the R-squared, and include zero on the y-axis, it is also apparent that the decrease in performance is relatively small, from 91% down to 86%. 
+
+```{r}
+ggplot(res %>% filter(.metric == "rsq"), aes(x = n_spurious, y = .estimate*100)) +
+  geom_point() +
+  geom_line() +
+  expand_limits(y=0) +
+  geom_label(aes(label = paste(round(.estimate*100,0), "%")), nudge_y = -5) +
+  ggtitle("R-squared decreases as more irrelevant features are added")
+```
+# mtry increases as more irrelevant features are added
+
+```{r}
+ggplot(testResults %>% group_by(n_spurious, tuned_mtry) %>% summarise(n()), aes(x = n_spurious + 228, y = tuned_mtry)) +
+  geom_point() +
+  geom_line() +
+  expand_limits(y=0) +
+  geom_abline(intercept = 0, slope = 0.33, col = "red") +
+  geom_label(aes(label = paste(tuned_mtry)), nudge_y = -5) +
+  ggtitle("mtry increases as more irrelevant features are added")
+```
+
+So tuning did not do much compared to the default `mtry`.
+
+Now lets go the other way: we try to remove all the spurious predictors and leave only the informative predictors.
+
+# Recursive feature elimination (RFE)
+
+
+# Wrong procedure: tuning after feature selection
+
+We use repeated k-fold Cross Validation as resampling method. By repeating this a few times and averaging the results we get some more precision in our estimates. Both the Recursive Feature Elimination and the model tuning functions of `caret` require a Control object with settings. `PicksizeTolerance` is used both to select the best model with the least features, and when tuning the Random Forest model for the selected features. This way, the results are less sensitive to small fluctuations.
+
+Svetnik et al (2004) showed that, for random forest models, there was a decrease in performance when the rankings were re-computed at every step. So we compute importance rankings only once, at the beginning.
+ 
+ So only the first run uses permutation importance to create the variable ordering.
+
+```{r}
+source("rf_rfe_post/rangerFuncs.R")
+
+RFE_ctrl <- rfeControl(functions = rangerFuncs,
+                   method = "repeatedcv",
+                   rerank = FALSE,
+                   returnResamp = "all",
+                   number = 10,
+                   repeats = 1, 
+                   verbose = FALSE, # creates a lot of output if set TRUE
+                   saveDetails = T)
+
+# Tuning the model after feature selection
+
+train_ctrl <- trainControl(method = "repeatedcv",
+                           number = 10, 
+                           repeats = 1,
+                           selectionFunction = "tolerance",
+                           savePredictions = TRUE)
+
+```
+
+I wrote a wrapper function that hides some detail of the `caret` functions used, to focus on the actual settings and parameters. 
+
+## Do the work
+
+This calls the `rfe()` function that uses `rangerFuncs`. This does not tune `mtry`, but call `ranger()` directly using the `mtry` default.
+
+```{r}
+source("rf_rfe_post/RunRFEandTuneRF.R")
+
+fullrun <- 0
+outdir = "rf_rfe_post/"
+target <-  paste0(outdir, c("rfe_rf.rds"))
+
+
+if(fullrun){
+  begin_time <- Sys.time()
+  set.seed(123)
+  n_rows <- length(solTrainY)
+  
+  ss <- 1:n_rows
+    
+  res <- RunRFEandTuneRF(X = solTrainXtrans_spur[ss,], 
+                         Y = solTrainY[ss], 
+                         rfe_ctrl = RFE_ctrl, 
+                         train_ctrl = train_ctrl,
+                         seed = 123)
+  end_time <- Sys.time()
+  print(end_time - begin_time)
+  saveRDS(res, target)
+
+} else{
+  res <- readRDS(target)
+}
+
+rfeObject <- res[[1]]
+trainObject <- res[[2]]
+```
+
+A model with 58 predictors is found to be the smallest model with optimal performance.
+
+?? waarom is mtry 7 hier? floor(sqrt(58))
+
+```{r}
+rfeObject$fit
+```
+
+
+```{r}
+plot(rfeObject, metric = "Rsquared")
+```
+
+```{r}
+plot(trainObject, metric = "Rsquared")
+```
+
+
+```{r}
+testResults <- rbind(testResults,
+                     data.frame(obs = solTestY,
+                     RFtune2 =  unlist(predict(trainObject, solTestXtrans_spur)), 
+                     n_spurious = -1,
+                     tuned_mtry = trainObject$finalModel$mtry))
+```
+
+```{r}
+res <- testResults %>% 
+  group_by(n_spurious) %>% 
+  metrics(truth = obs, estimate = RFtune2)
+
+res
+```
+So we find that the RFE procedure with tuning afterwards identified a model with 58/74 predictors that has almost identical performance (89% vs 90%) R-squared as the model with all the 228 original predictors.
+We also suspect that tuning did not improve things here.
+
+# Sanity check: shuffle the dependent variable column
+
+As a sanity check, we shuffle the outcome variable column and repeat the same procedure.
+This was also done is Ambroise et at.
+We know now for a fact that there is no true predictive value in the set of predictors, since the 500 spurious predictors were already unrelated to the outcome, and after shuffling (permutating), the relationships (if any) between the original 228 predictors and the outcome should be lost as well.
+All metrics should drop to zero, as there is no signal anymore to discover in the predictors.
+
+It would be a worrying sign if we would be able to build a prediction model for the outcome.
+
+## Do the work after permutation
+
+Takes about 20 min.
+
+```{r}
+source("rf_rfe_post/RunRFEandTuneRF.R")
+
+fullrun <- 0
+outdir = "rf_rfe_post/"
+target <-  paste0(outdir, c("rfe_rf_permute.rds"))
+permutate_y <- TRUE
+
+set.seed(1234)
+
+n_rows <- length(solTrainY)
+
+if(permutate_y) solTrainY <- solTrainY[sample(1:n_rows, size = n_rows, replace = F)]
+
+
+if(fullrun){
+  begin_time <- Sys.time()
+  
+  ss <- 1:n_rows
+    
+  res <- RunRFEandTuneRF(X = solTrainXtrans_spur[ss,], 
+                         Y = solTrainY[ss], 
+                         rfe_ctrl = RFE_ctrl, 
+                         train_ctrl = train_ctrl,
+                         seed = 123)
+  end_time <- Sys.time()
+  print(end_time - begin_time)
+  saveRDS(res, target)
+
+} else{
+  res <- readRDS(target)
+}
+
+rfeObject <- res[[1]]
+trainObject <- res[[2]]
+```
+```{r}
+rfeObject
+```
+
+
+```{r}
+plot(rfeObject, metric = "RMSE")
+```
+
+```{r}
+plot(rfeObject, metric = "Rsquared")
+```
+```{r}
+plot(trainObject, metric = "Rsquared")
+```
+
+
+The cross-validated model contains as top 5 predictors SPUR148, SPUR2, SPUR406, SPUR161, SPUR487, and has an cross validated R2 of 3 / 6 / 11%!!! It depends on `pickSizeBest` vs `pickSizeTolerance`, because when only a few predictors are selected, prediction suffers. Here 35 predictors are kept.
+
+This is purely the result of our massive data dredging exercise, where we have screened 951 observations with 728 variables for correlation with an outcome variable. This demonstrates the value of keeping some of the data purely to safeguard us against such findings.
+
+
+```{r}
+### Save the test set results in a data frame                 
+testResults <- data.frame(obs = solTrainY,
+                          RFtune2 =  predict(rfeObject, solTrainXtrans_spur), n_spurious = -11,
+                          tuned_mtry = rfeObject$fit$mtry)
+
+```
+
+```{r}
+library(yardstick)
+
+metrics(testResults, truth = obs, estimate = RFtune2)
+```
+Again, we have 98% R-squared on the training data. Whereas we know now that there is NO generalizable pattern present.
+Pure overfitting.
+
+We now have selected the 35 noise predictors that correlate best with the outcome.
+Next we forget that we have selected them, and do the tuning procedure.
+
+```{r}
+trainObject
+```
+
+And how well does this model predict on the test set?
+
+```{r}
+n_rows <- length(solTestY)
+solTestY <- solTestY[sample(1:n_rows, size = n_rows, replace = F)]
+
+testResults <- rbind(testResults,
+                     data.frame(obs = solTestY,
+                     RFtune2 =  predict(trainObject, solTestXtrans_spur), 
+                     n_spurious = -10,
+                     tuned_mtry = trainObject$finalModel$mtry))
+```
+
+```{r}
+res <- testResults %>% 
+  group_by(n_spurious) %>% 
+  metrics(truth = obs, estimate = RFtune2)
+
+res
+```
+
+Indeed, for the test set, the R2 drops back to 0.01%. 
+
+
+
+# DO RFE with Tuning included
+
+Fig x shows the RFE algorithm as implemented in caret using the rfe() function.
+It fits a fully tuned RF model 10 times, each time using 9 folds.
+For this tuned RF model, permutation variable importance is calculated. This determines the order in which the features are eliminated. Then in 10 steps, the features are reduced, everytime retuning the ranger model.
+This procedure results in an optimal number of features to select, and an optimal tuning parameter. This model is used to predict on the one fold that was not used at all, obtaining an unbiased estimate.
+Then after doing this 10 times, estimates are pooled, and again 
+
+For each step in the outer CV loop, 
+
+```{r}
+source("rf_rfe_post/RunRFEandTuneRF.R")
+source("rf_rfe_post/rangerTuneFuncs.R")
+
+RFE_ctrl <- rfeControl(functions = rangerTuneFuncs, #,
+                   method = "repeatedcv",
+                   rerank = FALSE,
+                   returnResamp = "all",
+                   number = 10,
+                   repeats = 1, 
+                   verbose = TRUE, # creates a lot of output if set TRUE
+                   saveDetails = T)
+
+train_ctrl <- trainControl(method = "repeatedcv",
+                           number = 10, 
+                           repeats = 1,
+                           verboseIter = FALSE,
+                           selectionFunction = "tolerance",
+                           savePredictions = TRUE)
+
+```
+
+```{r}
+fullrun <- 0
+outdir = "rf_rfe_post/"
+target <-  paste0(outdir, c("rfe_tune.rds"))
+permutate_y <- FALSE
+
+if(fullrun){
+  set.seed(123)
+  n_rows <- length(solTrainY)
+  
+  if(permutate_y) solTrainY <- solTrainY[sample(1:n_rows, size = n_rows, replace = F)]
+  
+  #ss <- sample(1:n_rows, size = 100, replace = FALSE)
+  ss <- 1:n_rows
+    
+  res <- RunRFEwithTuning(X = solTrainXtrans_spur[ss,], 
+                         Y = solTrainY[ss], 
+                         rfe_ctrl = RFE_ctrl, 
+                         train_ctrl = train_ctrl,
+                         seed = 123)
+  saveRDS(res, target)
+
+} else{
+  res <- readRDS(target)
+}
+
+rfeObject <- res[[1]]
+```
+
+```{r}
+plot(rfeObject, metric = "Rsquared")
+```
+
+This took about 12 hours on two cores.
+Remember that the mtry sequence was basically 1, max and something in between.
+So this was probably no very different from using p/3.
+
+For example, this was the final model fitted, after selecting the optimal nr of variables:
+
+```{r}
+rfeObject$fit
+```
+```{r}
+opt_preds <- rfeObject$fit$finalModel$xNames
+```
+
+Now try and tune some more for the optimal variable selection.
+
+```{r}
+data(solubility)
+rm(solTrainX, solTestX)
+
+sel_vec <- colnames(solTrainXtrans) %in% opt_preds
+
+tuneObject <- train(x = solTrainXtrans[, sel_vec], y = solTrainY, 
+                    method = "ranger", 
+                    tuneLength = 6, 
+                    trControl = ctrl)
+
+plot(tuneObject, metric = "Rsquared")
+```
+
+
+
+```{r}
+testResults <- rbind(testResults,
+                     data.frame(obs = solTestY,
+                     RFtune2 =  predict(rfeObject, solTestXtrans_spur), n_spurious = -100,
+                      tuned_mtry = tuneObject$finalModel$mtry))
+```
+
+```{r}
+res <- testResults %>% 
+  group_by(n_spurious) %>% 
+  metrics(truth = obs, estimate = RFtune2)
+
+res
+```
+
+
