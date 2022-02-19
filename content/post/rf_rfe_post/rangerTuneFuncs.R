@@ -6,7 +6,7 @@ rangerTuneFuncs <-  list(summary = defaultSummary,
                        if(first){ 
                          n_preds <- ncol(x)
                          # check mtry at different orders of magnitude
-                         tune_grid <- expand.grid(mtry = round(exp(seq(log(1), log(n_preds), length.out= 5))), #length.out=sqrt(n_preds)))),
+                         tune_grid <- expand.grid(mtry = round(exp(seq(log(1), log(n_preds), length.out= 2))), #length.out=sqrt(n_preds)))),
                                                   splitrule = "variance",
                                                   min.node.size = 10)
                          
@@ -19,7 +19,7 @@ rangerTuneFuncs <-  list(summary = defaultSummary,
                        } else {
                          n_preds <- ncol(x)
                          # check mtry at different orders of magnitude
-                         tune_grid <- expand.grid(mtry = round(exp(seq(log(1), log(n_preds), length.out= 3))), #length.out=sqrt(n_preds)))),
+                         tune_grid <- expand.grid(mtry = round(exp(seq(log(1), log(n_preds), length.out= 2))), #length.out=sqrt(n_preds)))),
                                                   splitrule = "variance",
                                                   min.node.size = 10)
                          train(x, y, 

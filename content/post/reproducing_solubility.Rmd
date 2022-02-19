@@ -88,7 +88,7 @@ rfTune2
 ```
 
 
-So there we have it: a tuned Random Forest model, using 228 predictors (properties of the molecules) to predict the solubility of a chemical compound. We find that `mtry` should be at least 82.
+So there we have it: a tuned Random Forest model, using 228 predictors (properties of the molecules) to predict the solubility of a chemical compound. We find that `mtry` should be at least 82. There is only a small improvement relative to $m = p$, the bagging case.
 
 
 ```{r}

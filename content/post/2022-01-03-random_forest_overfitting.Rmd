@@ -36,14 +36,15 @@ This blog post demonstrates that the Random Forest algorithm (as implemented in 
 
 # Why Random Forest is my favorite ML algorithm
 
-The random Forest algorithm is my favorite ML algorithm for cross-sectional, tabular data. Thanks to [Marvin Wright](https://mnwright.github.io/) a fast and reliable implementation exists for R. Compared to other popular ML methods, such as Deep learning or Gradient Boosting algorithms such as XGBoost, it seems to offer the highest value per unit of compute, and in absolute terms generates predictions that often are either on par with Neural networks or Gradient boosting, or only slightly worse. 
+The Random Forest algorithm ([@breiman01]) is my favorite ML algorithm for cross-sectional, tabular data. Thanks to [Marvin Wright](https://mnwright.github.io/) a fast and reliable implementation exists for R called `ranger`[@wright17]. Compared to other popular ML methods, such as Deep learning or Gradient Boosting algorithms such as XGBoost, RF seems to offer the highest value per unit of compute, and in absolute terms generates predictions that often are either on par with Neural networks or Gradient boosting, or only slightly worse [@ref]. 
 
 The Random Forest algorithm can provide a quick benchmark for the predictive performance of a set of predictors, that is hard to beat with models that explicitly formulate a interpretable model of a dependent variable, for example a linear regression model with interactions and non-linear transformations of the predictors.
 
-For a great talk on the method, check out [Marvin Wright's UseR talk from 2019](https://www.youtube.com/watch?v=iVmsJJYjgNs). Interestingly, Marvin evaluates various claims that also feature in this blog: For example the claim from Breiman 2001 that "RF does not suffer from overfitting". Here the precise definition of overfitting matters, as we shall see. 
+For a great talk on the method, check out [Marvin Wright's UseR talk from 2019](https://www.youtube.com/watch?v=iVmsJJYjgNs). Interestingly, Marvin evaluates various claims that also feature in this blog: For example the claim from [@Breiman01] that "RF does not suffer from overfitting". Here the precise definition of overfitting matters, as we shall see. 
 
 # Random forests and tuning
 
+While working on this post, I gradually started to realize that hyperparameter tuning of Random Forest hardly ever results in substantial performance differences, compared with just using the default values [@probst19]. The gains are typically in the order of a few percent improvement in performance metrics, for example increasing the R-squared from 85% to 88%. As with most stuff in ML, it is difficult to claim this in general, 
 In this blog post, we use `mtry` as the only tuning parameter of Random Forest, and choose "variance" as the splitrule (alternative is "extratrees" which is more recent but to my knowledge not necessarily better, on this dataset it seems worse, and takes more compute). I also played around a bit with the `min.node.size` parameter, for which often the sequence 5,10,20 is mentioned to vary over. Setting this larger should reduce computation, since it leads to shorter trees, but for the datasets here, the effect is on the order of say 10% reduction, which does not warrant tuning it. I set this at 10.
 
 
@@ -168,7 +169,7 @@ res
 ```
 So the optimal model has R-squared of around 75-80%. Interestingly, even with only relevant variables, tuning `mtry` results in an average improvement of a few % points R-squared.
 
-Now after including the irrelevant variables:
+Now after including the 100+5 irrelevant variables:
 
 ```{r}
 set.seed(1234)
@@ -211,18 +212,29 @@ res <- train(y ~ ., data = df2,
 
 plot(res)
 ```
+
 ```{r}
 res
 ```
 
 Surprisingly, it appears so! So there might not be much benefit to tuning when doing RFE using Random Forest.
+Note that with 500+5 noise variables, R-squared has dropped further to 48%.
+
+Summary so far: adding irrelevant predictors has a big negative effect, tuning mtry has a small effect, and the default of p/3 seems to perform pretty well.
+
+```{r}
+caret::var_seq(510, len = 1)
+```
+
 
 # What if we do not know which variables are irrelevant? RFE
 
 The `caret` package has the `rfe()` function for us, with a set of helper functions for the original `RandomForest` package. This fits a random forest using `mtry = p/3` so **without any tuning**. 
 
 
-Strangely enough, expect 9/10 x 9/10 folds
+Still confused: what happens in the inner loop?
+
+We have 2 fold CV as external loop. For each fold, we do: fitting model, ranking, then fitting the subsets. Everytime we check performance on the held out fold.
 
 ```{r}
 rfFuncs$fit <- function (x, y, first, last, ...) 
@@ -234,8 +246,9 @@ rfFuncs$fit <- function (x, y, first, last, ...)
 
 ctrl <- rfeControl(functions = rfFuncs,
                    method = "cv",
+                   number = 2,
                    returnResamp = "all",
-                   verbose = TRUE,
+                   verbose = FALSE,
                    saveDetails = TRUE)
 
 #subsets <- c(1:10, 150, 200, 300)
@@ -250,20 +263,22 @@ rfProfile <- rfe(y ~ .,
 
 plot(rfProfile)
 ```
+
 ```{r}
-rfProfile$
+rfProfile$fit$mtry
 ```
 
 
-And BAM! It has identified four of the five relevant features, giving us a model that has 79% R-squared, just as our optimal benchmark that included X1 to X5.
+And BAM! It has identified four of the five relevant features, giving us a model that has 79% R-squared, just as our optimal benchmark that included X1 to X5. Default mtry setting was floor(4/3) = 1.
 
-Finally, we switch to `ranger()` and introduce tuning.
+Finally, we switch to `ranger()`, use permutation importance instead of the faster impurity ("variance") and introduce tuning for `mtry`. Dataset is 5+105 irrelevant.
 
 ```{r}
 source("rf_rfe_post/rangerTuneFuncs.R")
 
 RFE_ctrl <- rfeControl(functions = rangerTuneFuncs,
                    method = "cv",
+                   number = 2,
                    rerank = FALSE,
                    returnResamp = "all",
                    verbose = TRUE,
@@ -273,10 +288,12 @@ RFE_ctrl <- rfeControl(functions = rangerTuneFuncs,
 
 train_ctrl <- trainControl(method = "cv",
                            selectionFunction = "tolerance",
+                           returnResamp = "all",
+                           verboseIter = TRUE,
                            savePredictions = TRUE)
 
 #subsets <- c(1:10, 30, 60, 90)
-subsets <- c(5, 60)
+subsets <- c(5)
 
 set.seed(10)
 rfProfile2 <- rfe(y ~ ., 
@@ -290,12 +307,13 @@ plot(rfProfile2)
 ```
 
 ```{r}
-rfProfile$fit
+rfProfile2$fit
 ```
 
 We realize that combining RFE and tuning reduces the observations available.
 In the outer loop, 10 observations are set apart, leaving 90 observations for the inner loop.
 
+Also: 
 
 <!------------------- MAAK TEST SET VOOR FRIEDMAN------------->
 <!--------------- SHUFFLE Y -->
