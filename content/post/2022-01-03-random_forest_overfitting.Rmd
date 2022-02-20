@@ -42,6 +42,95 @@ The Random Forest algorithm can provide a quick benchmark for the predictive per
 
 For a great talk on the method, check out [Marvin Wright's UseR talk from 2019](https://www.youtube.com/watch?v=iVmsJJYjgNs). Interestingly, Marvin evaluates various claims that also feature in this blog: For example the claim from [@Breiman01] that "RF does not suffer from overfitting". Here the precise definition of overfitting matters, as we shall see. 
 
+# OpenML curated datasets
+
+For this blog post we need datasets to demonstrate the behavior of RF and the various packages we use to train and tune the models. In particular, I needed a dataset that is not too big, nor too small, and where Random Forest tuning has a substantial effect. Via the [@probst] paper on RF tuning, I found [OpenML.org](https://new.openml.org/). This is a website dedicated to reproducible, open ML, with a large collection of datasets, focussed on benchmarking and performance comparison. This is a perfect match with our goal here of finding the optimal model using RF. So far, in their publications the focus is on classification datasets, but from the `tuneRanger` [Github repo](https://github.com/PhilippPro/tuneRanger) I found a suite of 29 regression datasets, comparing tuned ranger with default ranger. Indeed, most datasets hardly improve upon tuning, but a few did, and three stood out, with R-squared increases of 6%, 7% and 25% point increase. The 25% point increase was in a synthetic dataset called `puma32H`, going from 67% to 93% after tuning. In all three cases, setting `mtry` to its maximum value gave me close to optimal performance. 
+
+```{r}
+library(OpenML)
+
+# tecator 19
+tecator = getOMLDataSet(data.id = 505L)
+ranger(fat ~ ., data = tecator$data)
+ranger(fat ~ ., data = tecator$data, mtry = 124) 
+
+# bodyfat 2
+bodyfat = getOMLDataSet(data.id = 560L)
+ranger(class ~ ., data = bodyfat$data)
+ranger(class ~ ., data = bodyfat$data, mtry = 14)
+
+# puma32H 28
+puma32H = getOMLDataSet(data.id = 308L)
+ranger(thetadd6 ~ ., data = puma32H$data)
+ranger(thetadd6 ~ ., data = puma32H$data, mtry = 32)
+```
+
+Move to caret framework.
+
+
+```{r}
+set.seed(1234)
+
+res <- train(fat ~ ., 
+             data = tecator$data, 
+      method = "ranger", 
+      tuneLength = 3,
+      trControl = trainControl(method = "cv"))
+
+res 
+```
+
+```{r}
+source("rf_rfe_post/rangerFuncs.R")
+
+ctrl <- rfeControl(functions = rangerFuncs,
+                   method = "cv",
+                   number = 10,
+                   returnResamp = "all",
+                   verbose = FALSE,
+                   saveDetails = TRUE)
+
+#subsets <- c(1:10, 150, 200, 300)
+subsets <- c(1:5)
+
+set.seed(10)
+rfProfile <- rfe(thetadd6 ~ ., 
+                 data = puma32H$data, 
+                 metric = "Rsquared",
+                 sizes = subsets, 
+                 rfeControl = ctrl)
+
+plot(rfProfile)
+```
+```{r}
+rfProfile
+```
+```{r}
+# 32nm = 32 inputs, high nonlinearity, med noise
+# urther details of the Pumadyn data sets can be found in Ghahramani
+ggplot(puma32H$data, aes(x = tau4, y = thetadd6, color = theta5)) + geom_point() +
+  scale_color_gradient2() + facet_wrap(~ round(theta5))
+```
+
+So we find that for the puma32H dataset, EITHER tuning mtry and retaining all predictors, OR using RFE and not tuning mtry result in equal performance. Both aim to reduce the effect of irrelevant variables.
+
+The strongest increase of the bias of ET1 is observed on Friedman1 and Pumadyn-32nm.
+Actually, these two problems have a large proportion of irrelevant attributes (5 out of 10
+on Friedman, 30 out of 32 on Pumadyn-32nm). The effect of removing them is analyzed
+in Section 4.4.[@geurts06]
+
+PM deze zijn wel upward biased, moeten op een test set of via RFE kijken, niet via CV.
+
+```{r}
+ranger(fat ~ moisture + protein, 
+       data = tecator$data)
+```
+
+```{r}
+ranger(class ~ Density + Abdomen, 
+       data = bodyfat$data)
+```
+
 # Random forests and tuning
 
 While working on this post, I gradually started to realize that hyperparameter tuning of Random Forest hardly ever results in substantial performance differences, compared with just using the default values [@probst19]. The gains are typically in the order of a few percent improvement in performance metrics, for example increasing the R-squared from 85% to 88%. As with most stuff in ML, it is difficult to claim this in general, 
@@ -132,7 +221,7 @@ This example is taken from the documentation of `caret`, by Max Kuhn, in particu
 
 PM Here we repeat the analysis using `ranger`, and also include tuning of `mtry`, to rule out that the overfitting is caused by a poor choice of hyperparameters.
 
-`mlbench.friedman1()` simulates the regression problem **Friedman 1** as described in Friedman (1991) and Breiman (1996). Inputs are 10 independent variables uniformly distributed on the interval [0,1], only 5 out of these 10 are actually used. Outputs are created according to the formula:
+`mlbench.friedman1()` simulates the regression problem **Friedman 1** as described in Friedman (1991) and Breiman (1996) [@Friedman91] [@Breiman96]. Inputs are 10 independent variables uniformly distributed on the interval [0,1], only 5 out of these 10 are actually used. Outputs are created according to the formula:
 
 $y = 10 sin(\pi x_1 x_2) + 20 (x_3 - 0.5)^2 + 10 x_4 + 5 x_5 + \epsilon$
 
@@ -231,6 +320,9 @@ caret::var_seq(510, len = 1)
 
 The `caret` package has the `rfe()` function for us, with a set of helper functions for the original `RandomForest` package. This fits a random forest using `mtry = p/3` so **without any tuning**. 
 
+[@vepnik03] checked the rfe() for various settings of mtry and found not much difference.
+[@vepnik04] We have never yet observed a case where the perfor-
+mance actually improves as variables are reduced
 
 Still confused: what happens in the inner loop?
 
@@ -381,3 +473,21 @@ PM it is possibly not OK to refit / tune after / outside the RFE loop.
 
 "If the model is refit using only the important predictors, model performance almost certainly improves"
 
+# TuneRanger
+
+```{r}
+library(tuneRanger)
+library(mlr)
+
+monk_data_1 = getOMLDataSet(505)$data
+monk.task = makeRegrTask(data = monk_data_1, target = "fat")
+
+# Estimate runtime
+estimateTimeTuneRanger(monk.task)
+# Approximated time for tuning: 1M 13S
+set.seed(123)
+# Tuning
+res = tuneRanger(monk.task, num.trees = 500,
+num.threads = 2, iters = 70, iters.warmup = 30)
+res
+```
