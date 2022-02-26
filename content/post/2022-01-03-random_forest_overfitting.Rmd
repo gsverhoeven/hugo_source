@@ -46,94 +46,21 @@ For a great talk on the method, check out [Marvin Wright's UseR talk from 2019](
 
 For this blog post we need datasets to demonstrate the behavior of RF and the various packages we use to train and tune the models. In particular, I needed a dataset that is not too big, nor too small, and where Random Forest tuning has a substantial effect. Via the [@probst] paper on RF tuning, I found [OpenML.org](https://new.openml.org/). This is a website dedicated to reproducible, open ML, with a large collection of datasets, focussed on benchmarking and performance comparison. This is a perfect match with our goal here of finding the optimal model using RF. So far, in their publications the focus is on classification datasets, but from the `tuneRanger` [Github repo](https://github.com/PhilippPro/tuneRanger) I found a suite of 29 regression datasets, comparing tuned ranger with default ranger. Indeed, most datasets hardly improve upon tuning, but a few did, and three stood out, with R-squared increases of 6%, 7% and 25% point increase. The 25% point increase was in a synthetic dataset called `puma32H`, going from 67% to 93% after tuning. In all three cases, setting `mtry` to its maximum value gave me close to optimal performance. 
 
-```{r}
-library(OpenML)
-
-# tecator 19
-tecator = getOMLDataSet(data.id = 505L)
-ranger(fat ~ ., data = tecator$data)
-ranger(fat ~ ., data = tecator$data, mtry = 124) 
-
-# bodyfat 2
-bodyfat = getOMLDataSet(data.id = 560L)
-ranger(class ~ ., data = bodyfat$data)
-ranger(class ~ ., data = bodyfat$data, mtry = 14)
-
-# puma32H 28
-puma32H = getOMLDataSet(data.id = 308L)
-ranger(thetadd6 ~ ., data = puma32H$data)
-ranger(thetadd6 ~ ., data = puma32H$data, mtry = 32)
-```
-
-Move to caret framework.
-
-
-```{r}
-set.seed(1234)
-
-res <- train(fat ~ ., 
-             data = tecator$data, 
-      method = "ranger", 
-      tuneLength = 3,
-      trControl = trainControl(method = "cv"))
-
-res 
-```
-
-```{r}
-source("rf_rfe_post/rangerFuncs.R")
-
-ctrl <- rfeControl(functions = rangerFuncs,
-                   method = "cv",
-                   number = 10,
-                   returnResamp = "all",
-                   verbose = FALSE,
-                   saveDetails = TRUE)
-
-#subsets <- c(1:10, 150, 200, 300)
-subsets <- c(1:5)
-
-set.seed(10)
-rfProfile <- rfe(thetadd6 ~ ., 
-                 data = puma32H$data, 
-                 metric = "Rsquared",
-                 sizes = subsets, 
-                 rfeControl = ctrl)
-
-plot(rfProfile)
-```
-```{r}
-rfProfile
-```
-```{r}
-# 32nm = 32 inputs, high nonlinearity, med noise
-# urther details of the Pumadyn data sets can be found in Ghahramani
-ggplot(puma32H$data, aes(x = tau4, y = thetadd6, color = theta5)) + geom_point() +
-  scale_color_gradient2() + facet_wrap(~ round(theta5))
-```
-
 So we find that for the puma32H dataset, EITHER tuning mtry and retaining all predictors, OR using RFE and not tuning mtry result in equal performance. Both aim to reduce the effect of irrelevant variables.
 
+```
 The strongest increase of the bias of ET1 is observed on Friedman1 and Pumadyn-32nm.
 Actually, these two problems have a large proportion of irrelevant attributes (5 out of 10
 on Friedman, 30 out of 32 on Pumadyn-32nm). The effect of removing them is analyzed
 in Section 4.4.[@geurts06]
+```
 
 PM deze zijn wel upward biased, moeten op een test set of via RFE kijken, niet via CV.
 
-```{r}
-ranger(fat ~ moisture + protein, 
-       data = tecator$data)
-```
-
-```{r}
-ranger(class ~ Density + Abdomen, 
-       data = bodyfat$data)
-```
-
 # Random forests and tuning
 
-While working on this post, I gradually started to realize that hyperparameter tuning of Random Forest hardly ever results in substantial performance differences, compared with just using the default values [@probst19]. The gains are typically in the order of a few percent improvement in performance metrics, for example increasing the R-squared from 85% to 88%. As with most stuff in ML, it is difficult to claim this in general, 
+While working on this post, I gradually started to realize that hyperparameter tuning of Random Forest often only results in small performance differences, compared with just using the default values [@probst19]. The gains are typically in the order of a few percent improvement in performance metrics, for example increasing the R-squared from 85% to 88%. As with most stuff in ML, it is difficult to claim this in general, 
+
 In this blog post, we use `mtry` as the only tuning parameter of Random Forest, and choose "variance" as the splitrule (alternative is "extratrees" which is more recent but to my knowledge not necessarily better, on this dataset it seems worse, and takes more compute). I also played around a bit with the `min.node.size` parameter, for which often the sequence 5,10,20 is mentioned to vary over. Setting this larger should reduce computation, since it leads to shorter trees, but for the datasets here, the effect is on the order of say 10% reduction, which does not warrant tuning it. I set this at 10.
 
 
@@ -320,9 +247,10 @@ caret::var_seq(510, len = 1)
 
 The `caret` package has the `rfe()` function for us, with a set of helper functions for the original `RandomForest` package. This fits a random forest using `mtry = p/3` so **without any tuning**. 
 
+```
 [@vepnik03] checked the rfe() for various settings of mtry and found not much difference.
-[@vepnik04] We have never yet observed a case where the perfor-
-mance actually improves as variables are reduced
+[@vepnik04] We have never yet observed a case where the performance actually improves as variables are reduced
+```
 
 Still confused: what happens in the inner loop?
 
@@ -432,7 +360,7 @@ Fan Zhou https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5603346/
 
 Many data-mining and statistical machine learning algorithms have been developed to *select a subset of covariates to associate with a response variable*. *Spurious discoveries can easily arise in high-dimensional data analysis due to enormous possibilities of such selections*. How can we know statistically our discoveries better than those by chance? In this paper, we define a measure of goodness of spurious fit, which shows how good a response variable can be fitted by an optimally selected subset of covariates under the null model, and propose a simple and effective LAMM algorithm to compute it. It coincides with the maximum spurious correlation for linear models and can be regarded as a generalized maximum spurious correlation. We derive the asymptotic distribution of such goodness of spurious fit for generalized linear models and L1-regression. Such an asymptotic distribution depends on the sample size, ambient dimension, the number of variables used in the fit, and the covariance information. It can be consistently estimated by multiplier bootstrapping and used as a benchmark to guard against spurious discoveries. It can also be applied to model selection, which considers only candidate models with goodness of fits better than those by spurious fits. The theory and method are convincingly illustrated by simulated examples and an application to the binary outcomes from German Neuroblastoma Trials.
 
-Measuring the bias of incorrect application of feature selection when using cross-validation in radiomics
+*Measuring the bias of incorrect application of feature selection when using cross-validation in radiomics*
 
 https://insightsimaging.springeropen.com/articles/10.1186/s13244-021-01115-1
 
@@ -474,6 +402,8 @@ PM it is possibly not OK to refit / tune after / outside the RFE loop.
 "If the model is refit using only the important predictors, model performance almost certainly improves"
 
 # TuneRanger
+
+Show that TuneRanger tunes the mtry value.
 
 ```{r}
 library(tuneRanger)

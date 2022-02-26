@@ -1,0 +1,161 @@
+---
+title: "Prep and fit all datasets for RF blogpost"
+output: html_document
+---
+
+# Storyline
+
+Both mtry tuning and rfe work towards reducing the impact of irrelevant variables.
+If a dataset contains mostly relevant variables, neither has a large impact, and RF performs well out of the box.
+If a dataset contains a few relevant variables, setting mtry to a larger value might already fix things.
+If the ratio between relevant and irrelevant features becomes too low, tuning mtry will no longer be enough, and rfe must be used.
+
+```
+p615 ESL
+When the number of variables is large, but the fraction of relevant variables
+small, random forests are likely to perform poorly with small m. At each
+split the chance can be small that the relevant variables will be selected.
+Figure 15.7 shows the results of a simulation that supports this claim. 
+```
+
+This storyline explains various observations:
+Why people often find that rfe does not improve things (signal is strong enough)
+Why people find that tuning already solves things, rfe is not necessary (increasing mtry has the same effect as reducing the irrelevant variables)
+Why hastie09 finds that RF suffers from including irrelevant variables
+
+# Outline
+
+We compare for several datasets the optimal model after mtry tuning, and after rfe.
+We also fit for default and largest mtry value.
+We also fit a RF using ranger's default settings in the `caret` framework, using 10xCV.
+
+For some datasets, there is sufficient data to set aside a true validation set.
+
+# The datasets
+
+So far, we have:
+
+* Friedman1 (source: caret)
+* Friedman1+100noise 
+* Friedman1+500noise 
+* iris (source: M Wright)
+* iris+100noise 
+* solubility (source: APM)
+* solubility+100noise (source: APM)
+* solubility+500noise (source: APM)
+* puma32H (source: OpenML / Probst tuneRanger)
+* tecator (source: OpenML / Probst tuneRanger)
+* bodyfat (source: OpenML / Probst tuneRanger)
+
+The final three datasets were selected from results by Probst. There are all three datasets where tuning mtry has a large effect on R2.
+
+# Read in data
+
+```{r}
+library(OpenML)
+
+# tecator Probst 19
+tecator = getOMLDataSet(data.id = 505L)
+
+
+# bodyfat Probst 2
+bodyfat = getOMLDataSet(data.id = 560L)
+
+
+# puma32H Probst 28
+puma32H = getOMLDataSet(data.id = 308L)
+
+```
+
+## Pumadyn: a classic ML dataset for a simulated PUMA 560 robotarm
+
+![](puma560_schematic.png)
+
+It appears that this robot arm was popular in the 1980s, and was used a lot in ML research during the 1990s.
+The dataset contains 32 predictors, and the task is to predict the angular acceleration of one of the robot arms links.
+
+```{r}
+# 32nm = 32 inputs, high nonlinearity, med noise
+# Further details of the Pumadyn data sets can be found in Ghahramani
+ggplot(puma32H$data, aes(x = tau4, y = thetadd6, color = theta5)) + geom_point() +
+  scale_color_gradient2() + facet_wrap(~ round(theta5))
+```
+
+
+# Fit 
+
+## ranger
+
+```{r}
+ranger(fat ~ ., data = tecator$data)
+ranger(fat ~ ., data = tecator$data, mtry = 124) 
+
+ranger(class ~ ., data = bodyfat$data)
+ranger(class ~ ., data = bodyfat$data, mtry = 14)
+
+ranger(thetadd6 ~ ., data = puma32H$data)
+ranger(thetadd6 ~ ., data = puma32H$data, mtry = 32)
+```
+
+## refit model after RFE: this risks selection bias 
+
+```{r}
+ranger(fat ~ moisture + protein, 
+       data = tecator$data)
+```
+
+```{r}
+ranger(class ~ Density + Abdomen, 
+       data = bodyfat$data)
+```
+
+## caret
+
+```{r}
+set.seed(1234)
+
+res <- train(fat ~ ., 
+             data = tecator$data, 
+      method = "ranger", 
+      tuneLength = 3,
+      trControl = trainControl(method = "cv"))
+
+res 
+```
+
+## rfe - ranger
+
+Common settings:
+```{r}
+source("rf_rfe_post/rangerFuncs.R")
+
+ctrl <- rfeControl(functions = rangerFuncs,
+                   method = "cv",
+                   number = 10,
+                   returnResamp = "all",
+                   verbose = FALSE,
+                   saveDetails = TRUE)
+```
+
+This varies for each dataset:
+
+```{r}
+#subsets <- c(1:10, 150, 200, 300)
+subsets <- c(1:5)
+
+set.seed(10)
+rfProfile <- rfe(thetadd6 ~ ., 
+                 data = puma32H$data, 
+                 metric = "Rsquared",
+                 sizes = subsets, 
+                 rfeControl = ctrl)
+
+plot(rfProfile)
+```
+
+## rfe - ranger with mtry tuning
+
+
+```{r}
+rfProfile
+```
