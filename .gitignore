@@ -12,3 +12,4 @@ content/post/fumbbl_blogpost_src/data/W_Race_Record_Full_Data_data.csv
 content/post/fumbbl_blogpost_src/data/NAF/*
 content/post/rf_rfe_post/rfTune2_ss.rds
 *.rds
+content/post/rf_rfe_post/cache/*
