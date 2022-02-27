@@ -16,13 +16,17 @@ rangerFuncs <-  list(summary = defaultSummary,
                                       ...)
                      },
                      pred = function(object, x)  {
-                       if(!is.data.frame(x)) x <- as.data.frame(x)
-                       out <- predict(object, x)$predictions
+                       #if(!is.data.frame(x)) x <- as.data.frame(x)
+                       #out <- predict(object, x)$predictions
+                       out <- as.data.frame(predict(object, data = x, type = "response")$predictions)
+                       
                        if(object$treetype == "Probability estimation") {
-                         out <- cbind(pred = colnames(out)[apply(out, 1, which.max)],
-                                      out)
+                         #out <- cbind(pred = colnames(out)[apply(out, 1, which.max)], out) # https://github.com/topepo/caret/issues/1137
+                         out$pred <- factor(colnames(out)[apply(out,1,which.max)], levels=sort(colnames(out)))
+                         rownames(out) <- rownames(x)
                        } 
-                       out
+                       return(out)
+
                      },
                      rank = function(object, x, y) {
                        if(length(object$variable.importance) == 0)
