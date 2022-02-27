@@ -104,39 +104,12 @@ Let's try that ourselves as well.
 
 First the benchmark, using `ranger()` on the `iris` dataset, with 10-fold Cross validation:
 
-```{r}
-set.seed(123)
-rangerGrid <- data.frame(mtry = 2:4,
-                       splitrule = "gini", 
-                       min.node.size = 10)
 
-res <- train(Species ~ ., 
-             data = iris, 
-             method = "ranger", 
-             tuneGrid = rangerGrid,            
-             trControl = trainControl(method = "cv"))
-res
-```
 We get an cross-validated accuracy of 95-96% (so CV error of around 5%).
 
 We add a 100 irrelevant predictors to the `iris` dataset (I wrote a function `add_spurious_predictors()` for this), and check whether accuracy suffers.
 
-```{r}
-source("rf_rfe_post/add_spurious_predictors.R")
 
-df <- add_spurious_predictors(iris, 100)
-
-rangerGrid <- data.frame(mtry = c(2:4,40,80,104),
-                       splitrule = "gini", 
-                       min.node.size = 10)
-
-res <- train(Species ~ ., 
-             data = df, 
-             method = "ranger", 
-             tuneGrid = rangerGrid,
-             trControl = trainControl(method = "cv"))
-res
-```
 We can see that if we do not choose really low values of `mtry`, performance hardly suffers, with 94-96% Accuracy.
 So indeed, we confirm the conclusion of Wright: For the `iris` classification problem, Random Forest does not suffer when we add a lot of noise variables, and using the default settings (`mtry = p/3`).
 
@@ -154,84 +127,20 @@ $y = 10 sin(\pi x_1 x_2) + 20 (x_3 - 0.5)^2 + 10 x_4 + 5 x_5 + \epsilon$
 
 where $\epsilon$ is distributed $Normal(0, 1)$.
 
-```{r}
-set.seed(1)
 
-sim <- mlbench.friedman1(n = 100, sd = 1)
-
-df <- data.frame(sim$x)
-colnames(df) <- paste0("X",1:10)
-
-df <- add_spurious_predictors(df, 100)
-
-df$y <- sim$y
-```
 
 First we establish the performance of the optimal model, including only relevant predictors X1-X5:
 
-```{r}
-set.seed(1234)
 
-rangerGrid <- data.frame(mtry = c(2:5),
-                       splitrule = "variance", 
-                       min.node.size = 5)
-
-res <- train(y ~ X1 + X2 + X3 + X4 + X5, data = df, 
-      method = "ranger", 
-      tuneGrid = rangerGrid,
-      trControl = trainControl(method = "cv"))
-
-res 
-```
 So the optimal model has R-squared of around 75-80%. Interestingly, even with only relevant variables, tuning `mtry` results in an average improvement of a few % points R-squared.
 
 Now after including the 100+5 irrelevant variables:
 
-```{r}
-set.seed(1234)
-
-rangerGrid <- data.frame(mtry = c(2:5, 30, 60, 110),
-                       splitrule = "variance", 
-                       min.node.size = 5)
-
-res <- train(y ~ ., data = df, 
-      method = "ranger", 
-      metric = "Rsquared",
-      tuneGrid = rangerGrid,
-      trControl = trainControl(method = "cv"))
-
-plot(res)
-```
 
 The horror! R-squared has dropped to around 63%. Note that tuning the `mtry` is important, with the optimal value somewhere around $p/3 = 36$. 
 
 Does this rule of thumb to choose `mtry` keep being optimal, even if we add more irrelevant variables?
 
-```{r}
-set.seed(1234)
-
-df2 <- data.frame(sim$x)
-colnames(df2) <- paste0("X",1:10)
-
-df2 <- add_spurious_predictors(df2, 500)
-df2$y <- sim$y
-
-rangerGrid <- data.frame(mtry = c(5, 30, 60, 110, 160, 220, 300, 400, 510),
-                       splitrule = "variance", 
-                       min.node.size = 5)
-
-res <- train(y ~ ., data = df2, 
-      method = "ranger", 
-      metric = "Rsquared",
-      tuneGrid = rangerGrid,
-      trControl = trainControl(method = "cv"))
-
-plot(res)
-```
-
-```{r}
-res
-```
 
 Surprisingly, it appears so! So there might not be much benefit to tuning when doing RFE using Random Forest.
 Note that with 500+5 noise variables, R-squared has dropped further to 48%.

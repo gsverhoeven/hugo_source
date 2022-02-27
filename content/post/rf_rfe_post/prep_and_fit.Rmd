@@ -3,6 +3,17 @@ title: "Prep and fit all datasets for RF blogpost"
 output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(AppliedPredictiveModeling)
+library(caret)
+library(tidyverse)
+library(mlbench)
+library(ranger)
+```
+
+
 # Storyline
 
 Both mtry tuning and rfe work towards reducing the impact of irrelevant variables.
@@ -40,19 +51,54 @@ So far, we have:
 * Friedman1+500noise 
 * iris (source: M Wright)
 * iris+100noise 
+* tecator (source: OpenML / Probst tuneRanger)
+* bodyfat (source: OpenML / Probst tuneRanger)
+* puma32H (source: OpenML / Probst tuneRanger)
+
 * solubility (source: APM)
 * solubility+100noise (source: APM)
 * solubility+500noise (source: APM)
-* puma32H (source: OpenML / Probst tuneRanger)
-* tecator (source: OpenML / Probst tuneRanger)
-* bodyfat (source: OpenML / Probst tuneRanger)
 
 The final three datasets were selected from results by Probst. There are all three datasets where tuning mtry has a large effect on R2.
 
 # Read in data
 
+## Friedman1
+
 ```{r}
+source("add_spurious_predictors.R")
+
+set.seed(1)
+
+sim <- mlbench::mlbench.friedman1(n = 1000, sd = 1)
+
+df_friedman1 <- data.frame(sim$x)
+colnames(df_friedman1) <- paste0("X",1:10)
+
+df_friedman1$y <- sim$y
+
+df_friedman1_N100 <- add_spurious_predictors(df_friedman1, 100)
+
+df_friedman1_N500 <- add_spurious_predictors(df_friedman1, 500)
+
+rm(sim)
+```
+
+## iris
+```{r}
+df_iris <- iris
+
+df_iris_N100 <- add_spurious_predictors(df_iris, 100)
+```
+
+## OpenML datasets
+
+```{r}
+# OpenML-Reg19
+
 library(OpenML)
+
+setOMLConfig(cachedir = "cache/")
 
 # tecator Probst 19
 tecator = getOMLDataSet(data.id = 505L)
@@ -66,6 +112,24 @@ bodyfat = getOMLDataSet(data.id = 560L)
 puma32H = getOMLDataSet(data.id = 308L)
 
 ```
+## ISLR datasets
+
+Genomic classification
+
+```{r}
+library(ISLR)
+NCI60 <- ISLR::NCI60
+df_NCI60 <- data.frame(CLASS = NCI60$labs, NCI60$data, row.names = NULL)
+
+cell_lines <- c("CNS", "LEUKEMIA", "OVARIAN", "BREAST", "COLON", "MELANOMA",  "NSCLC", "RENAL")
+
+df_NCI60 <- df_NCI60 %>% 
+  filter(CLASS %in% cell_lines)
+
+df_NCI60$CLASS <- factor(df_NCI60$CLASS)
+```
+
+
 
 ## Pumadyn: a classic ML dataset for a simulated PUMA 560 robotarm
 
@@ -78,13 +142,35 @@ The dataset contains 32 predictors, and the task is to predict the angular accel
 # 32nm = 32 inputs, high nonlinearity, med noise
 # Further details of the Pumadyn data sets can be found in Ghahramani
 ggplot(puma32H$data, aes(x = tau4, y = thetadd6, color = theta5)) + geom_point() +
-  scale_color_gradient2() + facet_wrap(~ round(theta5))
+  scale_color_gradient2() + facet_wrap(~ round(theta5)) +
+  ggtitle("thetadd6 by tau4 and theta5")
 ```
 
 
 # Fit 
 
 ## ranger
+
+### Friedman1 datasets
+```{r}
+ranger(y ~ ., data = df_friedman1)
+ranger(y ~ ., data = df_friedman1, mtry = 10)
+ranger(y ~ ., data = df_friedman1_N100)
+ranger(y ~ ., data = df_friedman1_N100, mtry = 110)
+ranger(y ~ ., data = df_friedman1_N500)
+ranger(y ~ ., data = df_friedman1_N500, mtry = 510)
+```
+It looks like tuning mtry can reduce the negative effect of irrelevant features, but not completely eliminate it as RFE can do.
+
+### OpenML datasets
+
+```{r}
+rf <- ranger(CLASS ~ ., data = df_NCI60)
+
+
+table(df_NCI60$CLASS, rf$predictions)
+```
+
 
 ```{r}
 ranger(fat ~ ., data = tecator$data)
@@ -96,48 +182,173 @@ ranger(class ~ ., data = bodyfat$data, mtry = 14)
 ranger(thetadd6 ~ ., data = puma32H$data)
 ranger(thetadd6 ~ ., data = puma32H$data, mtry = 32)
 ```
+For the three OpenML datasets, mtry tuning is sufficient to get optimal performance.
 
-## refit model after RFE: this risks selection bias 
+
+## caret with mtry tuning
+
+### iris datasets
 
 ```{r}
-ranger(fat ~ moisture + protein, 
-       data = tecator$data)
+set.seed(123)
+rangerGrid <- data.frame(mtry = 2:4,
+                       splitrule = "gini", 
+                       min.node.size = 10)
+
+res <- train(Species ~ ., 
+             data = df_iris, 
+             method = "ranger", 
+             tuneGrid = rangerGrid,            
+             trControl = trainControl(method = "cv"))
+res
 ```
 
 ```{r}
-ranger(class ~ Density + Abdomen, 
-       data = bodyfat$data)
+rangerGrid <- data.frame(mtry = c(2:4,40,80,104),
+                       splitrule = "gini", 
+                       min.node.size = 10)
+
+res <- train(Species ~ ., 
+             data = df_iris_N100, 
+             method = "ranger", 
+             tuneGrid = rangerGrid,
+             trControl = trainControl(method = "cv"))
+res
 ```
 
-## caret
+### Friedman1 datasets
 
 ```{r}
 set.seed(1234)
 
-res <- train(fat ~ ., 
-             data = tecator$data, 
-      method = "ranger", 
-      tuneLength = 3,
-      trControl = trainControl(method = "cv"))
+rangerGrid <- data.frame(mtry = c(2:5),
+                       splitrule = "variance", 
+                       min.node.size = 5)
+
+res <- train(y ~ X1 + X2 + X3 + X4 + X5, 
+              data = df_friedman1, 
+              method = "ranger", 
+              tuneGrid = rangerGrid,
+              trControl = trainControl(method = "oob")
+             )
 
 res 
+```
+
+
+```{r}
+set.seed(1234)
+
+rangerGrid <- data.frame(mtry = c(2:5, 30, 60, 110),
+                       splitrule = "variance", 
+                       min.node.size = 5)
+
+res <- train(y ~ ., 
+              data = df_friedman1_N100, 
+              method = "ranger", 
+              metric = "Rsquared",
+              tuneGrid = rangerGrid,
+              trControl = trainControl(method = "oob")
+             )
+
+plot(res)
+```
+
+```{r}
+set.seed(1234)
+
+rangerGrid <- data.frame(mtry = c(5, 60, 110, 160, 220, 510),
+                       splitrule = "variance", 
+                       min.node.size = 10)
+
+res <- train(y ~ ., 
+              data = df_friedman1_N500, 
+              method = "ranger", 
+              metric = "Rsquared",
+              tuneGrid = rangerGrid,
+              trControl = trainControl(method = "oob")
+             )
+
+plot(res)
+```
+### OpenML datasets
+
+```{r}
+set.seed(1234)
+
+rangerGrid <- data.frame(mtry = c(2,11, 63,124),
+                       splitrule = "variance",
+                       min.node.size = 5)
+
+res <- train(fat ~ ., 
+              data = tecator$data, 
+              method = "ranger", 
+              metric = "Rsquared",
+              tuneGrid = rangerGrid,
+              trControl = trainControl(method = "oob")
+             )
+
+plot(res)
 ```
 
 ## rfe - ranger
 
 Common settings:
 ```{r}
-source("rf_rfe_post/rangerFuncs.R")
+source("rangerFuncs.R")
 
 ctrl <- rfeControl(functions = rangerFuncs,
                    method = "cv",
-                   number = 10,
                    returnResamp = "all",
-                   verbose = FALSE,
+                   verbose = TRUE,
                    saveDetails = TRUE)
 ```
 
-This varies for each dataset:
+### ISLR NCI60
+
+```{r}
+#df_NCI60
+
+subsets <- c(1,10,100,500)
+
+set.seed(10)
+rfProfile <- rfe(CLASS ~ ., 
+                 data = df_NCI60, 
+                 metric = "Accuracy",
+                 sizes = subsets, 
+                 rfeControl = ctrl)
+
+plot(rfProfile)
+```
+```{r}
+rfProfile
+```
+
+
+### Friedman1 datasets
+
+```{r}
+subsets <- c(1,4,5,6)
+
+set.seed(10)
+rfProfile <- rfe(y ~ ., 
+                 data = df_friedman1_N100, 
+                 metric = "Rsquared",
+                 sizes = subsets, 
+                 rfeControl = ctrl)
+
+plot(rfProfile)
+
+
+```
+Here, RFE beats mtry tuning. Can we also find a non artificial dataset where this holds?
+
+```{r}
+rfProfile
+```
+
+
+### OpenML datasets
 
 ```{r}
 #subsets <- c(1:10, 150, 200, 300)
@@ -153,8 +364,26 @@ rfProfile <- rfe(thetadd6 ~ .,
 plot(rfProfile)
 ```
 
+### refit models after RFE: this risks selection bias 
+
+```{r}
+ranger(fat ~ moisture + protein, 
+       data = tecator$data)
+```
+
+```{r}
+ranger(class ~ Density + Abdomen, 
+       data = bodyfat$data)
+```
+
+```{r}
+ranger(thetadd6 ~ tau4 + theta5, 
+       data = puma32H$data)
+```
+
 ## rfe - ranger with mtry tuning
 
+Conclusion: although it is technically possible, it has no use case.
 
 ```{r}
 rfProfile
