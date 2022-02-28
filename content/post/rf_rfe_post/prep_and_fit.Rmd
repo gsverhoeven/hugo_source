@@ -162,7 +162,7 @@ ranger(y ~ ., data = df_friedman1_N500, mtry = 510)
 ```
 It looks like tuning mtry can reduce the negative effect of irrelevant features, but not completely eliminate it as RFE can do.
 
-### OpenML datasets
+### ISLR datasets
 
 ```{r}
 rf <- ranger(CLASS ~ ., data = df_NCI60)
@@ -171,6 +171,9 @@ rf <- ranger(CLASS ~ ., data = df_NCI60)
 table(df_NCI60$CLASS, rf$predictions)
 ```
 
+### OpenML datasets
+
+https://topepo.github.io/caret/data-sets.html#tecator-nir-data
 
 ```{r}
 ranger(fat ~ ., data = tecator$data)

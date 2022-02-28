@@ -1,8 +1,8 @@
 ---
-title: "How to prevent overfitting on irrelevant variables with Random Forests"
+title: "Optimal performance with Random Forests: does feature selection beat tuning?"
 author: "Gertjan Verhoeven"
 date: '2022-01-03'
-summary: This blog post demonstrates that the Random Forest algorithm (as implemented in R by `ranger()`) suffers from overfitting by reproducing an example from the book *Applied Predictive Modeling*. The solution is to use Recursive Feature Elimination (RFE) to remove predictors with spurious correlations. We provide up to date code that can be used for workflows that use either `caret` and/or `tidymodels` .
+summary: This blog post demonstrates that the presence of irrelevant variables can reduce the performance of the Random Forest algorithm (as implemented in R by `ranger()`). The solution is either to tune one of the algorithm's parameters, OR to remove irrelevant features using a procedure called Recursive Feature Elimination (RFE). 
 slug: random-forest-overfitting
 draft: no
 categories: 
@@ -30,9 +30,16 @@ library(mlbench)
 library(ranger)
 ```
 
-Here we show that Random Forests can easily overfit, and if we want a model that has optimal predictive accuracy, we need to remove the irrelevant features from the model.
+Here we show that Random Forests (as implemented in R by `ranger()`) can easily overfit, and if we want a model that has optimal predictive accuracy, we need to reduce the effect of including irrelevant features in the model. We can do so either by removing the irrelevant features (using a procedure called **recursive feature elimination (RFE)**), or by increasing the number of features available during each split (the `mtry` parameter in R) during training (model fitting). 
 
-This blog post demonstrates that the Random Forest algorithm (as implemented in R by `ranger()`) suffers from overfitting on irrelevant variables by reproducing an example from the book *Applied Predictive Modeling*. This reduces model performance on the test set. The solution is to use **Recursive Feature Elimination (RFE)** to remove predictors with spurious correlations. We provide up to date code for R using `caret`  and `tidyverse`. Importantly, we show that if both Recursive feature elimination **AND** model tuning is used **AND** the predictive accuracy of the final model is estimated on training data using cross-validation, a special nested cross-validation procedure is needed. We show how this can be achieved with the `rfe()` framework of `caret`, by creating a set of custom helper functions for `rfe()`.
+That tuning `mtry` is important in the presence of many irrelevant features was already shown by Hastie et al. [@hastie_elements_2009]. They showed that if `mtry` is kept at its default  (square root of $p$), the probability of relevant features being available in the first few splits becomes too low, decreasing performance. So for datasets with a large proportion of irrelevant features, `mtry` tuning (increasing its value) is crucially important.
+
+The classic book *Applied Predictive Modeling* by Kuhn and Johnson (2013) contains a similar experiment showing the negative effects of including many irrelevant features. However, instead of tuning RF, they suggest **removing the irrelevant features**. Using simulated data with increasing amounts of noise variables, it appears that when the amount of noise (irrelevant features) increases relative to the signal (relevant features), at some point the tuning approach no longer is able to achieve optimal performance. Under such (possibly extreme) circumstances, feature selection using RFE results in a significantly higher predictive performance compared to tuning. As a corollary, it seems that **combining** feature elimination and tuning does not make much sense, as the default settings of Random Forest likely are close to optimal after removing the irrelevant features. 
+
+[@vepnik03] checked the rfe() for various settings of mtry and found not much difference.
+[@vepnik04] We have never yet observed a case where the performance actually improves as variables are reduced
+
+We nevertheless provide R code using `caret` for doing so. We show how this can be achieved with the `rfe()` framework of `caret`, by creating a set of custom helper functions for `rfe()`. Finally, we echo others in stressing the importance of not refitting the same data after feature selection, to avoid an overly optimistic assessment of out-of-sample performance. 
 
 # Why Random Forest is my favorite ML algorithm
 
@@ -42,45 +49,50 @@ The Random Forest algorithm can provide a quick benchmark for the predictive per
 
 For a great talk on the method, check out [Marvin Wright's UseR talk from 2019](https://www.youtube.com/watch?v=iVmsJJYjgNs). Interestingly, Marvin evaluates various claims that also feature in this blog: For example the claim from [@Breiman01] that "RF does not suffer from overfitting". Here the precise definition of overfitting matters, as we shall see. 
 
-# OpenML curated datasets
+# Random forest tuning versus feature selection
 
-For this blog post we need datasets to demonstrate the behavior of RF and the various packages we use to train and tune the models. In particular, I needed a dataset that is not too big, nor too small, and where Random Forest tuning has a substantial effect. Via the [@probst] paper on RF tuning, I found [OpenML.org](https://new.openml.org/). This is a website dedicated to reproducible, open ML, with a large collection of datasets, focussed on benchmarking and performance comparison. This is a perfect match with our goal here of finding the optimal model using RF. So far, in their publications the focus is on classification datasets, but from the `tuneRanger` [Github repo](https://github.com/PhilippPro/tuneRanger) I found a suite of 29 regression datasets, comparing tuned ranger with default ranger. Indeed, most datasets hardly improve upon tuning, but a few did, and three stood out, with R-squared increases of 6%, 7% and 25% point increase. The 25% point increase was in a synthetic dataset called `puma32H`, going from 67% to 93% after tuning. In all three cases, setting `mtry` to its maximum value gave me close to optimal performance. 
+The random Forest is often said to perform already very well out-of-the-box, with default settings. This is corroborated by results of Philippe Probst, who wrote an R package to tune Random Forest, called `tuneRanger` [Github repo](https://github.com/PhilippPro/tuneRanger).  Probst created a suite of 29 regression datasets (OpenML-Reg-19), where he compared tuned ranger with default ranger. Indeed, most datasets hardly improve upon tuning, but a few did, and three stood out (blue line above dashed line). We return to these datasets later. Interestingly, the datasets he used are made available by [OpenML.org](https://new.openml.org/). This is a website dedicated to reproducible, open ML, with a large collection of datasets, focused on benchmarking and performance comparison. 
 
+![](rf_rfe_post/probst_tuning_ranger.png)
+
+With the exception of the `caret` project by Max Kuhn et al, it seems that most practical guidance to improve RF performance is on *tuning the algorithm hyperparameters*, arguing that Random Forest as a tree-based method has built-in feature selection, alleviating the need to remove irrelevant features. This is demonstrated by the many guides on (RF/ML) algorithm tuning found online. For example, a currently popular book "Hands-On Machine Learning" by Géron contains a short paragraph on the importance of selecting / creating relevant features, but then goes on to discuss hyperparameter tuning at great length for the remainder of the book. 
+
+In this blog post, I will compare both RF **hyperparameter tuning** and **feature selection** in the presence of many irrelevant features.
+
+# Random forest hyperparameter tuning: which parameters to tune?
+
+In this blog post, we use `mtry` as the only tuning parameter of Random Forest. In the examples of Probst et al where tuning showed a large difference, tuning only `mtry` was sufficient to get close to optimal performance.
+
+With respect to the other parameters, I left the number of trees at its default (500), and chose "variance" as the splitrule (alternative is "extratrees" which is more recent but I have yet to see convincing results that demonstrate it is superior). 
+
+Do we have to tune the number of trees?
+https://stats.stackexchange.com/questions/50210/caret-and-randomforest-number-of-trees
+
+I also played around a bit with the `min.node.size` parameter, for which often the sequence 5,10,20 is mentioned to vary over. Setting this larger should reduce computation, since it leads to shorter trees, but for the datasets here, the effect is on the order of say 10% reduction, which does not warrant tuning it. I left this at its default of 5 for regression.
+
+# Finding suitable datasets 
+
+PM hier over welke datasets
+
+For this blog post we need datasets to demonstrate the behavior of RF and the various packages we use to train and tune the models. In particular, I needed a dataset that is not too big, nor too small, and where Random Forest tuning has a substantial effect. Using simulated data is always an option, but with such data it is not always clear what the practical significance of our findings is. I therefore put in some effort to find a few real datasets as well. This was not easy: Surprisingly, online tutorials for hyperparameter tuning often only show small improvements in performance. Here the benchmarking study of Probst on RF tuning came to the rescue, as he identified three datasets (out of 29) where RF tuning has a significant effect. For these datasets, R-squared increases of 6%, 7% and 25% percent points were observed. The 25% point increase was in a synthetic dataset called `puma32H`, going from 67% to 93% after tuning. Interestingly, what these datasets have in common that they all contain a large proportion of irrelevant features. 
+
+<!--
+In all three cases, setting `mtry` to its maximum value gave me close to optimal performance. 
 So we find that for the puma32H dataset, EITHER tuning mtry and retaining all predictors, OR using RFE and not tuning mtry result in equal performance. Both aim to reduce the effect of irrelevant variables.
 
 ```
 The strongest increase of the bias of ET1 is observed on Friedman1 and Pumadyn-32nm.
 Actually, these two problems have a large proportion of irrelevant attributes (5 out of 10
 on Friedman, 30 out of 32 on Pumadyn-32nm). The effect of removing them is analyzed
-in Section 4.4.[@geurts06]
+in Section 4.4.[@geurts06] 
 ```
-
-PM deze zijn wel upward biased, moeten op een test set of via RFE kijken, niet via CV.
-
-# Random forests and tuning
-
-While working on this post, I gradually started to realize that hyperparameter tuning of Random Forest often only results in small performance differences, compared with just using the default values [@probst19]. The gains are typically in the order of a few percent improvement in performance metrics, for example increasing the R-squared from 85% to 88%. As with most stuff in ML, it is difficult to claim this in general, 
-
-In this blog post, we use `mtry` as the only tuning parameter of Random Forest, and choose "variance" as the splitrule (alternative is "extratrees" which is more recent but to my knowledge not necessarily better, on this dataset it seems worse, and takes more compute). I also played around a bit with the `min.node.size` parameter, for which often the sequence 5,10,20 is mentioned to vary over. Setting this larger should reduce computation, since it leads to shorter trees, but for the datasets here, the effect is on the order of say 10% reduction, which does not warrant tuning it. I set this at 10.
-
-
-# Random forests and overfitting
-
-So what are we talking about when we state that algorithm XYZ does not overfit? An algorithm is said to **overfit** when it is sufficiently flexible to fit patterns in the training set that are absent in a new batch of data. With "a new batch of data" we mean data that was generated according to the same Data generating process (DGP) as the training data, but was not used in model building. Such data is often called "test data". Overfitting causes model prediction errors to be higher on test data compared to the prediction errors on the training data.
-
-In the context of random forest, there is a additional claim related to overfitting, that has caused confusion. The claim by the inventor of the algorithm, Leo Breiman, himself, taken out of context, is that "random forest does not overfit". [This blog post by Piotr Płoński](https://mljar.com/blog/random-forest-overfitting/) is a good write up on that claim (as well as on the overfitting decribed above) . The claim is that adding more trees to the forest does not hurt the predictions, but only improves them. In practice, the default setting of `ranger()`, 500 trees, is sufficient to get stable predictions, and adding even more is not worth the extra computational cost.
-
-Do we have to tune the number of trees?
-https://stats.stackexchange.com/questions/50210/caret-and-randomforest-number-of-trees
-
+-->
 
 # Random forest does automatic feature selection?
 
 Some models are negatively affected by non-informative predictors. Simply using all the predictors available will negatively impact performance for some "learner" methods. For example, linear regression (OLS) automatically includes all supplied variables in the final model, and this can cause the trained model to perform worse on unseen data. This is a form of overfitting: ideally variables that do not contribute to the prediction should have their weights set to zero, effectively excluding them from the model. For linear regression, the elastic net / LASSO / ridge regression variants have this.
 
-Other models are naturally resistant to non-informative predictors. For example, decision tree models implicitly perform feature selection by not including non-informative predictors.
-
-Random Forest is to a large extent immune to the presence of irrelevant variables in the model. However, if more irrelevant variables are added to a Random Forest model, at some point its performance will be adversely affected [; @genuer_variable_2010]. 
+Other models are naturally resistant to non-informative predictors. For example, decision tree models implicitly perform feature selection by not including non-informative predictors. Random Forest, as a tree-based method, is to some extent resistant to the presence of irrelevant variables in the model [ref? this post?]. However, if more irrelevant variables are added to a Random Forest model, at some point its performance will be adversely affected [@genuer_variable_2010]. 
 
 
 Another common claim about RF that Marvin takes on is that "Random Forest works well on high-dimensional data". High-dimensional data is related to the ratio between number of observations and number of variables. Data is called high-dimensional if there are many variables relative to the number of observations. This is common in genetics, when we have say complete genomes for only a handful of subjects. The suggestion is that RF can be used on small datasets with lots of features without having to do variable selection first. 
@@ -156,10 +168,6 @@ caret::var_seq(510, len = 1)
 
 The `caret` package has the `rfe()` function for us, with a set of helper functions for the original `RandomForest` package. This fits a random forest using `mtry = p/3` so **without any tuning**. 
 
-```
-[@vepnik03] checked the rfe() for various settings of mtry and found not much difference.
-[@vepnik04] We have never yet observed a case where the performance actually improves as variables are reduced
-```
 
 Still confused: what happens in the inner loop?
 
@@ -251,11 +259,13 @@ Also:
 # Conclusions
 
 
-Simulations on a combination of relevant and noise variables have also been performed by Hastie et al. [@hastie_elements_2009], but focus on the artificial situation of using a fixed choice rule of `mtry` (square root of $p$). Especially when adding lots of noise variables, it is important to increase `mtry` to increase the probability that relevant variables are included at each split.
+
 
 It must be noted that this is a relatively clean classification problem where the classes are well separated in feature space. 
 
 # References
+
+[@Probst18] Hyperparameters and Tuning Strategies for Random Forest
 
 Ref https://www.pnas.org/content/99/10/6562.short
 
@@ -309,6 +319,13 @@ What happens if we do not follow this procedure, and refit the model using only 
 PM it is possibly not OK to refit / tune after / outside the RFE loop.
 
 "If the model is refit using only the important predictors, model performance almost certainly improves"
+
+
+# Random forests and overfitting
+
+So what are we talking about when we state that algorithm XYZ does not overfit? An algorithm is said to **overfit** when it is sufficiently flexible to fit patterns in the training set that are absent in a new batch of data. With "a new batch of data" we mean data that was generated according to the same Data generating process (DGP) as the training data, but was not used in model building. Such data is often called "test data". Overfitting causes model prediction errors to be higher on test data compared to the prediction errors on the training data.
+
+In the context of random forest, there is a additional claim related to overfitting, that has caused confusion. The claim by the inventor of the algorithm, Leo Breiman, himself, taken out of context, is that "random forest does not overfit". [This blog post by Piotr Płoński](https://mljar.com/blog/random-forest-overfitting/) is a good write up on that claim (as well as on the overfitting decribed above) . The claim is that adding more trees to the forest does not hurt the predictions, but only improves them. In practice, the default setting of `ranger()`, 500 trees, is sufficient to get stable predictions, and adding even more is not worth the extra computational cost.
 
 # TuneRanger
 
