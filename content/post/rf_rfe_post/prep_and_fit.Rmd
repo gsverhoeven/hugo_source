@@ -42,25 +42,6 @@ We also fit a RF using ranger's default settings in the `caret` framework, using
 
 For some datasets, there is sufficient data to set aside a true validation set.
 
-# The datasets
-
-So far, we have:
-
-* Friedman1 (source: caret)
-* Friedman1+100noise 
-* Friedman1+500noise 
-* iris (source: M Wright)
-* iris+100noise 
-* tecator (source: OpenML / Probst tuneRanger)
-* bodyfat (source: OpenML / Probst tuneRanger)
-* puma32H (source: OpenML / Probst tuneRanger)
-
-* solubility (source: APM)
-* solubility+100noise (source: APM)
-* solubility+500noise (source: APM)
-
-The final three datasets were selected from results by Probst. There are all three datasets where tuning mtry has a large effect on R2.
-
 # Read in data
 
 ## Friedman1
@@ -102,15 +83,15 @@ setOMLConfig(cachedir = "cache/")
 
 # tecator Probst 19
 tecator = getOMLDataSet(data.id = 505L)
-
+tecator <- tecator$data
 
 # bodyfat Probst 2
 bodyfat = getOMLDataSet(data.id = 560L)
-
+bodyfat <- bodyfat$data
 
 # puma32H Probst 28
 puma32H = getOMLDataSet(data.id = 308L)
-
+puma32H <- puma32H$data
 ```
 ## ISLR datasets
 
@@ -129,6 +110,33 @@ df_NCI60 <- df_NCI60 %>%
 df_NCI60$CLASS <- factor(df_NCI60$CLASS)
 ```
 
+## Caret datasets
+
+```{r}
+library(AppliedPredictiveModeling)
+data(solubility)
+rm(solTrainX, solTestX)
+
+solubility_test <- data.frame(cbind(y = solTestY, solTestXtrans))
+solubility <- data.frame(cbind(y = solTrainY, solTrainXtrans))
+
+
+
+solubility_N100 <- add_spurious_predictors(solubility, 100)
+solubility_N500 <- add_spurious_predictors(solubility, 500)
+
+# shuffle Y value, destroy all signal
+solubility_N500_perm <- solubility_N500
+
+set.seed(1234)
+
+n_rows <- length(solTrainY)
+solubility_N500_perm$y <- solTrainY[sample(1:n_rows, size = n_rows, replace = F)]
+
+rm(solTestY, solTestXtrans)
+rm(solTrainY, solTrainXtrans)
+```
+
 
 
 ## Pumadyn: a classic ML dataset for a simulated PUMA 560 robotarm
@@ -141,11 +149,84 @@ The dataset contains 32 predictors, and the task is to predict the angular accel
 ```{r}
 # 32nm = 32 inputs, high nonlinearity, med noise
 # Further details of the Pumadyn data sets can be found in Ghahramani
-ggplot(puma32H$data, aes(x = tau4, y = thetadd6, color = theta5)) + geom_point() +
+ggplot(puma32H, aes(x = tau4, y = thetadd6, color = theta5)) + geom_point() +
   scale_color_gradient2() + facet_wrap(~ round(theta5)) +
   ggtitle("thetadd6 by tau4 and theta5")
 ```
+# Gather datasets
 
+So far, we have:
+
+* Friedman1 (source: caret)
+* Friedman1+100noise 
+* Friedman1+500noise 
+
+* iris (source: M Wright)
+* iris+100noise 
+
+* NCI60 (ISLR cancer cell lines)
+
+* solubility (source: APM)
+* solubility+100noise (source: APM)
+* solubility+500noise (source: APM)
+* solubility+500noise_Ypermutated
+
+* tecator (source: OpenML / Probst tuneRanger)
+* bodyfat (source: OpenML / Probst tuneRanger)
+* puma32H (source: OpenML / Probst tuneRanger)
+
+The final three datasets were selected from results by Probst. There are all three datasets where tuning mtry has a large effect on R2.
+
+```{r}
+ds_name <- c("df_friedman1", 
+             "df_friedman1_N100", 
+             "df_friedman1_N500",
+             "df_iris",
+             "df_iris_N100",
+             "df_NCI60",
+             "puma32H",
+             "tecator",
+             "bodyfat",
+             "solubility",
+             "solubility_N100",
+             "solubility_N500",
+             "solubility_N500_perm"
+             )
+
+ds_target <- c("y",
+               "y",
+               "y",
+               "Species",
+               "Species",
+               "CLASS",
+               "thetadd6",
+               "fat",
+               "class",
+               "y",
+               "y",
+               "y",
+               "y"
+             )
+
+
+rm(ds_list)
+for(i in 1:length(ds_name)){
+  name <- ds_name[i]
+  ds_list_tmp <- data.frame(ds_id = i,
+                            ds_name = name,
+                            target = ds_target[i],
+                            n_obs = nrow(get(name)),
+                            n_features = ncol(get(name)) - 1
+  )
+  if(exists("ds_list")){
+    ds_list <- rbind(ds_list, ds_list_tmp)
+  } else {ds_list <- ds_list_tmp}
+}
+```
+
+```{r}
+knitr::kable(ds_list)
+```
 
 # Fit 
 
