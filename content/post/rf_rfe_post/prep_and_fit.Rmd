@@ -230,7 +230,51 @@ knitr::kable(ds_list)
 
 # Fit 
 
+```{r}
+ds_list <- ds_list[1:2,]
+```
+
+# Model list
+
+We want ranger fits for both default and max mtry.
+
+```{r}
+model_list <- data.frame(method = "ranger", 
+                         mtry = c("default", "max"))
+
+model_list
+```
+
+
 ## ranger
+
+```{r}
+res <- list()
+j <- 0
+
+for (i in 1:nrow(ds_list)){
+  formula <- as.formula(paste0(ds_list[i,]$target, " ~ ."))
+  for (m in 1:nrow(model_list)){
+    if(model_list[m,]$method == "ranger"){
+      if(model_list[m,]$mtry == "max"){
+        mtry = ds_list[i,]$n_features
+      } else {
+        mtry = floor(sqrt(ds_list[i,]$n_features))
+      }
+
+      fit <- ranger(formula, 
+                    data = get(ds_list[i,]$ds_name),
+                    mtry = mtry)
+      j <- j + 1
+      res[[j]] <- fit
+    }
+  }
+}
+```
+
+```{r}
+res
+```
 
 ### Friedman1 datasets
 ```{r}
