@@ -332,7 +332,7 @@ So lets get the match data!
 So we are mostly interested in the current ruleset, this is `BB2020`. This ruleset became available for play on **FUMBBL** at september 1st 2021, and two months later, already some 5000 games have been played. We also want to compare with the previous ruleset, where we have much more data available. How far do we go back? 
 Let's go for roughly 12 months of `BB2016` ruleset matches, and a few months of `BB2020` matches.
 
-The easiest way to collect match data over a particular period of time is to just loop over `match_id`. The most recent match at the time of writing was 4.347.800, and since rougly 100.000 matches are played each year, we can fiddle about and we find match 4.216.258 played on august 1st, 2020.  So that means we need to collect some 130K matches. 
+The easiest way to collect match data over a particular period of time is to just loop over `match_id`. The most recent match at the time of writing was 4.347.800, and since roughly 100.000 matches are played each year, we can fiddle about and we find match 4.216.258 played on august 1st, 2020.  So that means we need to collect some 130K matches. 
 
 **VERY IMPORTANT**: We do not want to overload the **FUMBBL** server, so we make only three API requests per second. In this way, the server load is hardly affected and it can continue functioning properly for all the Blood Bowl coaches playing their daily games!
 
@@ -478,7 +478,7 @@ df_matches.loc[df_matches['team2_race_name'] == "Khorne", 'team2_race_name'] = '
 
 ## Dataprep: transforming the team values
 
-In Blood Bowl, teams can develop themselves over the course of multiple matches. The winnings of each match can be spend on buying new, stronger players, or replace the players that ended up getting injured or even killed. In addition, players receive so-called *star points* for important events, such as scoring, or inflicting a casualty on the opponent. Therefore, a balancing mechanism is needed when a newly created "rookie" team is facing a highly developed opposing team with lots of extra skills and strong players. 
+In Blood Bowl, teams can develop themselves over the course of multiple matches. The winnings of each match can be spend on buying new, stronger players, or replace the players that ended up getting injured or even killed. In addition, players receive so-called *star player points (SPP)* for important events, such as scoring, or inflicting a casualty on the opponent. Therefore, a balancing mechanism is needed when a newly created "rookie" team is facing a highly developed opposing team with lots of extra skills and strong players. 
 
 Blood Bowl solves this by calculating for both teams their **Current team value**.
 The **Team value difference** for a match determines the amount of gold that the weaker team can use to buy so-called **inducements**.
