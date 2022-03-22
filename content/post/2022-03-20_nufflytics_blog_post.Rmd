@@ -2,8 +2,7 @@
 title: "Nufflytics: Analyzing Blood Bowl matches from FUMBBL using Python"
 author: "Gertjan Verhoeven"
 date: '2022-03-20'
-summary: This blogpost is about **Blood Bowl**, a boardgame I started playing last year. 
-The idea of this blog post is to showcase some possible analyses that can be done on the FUMBBL match data I've compiled.
+summary: This blogpost is about **Blood Bowl**, a boardgame I started playing last year. The idea of this blog post is to showcase some possible analyses that can be done on the FUMBBL match data I've compiled.
 slug: blood-bowl-nufflytics
 draft: no
 categories: 
@@ -18,11 +17,9 @@ header:
   preview: no
 ---
 
-# Nufflytics: Analyzing Blood Bowl matches from FUMBBL using Python
-
 This blogpost is about **Blood Bowl**, a strategic boardgame invented in the late 80's, that I finally started playing last year. Blood bowl is a game of Fantasy Football, where fantasy team races (think "Orcs", or "Elves") are pitted against each other. Interestingly, the various teams (there are over 20 different ones) require different play styles, and not all team races are equally strong. On tournaments, this gives rise to various compensation schemes to make all teams "viable" for competition. There exists a lively tournament scene, with thousands of matches played each year. 
 
-The idea of this blog post is to showcase some possible analyses that can be done on the [FUMBBL match data I've compiled]((https://gsverhoeven.github.io/post/blood-bowl-fumbbl-dataset/). The idea is to make Blood Bowl data analysis (also know as [Nufflytics](https://nufflytics.com), in reference to Nuffle, the god of Blood Bowl) easier and more accessible to others. I took inspiration from various sources, detailed at the end of this post. So lets dive in the world of Blood Bowl stats nerdery.
+The idea of this blog post is to showcase some possible analyses that can be done on the [FUMBBL match data I've compiled](https://gsverhoeven.github.io/post/blood-bowl-fumbbl-dataset/). The idea is to make Blood Bowl data analysis (also know as [Nufflytics](https://nufflytics.com), a term coined by Blood Bowler "Schlice" in reference to Nuffle, the god of Blood Bowl) easier and more accessible to others. I took inspiration from various sources, detailed at the end of this post. So lets dive in the world of Blood Bowl stats nerdery.
 
 # Getting started with the data
 
@@ -36,7 +33,7 @@ import pandas as pd
 import numpy as np
 import plotnine as p9
 
-# adjust this accordingly
+# point this to the location of the HDF5 datasets
 path_to_datasets = '../../../../fumbbl_datasets/'
 
 # FUMBBL matches
@@ -55,11 +52,11 @@ inducements = pd.read_hdf(path_to_datasets + target)
 # What data do we have? Weekly game volumes by division
 
 
-Let's see what we've got! The pandas DataFrame `df_matches` contains records for all matches played on FUMBBL between sept 2020 and nov 2021.
+Let's see what we've got! The pandas DataFrame `df_matches` contains records for all matches played on FUMBBL between august 2020 and march 2022.
 
 Since we have a proper `datetime` type variable for each week (`week_date`), we can use `pandas` and `plotnine` to plot the weekly game volume as a time series.
 
-The introduction of the new **Competitive division** with BB2020 rules is marked by a vertical red line.
+The introduction of the new **Competitive division** with BB2020 rules is marked by a vertical red line. I labeled the larger leagues as well a recent tournament I took part in  myself.
 
 
 ```python

@@ -4,7 +4,7 @@ author: "Gertjan Verhoeven"
 date: '2022-01-03'
 summary: This blog post demonstrates that the presence of irrelevant variables can reduce the performance of the Random Forest algorithm (as implemented in R by `ranger()`). The solution is either to tune one of the algorithm's parameters, OR to remove irrelevant features using a procedure called Recursive Feature Elimination (RFE). 
 slug: random-forest-overfitting
-draft: no
+draft: TRUE
 categories: 
   - Random Forest
   - Machine Learning

@@ -7,6 +7,7 @@
 #blogdown:::build_rmds("content/post/2021_05_14_covid_rapid_test_reliability.Rmd")
 #blogdown:::build_rmds("content/post/2021_12_30_fumbbl_dataset.Rmd")
 #blogdown:::build_rmds("content/post/2022-01-04_java_webstart_forensics_ubuntu.Rmd")
+blogdown:::build_rmds("content/post/2022-03-20_nufflytics_blog_post.Rmd")
 ############################################################
 # https://bookdown.org/yihui/blogdown/local-preview.html
 
