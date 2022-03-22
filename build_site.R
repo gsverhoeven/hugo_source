@@ -1,3 +1,11 @@
+# do run all on python notebook in VS Code
+# source venv in terminal with nbconvert installed
+# jupyter nbconvert --to markdown nufflytics_blog_post.ipynb
+# copy md to Rmd , adjust YAML
+# move png to static/post/*files
+# do blogdown:::build_rmds
+# empty the public folder
+
 # this compiles all Rmds  and fills ./public in hugo_source
 
 #blogdown::build_site()

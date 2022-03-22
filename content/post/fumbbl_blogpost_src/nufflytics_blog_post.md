@@ -1,21 +1,4 @@
----
-title: "Nufflytics: Analyzing Blood Bowl matches from FUMBBL using Python"
-author: "Gertjan Verhoeven"
-date: '2022-03-20'
-summary: This blogpost is about **Blood Bowl**, a boardgame I started playing last year. The idea of this blog post is to showcase some possible analyses that can be done on the FUMBBL match data I've compiled.
-slug: blood-bowl-nufflytics
-draft: no
-categories: 
-- Datascience
-- Blood Bowl
-tags:
-- Python
-- Pandas
-baseurl: https://gsverhoeven.github.io
-header:
-  image: headers/bloodbowl_dataset.png
-  preview: no
----
+# Nufflytics: Analyzing Blood Bowl matches from FUMBBL using Python
 
 This blogpost is about **Blood Bowl**, a strategic boardgame invented in the late 80's, that I finally started playing last year. Blood bowl is a game of Fantasy Football, where fantasy team races (think "Orcs", or "Elves") are pitted against each other. Interestingly, the various teams (there are over 20 different ones) require different play styles, and not all team races are equally strong. On tournaments, this gives rise to various compensation schemes to make all teams "viable" for competition. There exists a lively tournament scene, with thousands of matches played each year. 
 
@@ -79,7 +62,7 @@ res = (df_matches
 
 
     
-![png](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_4_0.png)
+![png](nufflytics_blog_post_files/nufflytics_blog_post_4_0.png)
     
 
 
@@ -130,7 +113,7 @@ group = 'factor(division_name)', color = 'factor(division_name)'))
 
 
     
-![png](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_7_0.png)
+![png](nufflytics_blog_post_files/nufflytics_blog_post_7_0.png)
     
 
 
@@ -191,7 +174,7 @@ res['perc'] = res['n_games']/res['n_games_bin']
 
 
     
-![png](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_10_0.png)
+![png](nufflytics_blog_post_files/nufflytics_blog_post_10_0.png)
     
 
 
@@ -251,7 +234,7 @@ res = res.dropna()
 
 
     
-![png](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_13_1.png)
+![png](nufflytics_blog_post_files/nufflytics_blog_post_13_1.png)
     
 
 
@@ -294,7 +277,7 @@ res = res.dropna()
 
 
     
-![png](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_14_0.png)
+![png](nufflytics_blog_post_files/nufflytics_blog_post_14_0.png)
     
 
 
@@ -351,11 +334,12 @@ res = res.dropna()
     + p9.ylab(""))
 ```
 
-   
+    /home/gertjan/venvs/requests_env/lib/python3.6/site-packages/plotnine/scales/scale_shape.py:85: PlotnineWarning: Using shapes for an ordinal variable is not advised.
+
 
 
     
-![png](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_17_1.png)
+![png](nufflytics_blog_post_files/nufflytics_blog_post_17_1.png)
     
 
 
@@ -419,7 +403,7 @@ res['lower_CI'], res['upper_CI'] =  proportion_confint(
 
 
     
-![png](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_20_0.png)
+![png](nufflytics_blog_post_files/nufflytics_blog_post_20_0.png)
     
 
 
@@ -456,7 +440,6 @@ Finally, some acknowledgements. While writing this blog, I drew inspiration from
 * most notable the [FUMBBL website itself](https://www.fumbbl.com) that has a wealth of statistics available, 
 * the [website of FUMBBL coach Koadah](https://fumbbldata.azurewebsites.net/stats.html) with aggregated FUMBBL stats, 
 * the [NAF monthly reports](https://public.tableau.com/app/profile/mike.sann0638.davies/viz/TheNAFReport/Games) by Mike Davies, 
-* a [blog post on team strength](https://bloodbowlstrategies.com/en/relative-strength-of-teams/) by Taureau Amiral , 
+* a [blog post on team strength](https://bloodbowlstrategies.com/en/relative-strength-of-teams/) by Tareau Amiral , 
 * the [Nufflytics blog](https://nufflytics.com) by Blood Bowl 2 coach Schlice,
 * the various technical posts of [FUMBBL coach Adam Szieberth](https://fumbbl.com/~SzieberthAdam) who followed a similar approach using Python API and web scraping FUMBBL data. 
-
