@@ -93,6 +93,23 @@ bodyfat <- bodyfat$data
 puma32H = getOMLDataSet(data.id = 308L)
 puma32H <- puma32H$data
 ```
+
+## Pumadyn: a classic ML dataset for a simulated PUMA 560 robotarm
+
+![](puma560_schematic.png)
+
+It appears that this robot arm was popular in the 1980s, and was used a lot in ML research during the 1990s.
+The dataset contains 32 predictors, and the task is to predict the angular acceleration of one of the robot arms links.
+
+```{r}
+# 32nm = 32 inputs, high nonlinearity, med noise
+# Further details of the Pumadyn data sets can be found in Ghahramani
+ggplot(puma32H, aes(x = tau4, y = thetadd6, color = theta5)) + geom_point() +
+  scale_color_gradient2() + facet_wrap(~ round(theta5)) +
+  ggtitle("thetadd6 by tau4 and theta5")
+```
+
+
 ## ISLR datasets
 
 Genomic classification
@@ -110,21 +127,22 @@ df_NCI60 <- df_NCI60 %>%
 df_NCI60$CLASS <- factor(df_NCI60$CLASS)
 ```
 
-## Caret datasets
+## Caret datasets (solubility)
 
 ```{r}
 library(AppliedPredictiveModeling)
+
 data(solubility)
 rm(solTrainX, solTestX)
 
 solubility_test <- data.frame(cbind(y = solTestY, solTestXtrans))
 solubility <- data.frame(cbind(y = solTrainY, solTrainXtrans))
 
-
-
 solubility_N100 <- add_spurious_predictors(solubility, 100)
 solubility_N500 <- add_spurious_predictors(solubility, 500)
+```
 
+```{r}
 # shuffle Y value, destroy all signal
 solubility_N500_perm <- solubility_N500
 
@@ -139,20 +157,7 @@ rm(solTrainY, solTrainXtrans)
 
 
 
-## Pumadyn: a classic ML dataset for a simulated PUMA 560 robotarm
 
-![](puma560_schematic.png)
-
-It appears that this robot arm was popular in the 1980s, and was used a lot in ML research during the 1990s.
-The dataset contains 32 predictors, and the task is to predict the angular acceleration of one of the robot arms links.
-
-```{r}
-# 32nm = 32 inputs, high nonlinearity, med noise
-# Further details of the Pumadyn data sets can be found in Ghahramani
-ggplot(puma32H, aes(x = tau4, y = thetadd6, color = theta5)) + geom_point() +
-  scale_color_gradient2() + facet_wrap(~ round(theta5)) +
-  ggtitle("thetadd6 by tau4 and theta5")
-```
 # Gather datasets
 
 So far, we have:
@@ -209,7 +214,7 @@ ds_target <- c("y",
              )
 
 
-rm(ds_list)
+if(exists("ds_list")) rm(ds_list)
 for(i in 1:length(ds_name)){
   name <- ds_name[i]
   ds_list_tmp <- data.frame(ds_id = i,
@@ -228,53 +233,63 @@ for(i in 1:length(ds_name)){
 knitr::kable(ds_list)
 ```
 
-# Fit 
-
-```{r}
-ds_list <- ds_list[1:2,]
-```
-
 # Model list
 
 We want ranger fits for both default and max mtry.
 
 ```{r}
-model_list <- data.frame(method = "ranger", 
+model_list <- data.frame(model_id = c(1:2),
+                         method = "ranger", 
                          mtry = c("default", "max"))
 
 model_list
 ```
+`max` is bagging setting, i.e. offer all predictors.
 
+```{r}
+fit_list <- crossing(model_list, ds_list)
 
-## ranger
+fit_list$fit_id <- 1:nrow(fit_list)
+```
+
+```{r}
+fit_list
+```
+
+## ranger (OOB performance)
 
 ```{r}
 res <- list()
-j <- 0
+fit_list$r_sq <- NA
+dir.create("fits")
 
-for (i in 1:nrow(ds_list)){
-  formula <- as.formula(paste0(ds_list[i,]$target, " ~ ."))
-  for (m in 1:nrow(model_list)){
-    if(model_list[m,]$method == "ranger"){
-      if(model_list[m,]$mtry == "max"){
-        mtry = ds_list[i,]$n_features
+for (i in 1:nrow(fit_list)){
+  if(i > 2) break
+  print(".")
+  formula <- as.formula(paste0(fit_list[i,]$target, " ~ ."))
+  if(fit_list[i,]$method == "ranger"){
+      if(fit_list[i,]$mtry == "max"){
+        mtry = fit_list[i,]$n_features
       } else {
-        mtry = floor(sqrt(ds_list[i,]$n_features))
+        mtry = floor(sqrt(fit_list[i,]$n_features))
       }
 
       fit <- ranger(formula, 
-                    data = get(ds_list[i,]$ds_name),
+                    data = get(fit_list[i,]$ds_name),
                     mtry = mtry)
-      j <- j + 1
-      res[[j]] <- fit
-    }
+      
+      filename <- paste0("fits/fit_", fit_list[i,]$fit_id, ".rds")
+      saveRDS(object = fit, file = filename)
+      
+      fit_list[i,]$r_sq <- fit$r.squared
   }
 }
+
+filename <- paste0("fits/fitlist.rds")
+saveRDS(object = fit_list, file = filename)
 ```
 
-```{r}
-res
-```
+## Ranger separate calls 
 
 ### Friedman1 datasets
 ```{r}
@@ -313,7 +328,7 @@ ranger(thetadd6 ~ ., data = puma32H$data, mtry = 32)
 For the three OpenML datasets, mtry tuning is sufficient to get optimal performance.
 
 
-## caret with mtry tuning
+## caret with mtry tuning (CV / OOB)
 
 ### iris datasets
 
@@ -467,7 +482,7 @@ rfProfile <- rfe(y ~ .,
 
 plot(rfProfile)
 
-
+# Error in { : task 1 failed - "undefined columns selected"
 ```
 Here, RFE beats mtry tuning. Can we also find a non artificial dataset where this holds?
 
@@ -484,7 +499,7 @@ subsets <- c(1:5)
 
 set.seed(10)
 rfProfile <- rfe(thetadd6 ~ ., 
-                 data = puma32H$data, 
+                 data = puma32H, 
                  metric = "Rsquared",
                  sizes = subsets, 
                  rfeControl = ctrl)

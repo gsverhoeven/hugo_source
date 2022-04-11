@@ -1,4 +1,4 @@
-# Backwards Feature Selection Helper Functions (aka recursive feature elimination)
+# Backwards Feature Selection Helper Functions (aka RFE: recursive feature elimination)
 
 # this version only calculates feature importance for the model that includes all the features (the first)
 rangerFuncs <-  list(summary = defaultSummary,

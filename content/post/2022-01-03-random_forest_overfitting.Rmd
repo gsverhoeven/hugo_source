@@ -57,7 +57,7 @@ The Random Forest algorithm ([@breiman01]) is my favorite ML algorithm for cross
 
 The Random Forest algorithm can provide a quick benchmark for the predictive performance of a set of predictors, that is hard to beat with models that explicitly formulate a interpretable model of a dependent variable, for example a linear regression model with interactions and non-linear transformations of the predictors.
 
-For a great talk on the method, check out [Marvin Wright's UseR talk from 2019](https://www.youtube.com/watch?v=iVmsJJYjgNs). Interestingly, Marvin evaluates various claims that also feature in this blog: For example the claim from [@Breiman01] that "RF does not suffer from overfitting". Here the precise definition of overfitting matters, as we shall see. 
+For a great talk on the Random Forest method, check out [Marvin Wright's UseR talk from 2019](https://www.youtube.com/watch?v=iVmsJJYjgNs). Interestingly, Marvin evaluates various claims that also feature in this blog: For example the claim from [@Breiman01] that "RF does not suffer from overfitting". Here the precise definition of overfitting matters, as we shall see. 
 
 # Random forest tuning versus feature selection
 
