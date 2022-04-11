@@ -16,15 +16,17 @@ rangerFuncs <-  list(summary = defaultSummary,
                                       ...)
                      },
                      pred = function(object, x)  {
-                       #if(!is.data.frame(x)) x <- as.data.frame(x)
-                       #out <- predict(object, x)$predictions
-                       out <- as.data.frame(predict(object, data = x, type = "response")$predictions)
+                       if(!is.data.frame(x)) x <- as.data.frame(x)
+                       # remove as.data.frame(), needed for regression rfe
+                       out <- predict(object, data = x, type = "response")$predictions
                        
                        if(object$treetype == "Probability estimation") {
+                         # added as.data.frame(), needed for (multi?) classification
+                         out <- as.data.frame(out)
                          #out <- cbind(pred = colnames(out)[apply(out, 1, which.max)], out) # https://github.com/topepo/caret/issues/1137
                          out$pred <- factor(colnames(out)[apply(out,1,which.max)], levels=sort(colnames(out)))
                          rownames(out) <- rownames(x)
-                       } 
+                       }
                        return(out)
 
                      },
