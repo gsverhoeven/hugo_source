@@ -11,7 +11,7 @@ rangerFuncs <-  list(summary = defaultSummary,
                        ranger::ranger(.outcome ~ ., 
                                       data = dat, 
                                       importance = if(first) "permutation" else "none", # we use permutation importance 
-                                      probability = is.factor(y), # TRUE if the outcome is a factor
+                                      probability = FALSE, # for classification do majority vote instead of probability forest
                                       write.forest = TRUE, # Save ranger.forest object, required for prediction
                                       ...)
                      },

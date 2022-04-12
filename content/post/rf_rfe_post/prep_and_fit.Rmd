@@ -339,7 +339,7 @@ if(fullrun){
         fit <- ranger(formula, 
                       data = get(fit_list[i,]$ds_name),
                       mtry = mtry,
-                      probability = fit_list[i,]$forest_type == "class",
+                      probability = FALSE, #fit_list[i,]$forest_type == "class",
                       num.threads = 6 )
         
         filename <- paste0("fits/fit_", fit_list[i,]$fit_id, ".rds")
@@ -347,7 +347,7 @@ if(fullrun){
         
         fit_list[i,]$performance <- ifelse(fit_list[i,]$forest_type == "reg", 
                                            fit$r.squared,
-                                           fit$prediction.error)
+                                           1 - fit$prediction.error)
     }
     if(fit_list[i,]$method == "ranger-rfe"){
       
@@ -388,6 +388,13 @@ fit_list$algo <- paste0(fit_list$method, "_mtry_", fit_list$mtry)
 
 
 
+## Ranger separate calls 
+
+### Friedman1 datasets
+
+
+
+
 ```{r}
 ggplot(fit_list %>% filter(ds_group == "df_friedman1"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
   geom_point() +
@@ -397,12 +404,19 @@ ggplot(fit_list %>% filter(ds_group == "df_friedman1"), aes(x = reorder(algo, pe
   facet_wrap(~ ds_name)
 ```
 
-## Ranger separate calls 
+It looks like tuning mtry can reduce the negative effect of irrelevant features, but not completely eliminate it as RFE can do. The subsets are important here: N100 has 16 vars (5 signal, rest noise), N500 has 6 vars.
 
-### Friedman1 datasets
+```{r}
+fit_list %>% filter(ds_group == "df_friedman1")
+```
+
+```{r}
+rfe_fit <- readRDS("fits/fit_29.rds")
+
+rfe_fit$fit
+```
 
 
-It looks like tuning mtry can reduce the negative effect of irrelevant features, but not completely eliminate it as RFE can do.
 
 ### ISLR datasets (NCI60)
 
@@ -433,6 +447,9 @@ fit_list %>% filter(ds_group == "df_NCI60")
 
 rfe_fit <- readRDS("fits/fit_32.rds")
 
+rfe_fit$fit
+```
+```{r}
 rfe_fit
 ```
 
@@ -458,6 +475,16 @@ ggplot(fit_list %>% filter(ds_group == "openML"), aes(x = reorder(algo, performa
 ### iris datasets
 
 ```{r}
+ggplot(fit_list %>% filter(ds_group == "df_iris"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
+  geom_point() +
+  geom_label(aes(label = round(performance,2)), nudge_y = -0.02, nudge_x = +0.1) +
+  geom_segment(aes(xend = algo, y = 0, yend = performance)) +
+  coord_flip() +
+  facet_wrap(~ ds_name)
+```
+
+
+```{r}
 set.seed(123)
 rangerGrid <- data.frame(mtry = 2:4,
                        splitrule = "gini", 
@@ -480,23 +507,22 @@ res <- train(Species ~ .,
              data = df_iris_N100, 
              method = "ranger", 
              tuneGrid = rangerGrid,
-             trControl = trainControl(method = "cv"))
+             trControl = trainControl(method = "cv"),
+             num.threads = 6)
 res
 ```
 
+### Friedman1 datasets
+
+
 ```{r}
-ggplot(fit_list %>% filter(ds_group == "df_iris"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
+ggplot(fit_list %>% filter(ds_group == "df_friedman1"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
   geom_point() +
   geom_label(aes(label = round(performance,2)), nudge_y = -0.02, nudge_x = +0.1) +
   geom_segment(aes(xend = algo, y = 0, yend = performance)) +
   coord_flip() +
   facet_wrap(~ ds_name)
 ```
-
-
-RFE has 
-
-### Friedman1 datasets
 
 ```{r}
 set.seed(1234)
@@ -515,6 +541,8 @@ res <- train(y ~ X1 + X2 + X3 + X4 + X5,
 res 
 ```
 
+If we tune on the DGP variables, we get the best possible performance.
+
 
 ```{r}
 set.seed(1234)
@@ -528,11 +556,17 @@ res <- train(y ~ .,
               method = "ranger", 
               metric = "Rsquared",
               tuneGrid = rangerGrid,
-              trControl = trainControl(method = "oob")
+              trControl = trainControl(method = "oob"),
+              num.threads = 6
              )
 
 plot(res)
 ```
+
+```{r}
+res
+```
+Simply tuning the RF does not give optimal performance.
 
 ```{r}
 set.seed(1234)
@@ -546,12 +580,25 @@ res <- train(y ~ .,
               method = "ranger", 
               metric = "Rsquared",
               tuneGrid = rangerGrid,
-              trControl = trainControl(method = "oob")
+              trControl = trainControl(method = "oob"),
+             num.threads = 6
              )
 
 plot(res)
 ```
+
+This gets worse if we add more noise variables.
+
 ### OpenML datasets
+
+```{r}
+ggplot(fit_list %>% filter(ds_group == "openML"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
+  geom_point() +
+  geom_label(aes(label = round(performance,2)), nudge_y = -0.02, nudge_x = +0.1) +
+  geom_segment(aes(xend = algo, y = 0, yend = performance)) +
+  coord_flip() +
+  facet_wrap(~ ds_name)
+```
 
 ```{r}
 set.seed(1234)
@@ -561,15 +608,40 @@ rangerGrid <- data.frame(mtry = c(2,11, 63,124),
                        min.node.size = 5)
 
 res <- train(fat ~ ., 
-              data = tecator$data, 
+              data = tecator, 
               method = "ranger", 
               metric = "Rsquared",
               tuneGrid = rangerGrid,
-              trControl = trainControl(method = "oob")
+              trControl = trainControl(method = "oob"),
+             num.threads = 6
              )
 
-plot(res)
+res
 ```
+
+Here tuning mtry gives us optimal performance.
+
+
+```{r}
+set.seed(1234)
+
+rangerGrid <- data.frame(mtry = c(2,11, 32),
+                       splitrule = "variance",
+                       min.node.size = 5)
+
+res <- train(thetadd6 ~ ., 
+              data = puma32H, 
+              method = "ranger", 
+              metric = "Rsquared",
+              tuneGrid = rangerGrid,
+              trControl = trainControl(method = "oob"),
+             num.threads = 6
+             )
+
+res
+```
+
+Here tuning mtry gives us optimal performance.
 
 ## rfe - ranger
 
@@ -586,10 +658,23 @@ ctrl <- rfeControl(functions = rangerFuncs,
 
 ### ISLR NCI60
 
+
+Leave this out of blog, too high variance / uncertainty on the performance metric.
+
+```{r}
+ggplot(fit_list %>% filter(ds_group == "df_NCI60"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
+  geom_point() +
+  geom_label(aes(label = round(performance,2)), nudge_y = -0.02, nudge_x = +0.1) +
+  geom_segment(aes(xend = algo, y = 0, yend = performance)) +
+  coord_flip() +
+  facet_wrap(~ ds_name)
+```
+low n, high p, genetic marker dataset.
+
 ```{r}
 #df_NCI60
 
-subsets <- c(10,100) # 100,500
+subsets <- c(10,75,100) # 100,500
 
 set.seed(10)
 rfProfile <- rfe(CLASS ~ ., 
@@ -599,14 +684,15 @@ rfProfile <- rfe(CLASS ~ .,
                  rfeControl = ctrl,
                  num.threads = 6)
 
-plot(rfProfile)
-```
-
-
-```{r}
 rfProfile
 ```
+RFE does not improve. Chooses the model with all predictors.
 
+```{r}
+rfProfile$fit
+```
+
+The SD is huge here: a rerun gives the highest accuracy to the untuned RF with default mtry.
 
 ### Friedman1 datasets
 
@@ -657,23 +743,29 @@ rfProfile
 
 ```{r}
 ranger(fat ~ moisture + protein, 
-       data = tecator$data)
+       data = tecator,
+       num.threads = 6)
 ```
 
 ```{r}
 ranger(class ~ Density + Abdomen, 
-       data = bodyfat$data)
+       data = bodyfat,
+       num.threads = 6)
 ```
 
 ```{r}
 ranger(thetadd6 ~ tau4 + theta5, 
-       data = puma32H$data)
+       data = puma32H,
+       num.threads = 6)
 ```
+
+OOB error is identical to RFE/mtry results. Nothing special here.
 
 ## rfe - ranger with mtry tuning
 
 Conclusion: although it is technically possible, it has no use case.
 
-```{r}
-rfProfile
-```
+## refitting after rfe: solubility permuted
+
+
+
