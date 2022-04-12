@@ -66,6 +66,8 @@ rm(sim)
 ```
 
 ## iris
+
+
 ```{r}
 df_iris <- iris
 
@@ -102,7 +104,7 @@ plot(bodyfat$class, bodyfat$Density)
 
 
 
-## Pumadyn: a classic ML dataset for a simulated PUMA 560 robotarm
+### Pumadyn: a classic ML dataset for a simulated PUMA 560 robotarm
 
 ![](puma560_schematic.png)
 
@@ -117,8 +119,8 @@ ggplot(puma32H, aes(x = tau4, y = thetadd6, color = theta5)) + geom_point() +
   ggtitle("thetadd6 by tau4 and theta5")
 ```
 
-
-## ISLR datasets
+ 
+## ISLR datasets (NCI60)
 
 Genomic classification
 
@@ -303,7 +305,7 @@ fit_list <- fit_list %>%
 fit_list
 ```
 
-# Fit all methods on all datasets (OOB performance)
+# Fit all methods on all datasets (CV performance)
 
 ```{r}
 source("rangerFuncs.R")
@@ -324,7 +326,6 @@ fullrun <- 0
 
 if(fullrun){
   for (i in 1:nrow(fit_list)){
-    #if(i > 2) break
     print(".")
     
     formula <- as.formula(paste0(fit_list[i,]$target, " ~ ."))
@@ -739,6 +740,27 @@ rfProfile
 ```
 
 
+### Solubility models
+
+
+The APM dataset solubility shows all three methods giving similar results in the absence of noise.
+After adding noise, tuning mtry helps, but is not enough.
+Again, this is a artificial dataset with a large amount of noise.
+The situation gets worse if we add more noise.
+
+As a check that we do not fit on noise, after shuffling the Y variable all three methods produce an R2 of zero.
+
+We can compare this with refitting after the RFE variable selection.
+
+```{r}
+ggplot(fit_list %>% filter(ds_group == "solubility"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
+  geom_point() +
+  geom_label(aes(label = round(performance,2)), nudge_y = -0.05, nudge_x = +0.25) +
+  geom_segment(aes(xend = algo, y = 0, yend = performance)) +
+  coord_flip() +
+  facet_wrap(~ ds_name)
+```
+
 ### refit models after RFE: this risks selection bias 
 
 ```{r}
@@ -765,7 +787,86 @@ OOB error is identical to RFE/mtry results. Nothing special here.
 
 Conclusion: although it is technically possible, it has no use case.
 
+```{r}
+# source("rangerTuneFuncs.R")
+```
+
+
 ## refitting after rfe: solubility permuted
+
+
+```{r}
+source("rangerFuncs.R")
+
+ctrl <- rfeControl(functions = rangerFuncs,
+                   method = "cv",
+                   returnResamp = "all",
+                   verbose = TRUE,
+                   saveDetails = TRUE)
+```
+
+
+```{r}
+#fit_list %>% filter(method == "ranger-rfe")
+
+#fit <- readRDS("fits/fit_39.rds")
+
+# RFE subsets to use during backward feature selection
+set.seed(123)
+
+subsets <- round(exp(seq(log(1), log(ncol(solubility_N500_perm)-1), 
+                         length.out = sqrt(ncol(solubility_N500_perm)-1))))
+
+fullrun <- 0
+
+if(fullrun){
+  fit <- rfe(y ~., 
+             data = solubility_N500_perm,
+             sizes = c(35,75,100),
+             metric = "RMSE",
+             rfeControl = ctrl,
+             num.threads = 6)
+  
+  saveRDS(fit, "rfe_fit.rds")
+} else {
+  fit <- readRDS("rfe_fit.rds")
+}
+
+fit
+```
+
+
+```{r}
+# subset on selected features
+preds <- predictors(fit)
+Xrfe <- solubility_N500_perm %>% select(all_of(preds))
+
+set.seed(123)
+
+# check mtry at different orders of magnitude
+tune_grid <- expand.grid(mtry = round(exp(seq(log(1), log(length(preds)), length.out=sqrt(length(preds))))),
+                         splitrule = "variance",
+                         min.node.size = 5)
+
+fullrun <- 0
+
+if(fullrun) {
+  trainObject <- train(x = Xrfe,
+             y = solubility_N500_perm$y,
+             method = "ranger",
+             trControl = trainControl(method = "cv"),
+             tuneGrid = tune_grid,
+             num.threads = 6)
+  saveRDS(trainObject, "post_rfe_train.rds")
+} else {
+  trainObject <- readRDS("post_rfe_train.rds")
+}
+```
+
+```{r}
+trainObject
+```
+
 
 
 
