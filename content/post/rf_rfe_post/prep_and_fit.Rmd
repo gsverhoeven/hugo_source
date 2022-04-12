@@ -376,10 +376,10 @@ if(fullrun){
     
   }
   
-  filename <- paste0("fits/fitlist.rds")
+  filename <- paste0("fitlist.rds")
   saveRDS(object = fit_list, file = filename)
 } else {
-  filename <- paste0("fits/fitlist.rds")
+  filename <- paste0("fitlist.rds")
   fit_list <- readRDS(filename) 
   fit_list$r_sq <- NULL}
 
