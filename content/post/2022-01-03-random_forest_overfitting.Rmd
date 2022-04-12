@@ -30,22 +30,26 @@ library(mlbench)
 library(ranger)
 ```
 
-Models using decision trees have an interesting property, they perform feature (predictor / variable) selection as part of the model building process. Contrast this with linear regression: such a model is forced to use all the features provided to it. What happens if we add irrelevant features, i.e. features that are unrelated to the outcome we want to predict? We expect linear regression to suffer from it, because we force it to fit with all the predictors, and some will fit to spurious patterns in the training data.
-But a tree model will simply ignore those predictors and choose the relevant predictors instead. 
+Models using decision trees have an interesting property, they perform "automatic" feature (predictor / variable) selection, as it is part of the model building process. Contrast this with linear regression: such a model is forced to use all the features provided to it. What happens if we add irrelevant features, i.e. features that are unrelated to the outcome we want to predict? We expect linear regression to suffer from it, because we force it to fit with all the predictors, and some will fit to spurious patterns in the training data, worsening the predictions on new (unseen) data.
+But a tree model will simply ignore those predictors and choose the relevant predictors instead. So no worries then?
 
 Here, we show that Random Forest (a tree-based model that performs well in many settings) can still be harmed by irrelevant features, and offer two ways of dealing with it. We can do so either by removing the irrelevant features (using a procedure called **recursive feature elimination (RFE)**), or by **tuning the algorithm**, increasing the number of features available during each split (the `mtry` parameter in R) during training (model fitting). 
 
-That tuning `mtry` for a Random Forest is important in the presence of many irrelevant features was already shown by Hastie et al. [@hastie_elements_2009] in 2009. They showed that if `mtry` is kept at its default  (square root of $p$), the probability of relevant features being available in the first few splits becomes too low, decreasing performance. So for datasets with a large proportion of irrelevant features, `mtry` tuning (increasing its value) is crucially important.
+That tuning `mtry` for a Random Forest is important in the presence of many irrelevant features was already shown by Hastie et al. [@hastie_elements_2009] in 2009. They showed that if `mtry` is kept at its default  (square root of $p$), as more irrelevant variables are added, the probability of the **relevant** features being selected for splitting becomes too low, decreasing performance. So for datasets with a large proportion of irrelevant features, `mtry` tuning (increasing its value) is crucially important.
 
-The classic book *Applied Predictive Modeling* by Kuhn and Johnson (2013) contains a similar experiment showing the negative effects of including many irrelevant features. However, instead of tuning RF, they suggest **removing the irrelevant features**. Using simulated data with increasing amounts of noise variables, it appears that when the amount of noise (irrelevant features) increases relative to the signal (relevant features), at some point the tuning approach no longer is able to achieve optimal performance. Under such (possibly extreme) circumstances, feature selection using RFE results in a significantly higher predictive performance compared to tuning. 
+The classic book *Applied Predictive Modeling* by Kuhn and Johnson (2013) contains a similar experiment showing the negative effects of including many irrelevant features. However, instead of tuning RF, they suggest **removing the irrelevant features altogether**. 
+
+Here I show, using simulated data with increasing amounts of noise variables, it appears that when the amount of **noise** (irrelevant features) increases relative to the **signal** (relevant features), at some point the RF tuning approach no longer is able to achieve optimal performance. Under such (possibly extreme) circumstances, feature selection using RFE results in a significantly higher predictive performance compared to RF tuning. 
 
 As a corollary, it seems that **combining** feature elimination and tuning does not make much sense, as the default settings of Random Forest likely are close to optimal after removing the irrelevant features. 
 
+<!--We nevertheless provide R code using `caret` for doing so. We show how this can be achieved with the `rfe()` framework of `caret`, by creating a set of custom helper functions for `rfe()`. -->
 
-
-We nevertheless provide R code using `caret` for doing so. We show how this can be achieved with the `rfe()` framework of `caret`, by creating a set of custom helper functions for `rfe()`. Finally, we echo others in stressing the importance of not refitting the same data after feature selection, to avoid an overly optimistic assessment of out-of-sample performance. 
+Finally, we echo others in stressing the importance of not refitting the same data after feature selection, to avoid an overly optimistic assessment of out-of-sample performance. 
 
 # What is overfitting
+
+Here we are dealing with a special kind of overfitting, overfitting to predictors. 
 
 So what are we talking about when we state that algorithm XYZ does not overfit? An algorithm is said to **overfit** when it is sufficiently flexible to fit patterns in the training set that are absent in a new batch of data. With "a new batch of data" we mean data that was generated according to the same Data generating process (DGP) as the training data, but was not used in model building. Such data is often called "test data". Overfitting causes model prediction errors to be higher on test data compared to the prediction errors on the training data.
 
@@ -102,6 +106,8 @@ What happens if we do not follow this procedure, and refit the model using only 
 PM it is possibly not OK to refit / tune after / outside the RFE loop.
 
 "If the model is refit using only the important predictors, model performance almost certainly improves"
+
+<!-- While mtry is a tuning parameter for random forest models, the default value of mtry≈sqrt(p) tends to provide good overall performance. While tuning this parameter may have led to better performance, our experience is that the improvement tends to be marginal -->
 
 # Finding suitable datasets: Probst suite of datasets for ML regression benchmarking
 
@@ -322,7 +328,8 @@ The main contribution is twofold: to provide some insights about the behavior of
 
 [@Ambroise02] [Selection bias in gene extraction on the basis of microarray gene-expression data](https://www.pnas.org/content/99/10/6562.short)
 
-[@svetnik03] Random Forest: A Classification and Regression Tool for Compound Classification and QSAR Modeling
+[@svetnik03] Svetnik, V, A Liaw, C Tong, C Culberson, R Sheridan, and B Feuston. 2003. 
+Random Forest: A Classification and Regression Tool for Compound Classification and QSAR Modeling
 
 There is no evidence that performance actually improves with descriptor selection. Also, the default mtry has the best
 performance. 
