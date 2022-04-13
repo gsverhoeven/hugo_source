@@ -157,11 +157,11 @@ That tuning `mtry` for a Random Forest is important in the presence of many irre
 
 Before we move on to RF feature selection, let's see what else we can tune in RF apart from `mtry`.
 
-# Random forest hyperparameter tuning: what else can we tune?
+# RF tuning: what else can we tune?
 
-With respect to the other parameters, a quick rundown:
+With respect to the other RF parameters, a quick rundown:
 
-I left the `num.trees` at its default (500), and chose "variance" as the `splitrule` for regression problems, and "gini" for classification problems (alternative is "extratrees" which is more recent but I have yet to see convincing results that demonstrate it is superior). 
+I left the `num.trees` at its default (500), and chose "variance" as the `splitrule` for regression problems, and "gini" for classification problems (alternative is "extratrees" which implements the "Extremely Randomized Trees" method [@geurts06] but I have yet to see convincing results that demonstrate ERT performs substantially better). 
 
 I played around a bit with the `min.node.size` parameter, for which often the sequence 5,10,20 is mentioned to vary over. Setting this larger should reduce computation, since it leads to shorter trees, but for the datasets here, the effect is on the order of say 10% reduction, which does not warrant tuning it IMO. I left this at its default of 5 for regression and 1 for classification.
 
@@ -274,47 +274,51 @@ The fact that tuning and feature selection are rarely compared head to head migh
 
 # References
 
-[@Friedman96]
+[@Friedman91] Friedman, Jerome H. (1991) Multivariate adaptive regression splines. The Annals of Statistics 19 (1), pages 1-67.
 
-[@Breiman01] Random Forest
+[@breiman96] Breiman, Leo (1996) Bagging predictors. Machine Learning 24, pages 123-140.
 
-[@guyon02]
+[@Breiman01] Random Forests
+
+[@guyon02] Gene Selection for Cancer Classification using Support Vector Machines
+
+    Isabelle Guyon, Jason Weston, Stephen Barnhill & Vladimir Vapnik 
+    
+*In this paper, we address the problem of selection of a small subset of genes from broad patterns of gene expression data*
+*We propose a new method of gene selection utilizing Support Vector Machine methods based on Recursive Feature Elimination (RFE)*
 
 [@Ambroise02] [Selection bias in gene extraction on the basis of microarray gene-expression data](https://www.pnas.org/content/99/10/6562.short)
 
 [@svetnik03] Svetnik, V, A Liaw, C Tong, C Culberson, R Sheridan, and B Feuston. 2003. 
 Random Forest: A Classification and Regression Tool for Compound Classification and QSAR Modeling
 
-There is no evidence that performance actually improves with descriptor selection. Also, the default mtry has the best
-performance. 
+*There is no evidence that performance actually improves with descriptor selection. Also, the default mtry has the best performance.*
 [...]
-However, it is still important for users to investigate the sensitivity of Random Forest to changes
-in mtry or descriptor selection, as illustrated in the COX-2 classification data, where mtry = p turned out to be the best
-choice. For further discussion of descriptor selection with Random Forest, see ref 33.
+*However, it is still important for users to investigate the sensitivity of Random Forest to changes in mtry or descriptor selection, as illustrated in the COX-2 classification data, where mtry = p turned out to be the best choice. For further discussion of descriptor selection with Random Forest, see ref 33.*
 
-The exceptional case is the COX-2 classification data. In this case, mtry = p (bagging) is the best performer, as can be seen in Figure 3, although descriptor reduction (RFE) only degrades performance.
+*The exceptional case is the COX-2 classification data. In this case, mtry = p (bagging) is the best performer, as can be seen in Figure 3, although descriptor reduction (RFE) only degrades performance.*
 
 [@svetnik04] Application of Breiman’s Random Forest to Modeling Structure-Activity Relationships of Pharmaceutical Molecules
 
-Without any parameter tuning, the performance of Random Forest with default settings on six publicly available data sets is already as good or better than that of three other prominent QSAR methods: Decision Tree, Partial Least Squares, and Support Vector Machine. In addition to reliable prediction accuracy, Random Forest provides variable importance measures which can be used in a variable reduction wrapper algorithm. (**RFE**)
+*Without any parameter tuning, the performance of Random Forest with default settings on six publicly available data sets is already as good or better than that of three other prominent QSAR methods: Decision Tree, Partial Least Squares, and Support Vector Machine. In addition to reliable prediction accuracy, Random Forest provides variable importance measures which can be used in a variable reduction wrapper algorithm. (**RFE**)
 
 *We have never yet observed a case where the performance actually improves as variables are reduced*
 
 [@svetnik04] Svetnik, V.; Liaw, A.; Tong, C. Variable selection in random forest with application to quantitative structure-activity relationship. In Proceedings of the 7th Course on Ensemble Methods for Learning Machines; Intrator, N., Masulli, F., Eds.; Springer-Verlag: Berlin, 2004; submitted
 
-It is shown that the non-recursive version of the procedure outperforms the recursive version, and that the default Random Forest mtry function is usually adequate.
+*It is shown that the non-recursive version of the procedure outperforms the recursive version, and that the default Random Forest mtry function is usually adequate.*
 
-[@geurts06] 
+[@geurts06] Extremely randomized trees
 
 [@genuer_variable_2010] variable selection using random forests
 
 *The main contribution is twofold: to provide some insights about the behavior of the variable importance index based on random forests and to propose a strategy involving a ranking of explanatory variables using the random forests score of importance and a stepwise ascending variable introduction strategy*
 <!-- four classification, one regression, Ozone -->
 
-[@kuhn13] Applied Predictive Modelling, with Tidymodels companion at https://github.com/topepo/tidy-apm
+[@kuhn13] Applied Predictive Modelling, with (mostly empty) Tidymodels companion at https://github.com/topepo/tidy-apm
 
-[@Kuhn18] Feature Engineering and Selection: A Practical Approach for Predictive Models, online at 
-https://bookdown.org/max/FES
+[@Kuhn19] Feature Engineering and Selection: A Practical Approach for Predictive Models, online at 
+http://www.feat.engineering/
 
 [@Couronne18] Random forest versus logistic regression: a large-scale benchmark experiment (also with Probst)
 
