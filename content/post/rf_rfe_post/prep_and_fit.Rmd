@@ -65,6 +65,26 @@ df_friedman1_N500 <- add_spurious_predictors(df_friedman1, 500)
 rm(sim)
 ```
 
+```{r}
+n <- 100
+p <- 40
+sigma <- 1
+set.seed(1)
+sim <- mlbench.friedman1(n, sd = sigma)
+colnames(sim$x) <- c(paste("real", 1:5, sep = ""),
+                     paste("bogus", 1:5, sep = ""))
+bogus <- matrix(rnorm(n * p), nrow = n)
+colnames(bogus) <- paste("bogus", 5+(1:ncol(bogus)), sep = "")
+x <- cbind(sim$x, bogus)
+y <- sim$y
+
+df_friedman1_small <- data.frame(y, x)
+```
+
+```{r}
+ranger(y ~ ., df_friedman1_small, mtry = 50)
+```
+
 ## iris
 
 
@@ -868,5 +888,25 @@ trainObject
 ```
 
 
+<!--# TuneRanger
 
+Show that TuneRanger tunes the mtry value.
+
+```{r}
+library(tuneRanger)
+library(mlr)
+
+monk_data_1 = getOMLDataSet(505)$data
+monk.task = makeRegrTask(data = monk_data_1, target = "fat")
+
+# Estimate runtime
+estimateTimeTuneRanger(monk.task)
+# Approximated time for tuning: 1M 13S
+set.seed(123)
+# Tuning
+res = tuneRanger(monk.task, num.trees = 500,
+num.threads = 2, iters = 70, iters.warmup = 30)
+res
+```
+-->
 
