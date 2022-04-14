@@ -285,7 +285,7 @@ This can be either tuning the RF, most importantly increasing the `mtry` paramet
 
 Interestingly, on the "real" datasets (openML, the solubility QSAR data) both tuning and feature selection give the same result. Only when we use simulated data (Friedman1), or if we add noise to real datasets (iris, solubility)) we find that `mtry` tuning is not enough, and removal of the irrelevant features is needed to obtain optimal performance. 
 
-The fact that tuning and feature selection are rarely compared head to head might be that both procedures have different implicit assumptions: tuning is often performed on datasets that are thought to contain mostly relevant predictors, whereas feature selection is often performed on high-dimensional datasets where prior information already tells us that relatively few predictors are related to the outcome.
+The fact that tuning and feature selection are rarely compared head to head might be that both procedures have different implicit assumptions: tuning is often performed on datasets that are thought to contain mostly relevant predictors. In this regime feature selection does not improve performance, as it primarily works through the removal of noise variables. On the other hand, feature selection is often performed on high-dimensional datasets where prior information already tells us that relatively few predictors are related to the outcome, and the many noise variables negatively influence RF performance. 
 
 # References
 

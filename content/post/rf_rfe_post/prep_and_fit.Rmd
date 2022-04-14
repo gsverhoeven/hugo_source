@@ -14,36 +14,7 @@ library(mlbench)
 library(ranger)
 ```
 
-
-# Storyline
-
-Both mtry tuning and rfe work towards reducing the impact of irrelevant variables.
-If a dataset contains mostly relevant variables, neither has a large impact, and RF performs well out of the box.
-If a dataset contains a few relevant variables, setting mtry to a larger value might already fix things.
-If the ratio between relevant and irrelevant features becomes too low, tuning mtry will no longer be enough, and rfe must be used.
-
-```
-p615 ESL
-When the number of variables is large, but the fraction of relevant variables
-small, random forests are likely to perform poorly with small m. At each
-split the chance can be small that the relevant variables will be selected.
-Figure 15.7 shows the results of a simulation that supports this claim. 
-```
-
-This storyline explains various observations:
-Why people often find that rfe does not improve things (signal is strong enough)
-Why people find that tuning already solves things, rfe is not necessary (increasing mtry has the same effect as reducing the irrelevant variables)
-Why hastie09 finds that RF suffers from including irrelevant variables
-
-# Outline
-
-We compare for several datasets the optimal model after mtry tuning, and after rfe.
-We also fit for default and largest mtry value.
-We also fit a RF using ranger's default settings in the `caret` framework, using 10xCV.
-
-For some datasets, there is sufficient data to set aside a true validation set.
-
-# Read in data
+# Read and prep datasets
 
 ## Friedman1
 
@@ -97,35 +68,44 @@ df_iris_N100 <- add_spurious_predictors(df_iris, 100)
 
 ## OpenML datasets
 
-```{r}
-# OpenML-Reg19
+Source: `OpenML-Reg19` collection of datasets.
 
+```{r}
 library(OpenML)
 
 setOMLConfig(cachedir = "cache/")
+```
 
+### Tecator
+
+```{r}
 # tecator Probst 19
 tecator = getOMLDataSet(data.id = 505L, cache.only = TRUE)
 tecator <- tecator$data
+```
 
+### Body fat
+
+```{r}
 # bodyfat Probst 2
 bodyfat = getOMLDataSet(data.id = 560L)
 bodyfat <- bodyfat$data
-
-# puma32H Probst 28
-puma32H = getOMLDataSet(data.id = 308L, cache.only = TRUE)
-puma32H <- puma32H$data
 ```
 
-`bodyfat` op OpenML heeft een rare dep var, terwijl de Kaggle versie een depvar "Body fat" heeft.
+`bodyfat` on OpenML has a weird dependant variable ("class"), whereas the same dataset on Kaggle has "Body fat" as a dependant variable, which is also present on OpenML. Both variables correlate strongly, giving us an artificial situation with one predictor being highly predictive of the outcome, with the other variables demoted to the status of noise variable.
 
 ```{r}
 plot(bodyfat$class, bodyfat$Density)
 ```
 
-
-
 ### Pumadyn: a classic ML dataset for a simulated PUMA 560 robotarm
+
+```{r}
+# puma32H Probst 28
+puma32H = getOMLDataSet(data.id = 308L, cache.only = TRUE)
+puma32H <- puma32H$data
+```
+
 
 ![](puma560_schematic.png)
 
@@ -308,6 +288,7 @@ model_list <- data.frame(model_id = c(1:3),
 
 model_list
 ```
+
 `max` is bagging setting, i.e. offer all predictors.
 
 ```{r}
@@ -414,11 +395,9 @@ fit_list$algo <- paste0(fit_list$method, "_mtry_", fit_list$mtry)
 
 ### Friedman1 datasets
 
-
-
-
 ```{r}
-ggplot(fit_list %>% filter(ds_group == "df_friedman1"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
+ggplot(fit_list %>% filter(ds_group == "df_friedman1"), 
+       aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
   geom_point() +
   geom_label(aes(label = round(performance,2)), nudge_y = -0.2, nudge_x = +0.1) +
   geom_segment(aes(xend = algo, y = 0, yend = performance)) +
@@ -442,10 +421,9 @@ rfe_fit$fit
 
 ### ISLR datasets (NCI60)
 
-RFE uses probability (multi class) and Brier score, whereas ranger checks majority vote and used prediction error.
-
 ```{r}
-ggplot(fit_list %>% filter(ds_group == "df_NCI60"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
+ggplot(fit_list %>% filter(ds_group == "df_NCI60"), 
+       aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
   geom_point() +
   geom_label(aes(label = round(performance,2)), nudge_y = -0.2, nudge_x = +0.1) +
   geom_segment(aes(xend = algo, y = 0, yend = performance)) +
@@ -471,6 +449,7 @@ rfe_fit <- readRDS("fits/fit_32.rds")
 
 rfe_fit$fit
 ```
+
 ```{r}
 rfe_fit
 ```
@@ -483,7 +462,8 @@ https://topepo.github.io/caret/data-sets.html#tecator-nir-data
 For the three OpenML datasets, mtry tuning is sufficient to get optimal performance.
 
 ```{r}
-ggplot(fit_list %>% filter(ds_group == "openML"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
+ggplot(fit_list %>% filter(ds_group == "openML"), 
+       aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
   geom_point() +
   geom_label(aes(label = round(performance,2)), nudge_y = -0.2, nudge_x = +0.1) +
   geom_segment(aes(xend = algo, y = 0, yend = performance)) +
@@ -497,7 +477,8 @@ ggplot(fit_list %>% filter(ds_group == "openML"), aes(x = reorder(algo, performa
 ### iris datasets
 
 ```{r}
-ggplot(fit_list %>% filter(ds_group == "df_iris"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
+ggplot(fit_list %>% filter(ds_group == "df_iris"), 
+       aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
   geom_point() +
   geom_label(aes(label = round(performance,2)), nudge_y = -0.02, nudge_x = +0.1) +
   geom_segment(aes(xend = algo, y = 0, yend = performance)) +
@@ -774,7 +755,8 @@ As a check that we do not fit on noise, after shuffling the Y variable all three
 We can compare this with refitting after the RFE variable selection.
 
 ```{r}
-ggplot(fit_list %>% filter(ds_group == "solubility"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
+ggplot(fit_list %>% filter(ds_group == "solubility"), 
+       aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
   geom_point() +
   geom_label(aes(label = round(performance,2)), nudge_y = -0.05, nudge_x = +0.25) +
   geom_segment(aes(xend = algo, y = 0, yend = performance)) +
@@ -896,16 +878,17 @@ Show that TuneRanger tunes the mtry value.
 ```{r}
 library(tuneRanger)
 library(mlr)
+library(OpenML)
 
-monk_data_1 = getOMLDataSet(505)$data
-monk.task = makeRegrTask(data = monk_data_1, target = "fat")
+tecator_data_1 = getOMLDataSet(505)$data
+tecator.task = makeRegrTask(data = tecator_data_1, target = "fat")
 
 # Estimate runtime
-estimateTimeTuneRanger(monk.task)
+estimateTimeTuneRanger(tecator.task)
 # Approximated time for tuning: 1M 13S
 set.seed(123)
 # Tuning
-res = tuneRanger(monk.task, num.trees = 500,
+res = tuneRanger(tecator.task, num.trees = 500,
 num.threads = 6, iters = 70, iters.warmup = 30)
 res
 ```
