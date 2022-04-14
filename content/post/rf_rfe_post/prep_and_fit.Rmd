@@ -1,5 +1,6 @@
 ---
 title: "Prep and fit all datasets for RF blogpost"
+author: "Gertjan Verhoeven"
 output: html_document
 ---
 
@@ -108,7 +109,7 @@ tecator = getOMLDataSet(data.id = 505L, cache.only = TRUE)
 tecator <- tecator$data
 
 # bodyfat Probst 2
-bodyfat = getOMLDataSet(data.id = 560L, cache.only = TRUE)
+bodyfat = getOMLDataSet(data.id = 560L)
 bodyfat <- bodyfat$data
 
 # puma32H Probst 28
@@ -888,7 +889,7 @@ trainObject
 ```
 
 
-<!--# TuneRanger
+# TuneRanger
 
 Show that TuneRanger tunes the mtry value.
 
@@ -905,8 +906,7 @@ estimateTimeTuneRanger(monk.task)
 set.seed(123)
 # Tuning
 res = tuneRanger(monk.task, num.trees = 500,
-num.threads = 2, iters = 70, iters.warmup = 30)
+num.threads = 6, iters = 70, iters.warmup = 30)
 res
 ```
--->
 
