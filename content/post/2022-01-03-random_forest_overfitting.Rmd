@@ -1,7 +1,8 @@
 ---
 title: 'Optimal performance with Random Forests: does feature selection beat tuning?'
 author: "Gertjan Verhoeven"
-date: '2022-01-03'
+date: '2022-04-15'
+bibliography: rf_rfe_post/random_forest.json
 summary: This blog post demonstrates that the presence of irrelevant variables can
   reduce the performance of the Random Forest algorithm (as implemented in R by `ranger()`).
   The solution is either to tune one of the algorithm's parameters, OR to remove irrelevant
@@ -43,7 +44,7 @@ But first, why should we care about this 2001 algorithm in 2022? Shouldn't we be
 
 # Why Random Forest is my favorite ML algorithm
 
-The Random Forest algorithm ([@breiman01]) is my favorite ML algorithm for cross-sectional, tabular data. Thanks to [Marvin Wright](https://mnwright.github.io/) a fast and reliable implementation exists for R called `ranger`[@wright17]. For tabular data, RF seems to offer the highest value per unit of compute compared to other popular ML methods, such as Deep learning or Gradient Boosting algorithms such as **XGBoost**. In this setting, predictive performance is often either on par with Neural networks or Gradient boosting, or only slightly worse [@ref, Personal experience :-)].  For classification prediction models, it has been shown to outperform logistic regression [@Coronne18].
+The Random Forest algorithm ([@breiman01]) is my favorite ML algorithm for cross-sectional, tabular data. Thanks to [Marvin Wright](https://mnwright.github.io/) a fast and reliable implementation exists for R called `ranger`[@wright_ziegler17]. For tabular data, RF seems to offer the highest value per unit of compute compared to other popular ML methods, such as Deep learning or Gradient Boosting algorithms such as **XGBoost**. In this setting, predictive performance is often on par with Deep Learning or Gradient boosting [@svetnik_etal05; @xu_etal21].  For classification prediction models, it has been shown to outperform logistic regression [@couronne_etal18].
 
 The Random Forest algorithm can provide a quick benchmark for the predictive performance of a set of predictors, that is hard to beat with models that explicitly formulate a interpretable model of a dependent variable, for example a linear regression model with interactions and non-linear transformations of the predictors. For a great talk on the Random Forest method, check out [Prof. Marvin Wright's UseR talk from 2019 on YouTube](https://www.youtube.com/watch?v=iVmsJJYjgNs). 
 
@@ -76,7 +77,7 @@ ggplot(fit_list %>% filter(ds_group == "df_iris" & algo == "ranger_mtry_default"
 
 Indeed, the performance (here i looked at *Accuracy* as percentage of observations correctly classified) is hardly affected.
 
-However, a counter example, where adding irrelevant features **does hurt** performance, is quickly found. In [Chapter 20](https://topepo.github.io/caret/recursive-feature-elimination.html) of the documentation of `caret`, a popular ML package in `R`, Max Kuhn introduces the regression problem **Friedman 1** to illustrate the problem, as well as a possible solution. See for a different example in the literature [@genuer_variable_2010]. 
+However, a counter example, where adding irrelevant features **does hurt** performance, is quickly found. In [Chapter 20](https://topepo.github.io/caret/recursive-feature-elimination.html) of the documentation of `caret`, a popular ML package in `R`, Max Kuhn introduces the regression problem **Friedman 1** to illustrate the problem, as well as a possible solution. See for a different example in the literature [@genuer_etal10]. 
 
 `mlbench.friedman1()` simulates the regression problem **Friedman 1** . Inputs are 10 independent variables uniformly distributed on the interval [0,1], only 5 out of these 10 are actually used. Outputs are created according to the formula:
 
@@ -84,11 +85,11 @@ $y = 10 sin(\pi x_1 x_2) + 20 (x_3 - 0.5)^2 + 10 x_4 + 5 x_5 + \epsilon$
 
 where $\epsilon$ is distributed $Normal(0, 1)$.
 
-(source: Friedman (1991) and Breiman (1996) [@Friedman91] [@Breiman96])
+(source: [@friedman91; @breiman96])
 
-Only five predictors contain signal, whereas the other 45 contain noise. Random Forest with its default setting of `mtry` shows poor performance, and only after performing feature selection (removing the irrelevant variables) optimal performance is achieved (hang on: we'll revisit this example below).
+Kuhn added 40 more noise variables to the dataset. Now only five predictors contain signal, whereas the other 45 contain noise. Random Forest with its default setting of `mtry` shows poor performance, and only after performing feature selection (removing the irrelevant variables) optimal performance is achieved (see below for more about feature selection, here the point is the reduced performance after adding noise).
 
-I also reproduced this analysis, but with N = 1000 and with 0, 100 and 500 **additional** noise variables added.
+I also reproduced this analysis, but with N = 1000 and with 0, 100 and 500 **additional** noise variables added (instead of 40).
 
 ```{r, fig.width= 8, fig.height= 3}
 ggplot(fit_list %>% filter(ds_group == "df_friedman1" & algo %in% c("ranger_mtry_default")), 
@@ -100,8 +101,8 @@ ggplot(fit_list %>% filter(ds_group == "df_friedman1" & algo %in% c("ranger_mtry
   facet_wrap(~ ds_name)
 ```
 
-The optimal performance is achieved if we include only relevant predictors $x_1, x_2,x_3,x_4, x_5$ in the RF algorithm. 
-This model has an R-squared of around 88% (not shown). RF including both signal and five noise predictors, using the default `mtry` value shows a slight drop in performance to 84%. After including an additional 100 noise variables, performance drops further to 56%. And if we add 500 instead of 100 additional noise variables, performance drops further to 34% R2.
+We can check the optimal performance by only including the relevant predictors $x_1, x_2,x_3,x_4, x_5$ in the RF algorithm. 
+This model has an R-squared of around 88% (not shown). RF including both signal and five noise predictors, the original **Friedman 1** problem, using the default `mtry` value shows a slight drop in performance to 84%. After including an additional 100 noise variables, performance drops further to 56%. And if we add 500 instead of 100 additional noise variables, performance drops even further to 34% R2.
 
 So how to solve this? In this blog post, I will compare both RF **hyperparameter tuning** and **feature selection** in the presence of many irrelevant features.
 
@@ -109,9 +110,10 @@ So how to solve this? In this blog post, I will compare both RF **hyperparameter
 
 It seems that most practical guidance to improve RF performance is on *tuning the algorithm hyperparameters*, arguing that Random Forest as a tree-based method has built-in feature selection, alleviating the need to remove irrelevant features. 
 
-This is demonstrated by the many guides on (RF/ML) algorithm tuning found online. For example, a currently popular book "Hands-On Machine Learning" by Géron contains a short paragraph on the importance of selecting / creating relevant features, but then goes on to discuss hyperparameter tuning at great length for the remainder of the book. 
+This is demonstrated by the many guides on (RF/ML) algorithm tuning found online. For example, a currently popular book "Hands-On Machine Learning" [@geron19] contains a short paragraph on the importance of selecting / creating relevant features, but then goes on to discuss hyperparameter tuning at great length for the remainder of the book. 
 
-In their online book **Feature Engineering and Selection: A Practical Approach for Predictive Models**, Max Kuhn and Kjell Johnson have a section called [Effect of Irrelevant Features](http://www.feat.engineering/feature-selection-simulation.html). For simulated data with 20 informative predictors, they find that after tuning (which is not mentioned in the book but is clear from the [R code provided on Github](https://github.com/topepo/FES_Selection_Simulation)), RF is (mostly) robust to up to 200 extra noise variables. 
+Some evidence that RF tuning is sufficient to deal with irrelevant features is provided by Kuhn & Johnson [@kuhn_johnson19].
+In their book available online, they have a section called [Effect of Irrelevant Features](http://www.feat.engineering/feature-selection-simulation.html). For simulated data with 20 informative predictors, they find that after RF tuning (which is not mentioned in the book but is clear from the [R code provided on Github](https://github.com/topepo/FES_Selection_Simulation)), the algorithm is (mostly) robust to up to 200 extra noise variables. 
 
 So let's start with RF tuning.
 
@@ -129,12 +131,15 @@ Ignoring the red and green lines, and comparing the tuned vs default ranger, it 
 
 However, a few did, and three stood out (blue line above dashed line).
 
-![](rf_rfe_post/probst_tuning_ranger.png)
+![](rf_rfe_post/probst_tuning_ranger.png){width=66%}
+
+*Figure created by Philippe Probst and reproduced from his TuneRanger Github repository*
+
 
 As he made all his code available on Github, I could identify the three datasets as being `tecator`, `bodyfat` and `puma32H`.
-Puma32H is noteworthy in that it is a classic ML dataset for a simulated PUMA 560 robotarm, that contains mostly irrelevant features (30 out of 32) [@geurts06].
+Puma32H is noteworthy in that it is a classic ML dataset for a simulated PUMA 560 robotarm, that contains mostly irrelevant features (30 out of 32) [@geurts_etal06].
 
-![](rf_rfe_post/puma560_schematic.png)
+![](rf_rfe_post/puma560_schematic.png){width=50%}
 
 For these three datasets, I reproduced the results of default `ranger()` and tuned the `mtry` parameter.
 
@@ -142,7 +147,7 @@ mtry? what try?
 
 # RF tuning: the mtry parameter
 
-A great resource for tuning RF is a 2019 review paper by Probst et al. called  'Hyperparameters and Tuning Strategies for Random Forest'. 
+A great resource for tuning RF is a 2019 review paper by Probst *et al.* called  'Hyperparameters and Tuning Strategies for Random Forest' [@probst_etal19]. 
 
 They conclude:
 
@@ -162,7 +167,7 @@ ggplot(fit_list %>% filter(ds_group == "openML" & algo %in% c("ranger_mtry_defau
   facet_wrap(~ ds_name)
 ```
 
-That tuning `mtry` for a Random Forest is important in the presence of many irrelevant features was already shown by Hastie $et al.$ in their 2009 classic book "Elements of statistical Learning" (p615, Figure 15.7) [@hastie_elements_2009]. 
+That tuning `mtry` for a Random Forest is important in the presence of many irrelevant features was already shown by Hastie *et al.* in their 2009 classic book "Elements of statistical Learning" (p615, Figure 15.7) [@hastie_etal09]. 
 
 They showed that if `mtry` is kept at its default (square root of $p$, the total number of features), as more irrelevant variables are added, the probability of the **relevant** features being selected for splitting becomes too low, decreasing performance. So for datasets with a large proportion of irrelevant features, `mtry` tuning (increasing its value) is crucially important.
 
@@ -172,28 +177,23 @@ Before we move on to RF feature selection, let's see what else we can tune in RF
 
 With respect to the other RF parameters, a quick rundown:
 
-I left the `num.trees` at its default (500), and chose "variance" as the `splitrule` for regression problems, and "gini" for classification problems (alternative is "extratrees" which implements the "Extremely Randomized Trees" method [@geurts06] but I have yet to see convincing results that demonstrate ERT performs substantially better). 
+I left the `num.trees` at its default (500), and chose "variance" as the `splitrule` for regression problems, and "gini" for classification problems (alternative is "extratrees" which implements the "Extremely Randomized Trees" method [@geurts_etal06] but I have yet to see convincing results that demonstrate ERT performs substantially better). 
 
 I played around a bit with the `min.node.size` parameter, for which often the sequence 5,10,20 is mentioned to vary over. Setting this larger should reduce computation, since it leads to shorter trees, but for the datasets here, the effect is on the order of say 10% reduction, which does not warrant tuning it IMO. I left this at its default of 5 for regression and 1 for classification.
 
-Finally, Marvin Wright points to results from Probst 2019 [@probst2019] that show `sample.fraction` to be an important parameter as well. This determines the number of samples from the dataset to draw for each tree. I have not looked into this, instead I used the default setting from `ranger()` which is to sample with replacement, and to use all samples for each tree, i.e `sample.fraction = 1`. 
+Finally, Marvin Wright points to results from Probst 2019 [@probst_etal19] that show `sample.fraction` to be an important parameter as well. This determines the number of samples from the dataset to draw for each tree. I have not looked into this, instead I used the default setting from `ranger()` which is to sample with replacement, and to use all samples for each tree, i.e `sample.fraction = 1`. 
 
 To conclude: we focus on `mtry` and leave the rest alone.
 
 # From RF tuning to RF feature selection
 
 A natural question to ask is why not simply get rid of the irrelevant features? Why not perform feature selection?
-In fact, this is exactly what the `caret` project by Max Kuhn $et al.$ proposes. 
 
-The classic book *Applied Predictive Modeling* by Kuhn and Johnson (2013) contains a similar experiment showing the negative effects of including many irrelevant features in a Random Forest model (chapter 18). However, instead of tuning RF, they suggest **removing the irrelevant features altogether**. Also the follow up book on Feature engineering and selection by Kuhn & Johnson from 2019 contains a chapter on this. http://www.feat.engineering/recursive-feature-elimination.html
-
-As a corollary, it seems that **combining** feature elimination and RF tuning does not make much sense, as the default settings of Random Forest likely are close to optimal after removing the irrelevant features. 
-
-<!--We nevertheless provide R code using `caret` for doing so. We show how this can be achieved with the `rfe()` framework of `caret`, by creating a set of custom helper functions for `rfe()`. -->
+The classic book *Applied Predictive Modeling* [@kuhn_johnson13] contains a similar simulation experiment (on the `solubility` dataset, for RF I reproduce their results below) showing the negative effects of including many irrelevant features in a Random Forest model (chapter 18). And indeed, instead of tuning RF, they suggest **removing the irrelevant features altogether**, i.e. to perform feature selection. Also their follow up book on Feature engineering and selection by Kuhn & Johnson from 2019 elaborates on this [@kuhn_johnson19]. http://www.feat.engineering/recursive-feature-elimination.html
 
 # RF Feature selection
 
-To perform feature selection, we use the recursive feature elimination (RFE) procedure, implemented for `ranger` in `caret` as the function `rfe()`. This is a backward feature selection method, starting will all predictors and in stepwise manner dropping the least important features [@guyon02].
+To perform feature selection, we use the recursive feature elimination (RFE) procedure, implemented for `ranger` in `caret` as the function `rfe()`. This is a backward feature selection method, starting will all predictors and in stepwise manner dropping the least important features [@guyon_etal02].
 
     When the full model is created, a measure of variable importance is computed that ranks the predictors from most important to least. […] At each stage of the search, the least important predictors are iteratively eliminated prior to rebuilding the model.
 
@@ -201,14 +201,17 @@ To perform feature selection, we use the recursive feature elimination (RFE) pro
 
 (Computationally, I think it makes more sense to start with only the most relevant features and add more features in a stepwise fashion until performance no longer improves but reaches a plateau. But that would require writing my own "forward procedure", which I save for another day.)
 
-As this is a procedure that drops predictors that do not correlate with the outcome, we have to be extremely careful that we end up with something that generalizes to unseen data. In the book **Applied predictive Modeling** the authors convincingly show that a special procedure is necessary, with two loops of cross validation first described by [@Ambroise02]. The outer loop sets aside one fold that is not used for feature selection (and optionally model tuning), whereas the inner loop selects features and tunes the model. See for detailed documentation and examples [10.4 Overfitting to Predictors and External Validation](http://www.feat.engineering/selection-overfitting.html#selection-overfitting), from Kuhn & Johnson's 2019 book on feature engineering and selection.
+As this is a procedure that drops predictors that do not correlate with the outcome, we have to be extremely careful that we end up with something that generalizes to unseen data. In [@kuhn_johnson13] they convincingly show that a special procedure is necessary, with two loops of cross validation first described by [@ambroise_mclachlan02]. The outer loop sets aside one fold that is not used for feature selection (and optionally model tuning), whereas the inner loop selects features and tunes the model. See [Chapter 10.4](http://www.feat.engineering/selection-overfitting.html#selection-overfitting) of their follow up book [@kuhn_johnson19] for detailed documentation and examples.
 
 Typically, as we start removing irrelevant features, performs either stays constant or even increases until we reach the point where performs drops. At this point features that are predictive of the outcome are getting removed. 
 
-Note that we do not tune the `mtry` variable of RF in this procedure. Empirically, it has been observed that this only leads to marginal improvements (Kuhn & Johnson feature selection book, Svetnik paper 2004). Conceptually, tuning `mtry` is a way to reduce the effect of irrelevant features. Since we are applying a procedure to remove the irrelevant features, it makes sense that it has little benefit here.
+Note that we do not tune the `mtry` variable of RF in this procedure. Empirically, it has been observed that this either has no effect, or only leads to marginal improvements [@kuhn_johnson19; @svetnik_etal04]. Conceptually, tuning (increasing) `mtry` is a way to reduce the effect of irrelevant features. Since we are applying a procedure to **remove** the irrelevant features instead, it makes sense that tuning has little benefit here. 
+
+(As I was curious, I nevertheless created a set of custom helper functions for `rfe()` that tune `mtry` during the feature selection procedure, see the `RangerTuneFuncs.R` script, results not shown)
 
 <!-- While mtry is a tuning parameter for random forest models, the default value of mtry≈sqrt(p) tends to provide good overall performance. While tuning this parameter may have led to better performance, our experience is that the improvement tends to be marginal -->
 
+So we expect that either tuning `mtry` , OR performing feature selection solves the problem of irrelevant variables.
 Indeed, this is also what we find on the three OpenML datasets. Both the RF tuning approach (Setting `mtry` at its maximum value) as well as the RF feature selection using RFE result in optimal performance:
 
 ```{r}
@@ -265,9 +268,9 @@ ggplot(fit_list %>% filter(ds_name == "solubility_N500_perm"), aes(x = reorder(a
   facet_wrap(~ ds_name)
 ```
 
-However, if we retrain the model with RF (for example, to tune `mtry`) **after** RFE feature selection, we get cross-validated R-squares of 5-10%, purely based on noise variables. For full code see the [R notebook ](rf_rfe_post/prep_and_fit.Rmd)
+However, if we retrain the model with RF (for example, to tune `mtry`) **after** RFE feature selection, we get cross-validated R-squared values of 5-10%, purely based on noise variables "dredged" from the hundreds of variables we supplied to the algorithm. For full code see the [R notebook](rf_rfe_post/prep_and_fit.Rmd)
 
-(Note that I had to play around a bit with the RFE settings to not have it pick either the model with all features or the model with only 1 feature: using `RMSE` as a metric, and setting `pickSizeTolerance` made it pick a model with 75 predictors. Retraining this model using `caret::train` gave me the result below)
+(Note that I had to play around a bit with the RFE settings to not have it pick either the model with **all** features or the model with only 1 feature: using `RMSE` as a metric, and setting `pickSizeTolerance` the procedure selected a model with 75 predictors. Retraining this model using `caret::train` gave me the result below)
 
 ```{r}
 trainObject <- readRDS("rf_rfe_post/post_rfe_train.rds")
@@ -276,7 +279,7 @@ trainObject
 ```
 
 This illustrates the dangers of performing massive variable selection exercises without the proper safeguards.
-Aydin Demircioğlu wrote a paper that identifies several radiomics studies that got it wrong, and performed cross-validation as a separate step after feature selection [@Demircioglu21].
+Aydin Demircioğlu wrote a paper that identifies several radiomics studies that performed cross-validation as a separate step after feature selection, and thus got it wrong [@demircioglu21].
 
 # Conclusions
 
@@ -287,58 +290,6 @@ Interestingly, on the "real" datasets (openML, the solubility QSAR data) both tu
 
 The fact that tuning and feature selection are rarely compared head to head might be that both procedures have different implicit assumptions: tuning is often performed on datasets that are thought to contain mostly relevant predictors. In this regime feature selection does not improve performance, as it primarily works through the removal of noise variables. On the other hand, feature selection is often performed on high-dimensional datasets where prior information already tells us that relatively few predictors are related to the outcome, and the many noise variables negatively influence RF performance. 
 
+**N.b.** As is often the case with simulation studies, an open question is how far we can generalize our results. [@svetnik_etal03] identified a classification dataset **Cox-2** that exhibits unexpected behavior: The dataset gives optimal performance with `mtry` at its maximum setting, indicative of a many irrelevant predictors, so we expect feature selection to find a smaller model that gives the same performance at default `mtry`. However, surprisingly, performance only degrades after RFE. I wrote one of the authors (Vladimir Svetnik) to ask for the dataset, I'll update this post when I hear from him. 
+
 # References
-
-[@Friedman91] Friedman, Jerome H. (1991) Multivariate adaptive regression splines. The Annals of Statistics 19 (1), pages 1-67.
-
-[@breiman96] Breiman, Leo (1996) Bagging predictors. Machine Learning 24, pages 123-140.
-
-[@Breiman01] Random Forests
-
-[@guyon02] Gene Selection for Cancer Classification using Support Vector Machines
-
-    Isabelle Guyon, Jason Weston, Stephen Barnhill & Vladimir Vapnik 
-    
-*In this paper, we address the problem of selection of a small subset of genes from broad patterns of gene expression data*
-*We propose a new method of gene selection utilizing Support Vector Machine methods based on Recursive Feature Elimination (RFE)*
-
-[@Ambroise02] [Selection bias in gene extraction on the basis of microarray gene-expression data](https://www.pnas.org/content/99/10/6562.short)
-
-[@svetnik03] Svetnik, V, A Liaw, C Tong, C Culberson, R Sheridan, and B Feuston. 2003. 
-Random Forest: A Classification and Regression Tool for Compound Classification and QSAR Modeling
-
-*There is no evidence that performance actually improves with descriptor selection. Also, the default mtry has the best performance.*
-[...]
-*However, it is still important for users to investigate the sensitivity of Random Forest to changes in mtry or descriptor selection, as illustrated in the COX-2 classification data, where mtry = p turned out to be the best choice. For further discussion of descriptor selection with Random Forest, see ref 33.*
-
-*The exceptional case is the COX-2 classification data. In this case, mtry = p (bagging) is the best performer, as can be seen in Figure 3, although descriptor reduction (RFE) only degrades performance.*
-
-[@svetnik04] Application of Breiman’s Random Forest to Modeling Structure-Activity Relationships of Pharmaceutical Molecules
-
-*Without any parameter tuning, the performance of Random Forest with default settings on six publicly available data sets is already as good or better than that of three other prominent QSAR methods: Decision Tree, Partial Least Squares, and Support Vector Machine. In addition to reliable prediction accuracy, Random Forest provides variable importance measures which can be used in a variable reduction wrapper algorithm. (**RFE**)
-
-*We have never yet observed a case where the performance actually improves as variables are reduced*
-
-[@svetnik04] Svetnik, V.; Liaw, A.; Tong, C. Variable selection in random forest with application to quantitative structure-activity relationship. In Proceedings of the 7th Course on Ensemble Methods for Learning Machines; Intrator, N., Masulli, F., Eds.; Springer-Verlag: Berlin, 2004; submitted
-
-*It is shown that the non-recursive version of the procedure outperforms the recursive version, and that the default Random Forest mtry function is usually adequate.*
-
-[@geurts06] Extremely randomized trees
-
-[@genuer_variable_2010] variable selection using random forests
-
-*The main contribution is twofold: to provide some insights about the behavior of the variable importance index based on random forests and to propose a strategy involving a ranking of explanatory variables using the random forests score of importance and a stepwise ascending variable introduction strategy*
-<!-- four classification, one regression, Ozone -->
-
-[@kuhn13] Applied Predictive Modelling, with (mostly empty) Tidymodels companion at https://github.com/topepo/tidy-apm
-
-[@Kuhn19] Feature Engineering and Selection: A Practical Approach for Predictive Models, online at 
-http://www.feat.engineering/
-
-[@Couronne18] Random forest versus logistic regression: a large-scale benchmark experiment (also with Probst)
-
-[@Probst19] Hyperparameters and Tuning Strategies for Random Forest, Arxiv
-
-[@Demircioglu21] Measuring the bias of incorrect application of feature selection when using cross-validation in radiomics
-
-
