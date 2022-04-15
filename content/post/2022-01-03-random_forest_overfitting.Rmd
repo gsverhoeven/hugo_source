@@ -123,7 +123,7 @@ To experiment with RF tuning and compare it with RF feature selection, I needed 
 
 So I needed (regression) datasets that are not too big, nor too small, and where RF tuning has a substantial effect. Finding these was not easy: Surprisingly, online tutorials for RF hyperparameter tuning often only show small improvements in performance.
 
-Here the benchmarking study of Philippe Probst on RF tuning came to the rescue, as he identified three datasets where RF tuning has a significant effect. Probst created a suite of 29 regression datasets (`OpenML-Reg-19`), where he compared tuned ranger with default ranger. The selection of the datasets is described [here](https://github.com/PhilippPro/OpenML-bench). The datasets he used are all made available by [OpenML.org](https://new.openml.org/). This is a website dedicated to reproducible, open ML, with a large collection of datasets, focused on benchmarking and performance comparison. 
+Here the benchmarking study of Philipp Probst on RF tuning came to the rescue, as he identified three datasets where RF tuning has a significant effect. Probst created a suite of 29 regression datasets (`OpenML-Reg-19`), where he compared tuned ranger with default ranger. The selection of the datasets is described [here](https://github.com/PhilippPro/OpenML-bench). The datasets he used are all made available by [OpenML.org](https://new.openml.org/). This is a website dedicated to reproducible, open ML, with a large collection of datasets, focused on benchmarking and performance comparison. 
 
 Furthermore, For the RF tuning, he created an R package, aptly called `tuneRanger`, available on CRAN as well as on [Github](https://github.com/PhilippPro/tuneRanger). 
 
@@ -133,7 +133,7 @@ However, a few did, and three stood out (blue line above dashed line).
 
 ![](rf_rfe_post/probst_tuning_ranger.png){width=66%}
 
-*Figure created by Philippe Probst and reproduced from his TuneRanger Github repository*
+*Figure created by Philipp Probst and reproduced from his TuneRanger Github repository*
 
 
 As he made all his code available on Github, I could identify the three datasets as being `tecator`, `bodyfat` and `puma32H`.
