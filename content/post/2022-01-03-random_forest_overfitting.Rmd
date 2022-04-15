@@ -214,7 +214,7 @@ Note that we do not tune the `mtry` variable of RF in this procedure. Empiricall
 So we expect that either tuning `mtry` , OR performing feature selection solves the problem of irrelevant variables.
 Indeed, this is also what we find on the three OpenML datasets. Both the RF tuning approach (Setting `mtry` at its maximum value) as well as the RF feature selection using RFE result in optimal performance:
 
-```{r}
+```{r fig.width= 8, fig.height= 3}
 ggplot(fit_list %>% filter(ds_group == "openML"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
   geom_point() +
   geom_label(aes(label = round(performance,2)), nudge_y = -0.2, nudge_x = +0.1) +
@@ -225,7 +225,7 @@ ggplot(fit_list %>% filter(ds_group == "openML"), aes(x = reorder(algo, performa
 
 Can RF feature selection ("ranger-rfe" in the plot below) solve our problems with the "Friedman 1" simulated data as well? 
 
-```{r}
+```{r fig.width= 8, fig.height= 3}
 ggplot(fit_list %>% filter(ds_group == "df_friedman1"), 
        aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
   geom_point() +
@@ -237,9 +237,9 @@ ggplot(fit_list %>% filter(ds_group == "df_friedman1"),
 
 Yes, it can! And here we see that RF tuning is not enough, we really need to identify and remove the irrelevant variables.
 
-A similar pattern is seen for the `solubility` dataset with noise added, used by Kuhn & Johnson in `Applied Predictive Modelling`:
+A similar pattern is seen for the `solubility` dataset with noise added, an example taken from [@kuhn_johnson13]:
 
-```{r}
+```{r fig.width= 8, fig.height= 3}
 ggplot(fit_list %>% filter(ds_group == "solubility" & ds_name != "solubility_N500_perm"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
   geom_point() +
   geom_label(aes(label = round(performance,2)), nudge_y = -0.2, nudge_x = +0.1) +
@@ -258,7 +258,7 @@ To drive the point home, I have taken the `solubility` dataset with 500 noise pr
 
 All three RF modeling approaches now correctly report an R-squared of 0%.
 
-```{r}
+```{r fig.width= 8, fig.height= 3}
 ggplot(fit_list %>% filter(ds_name == "solubility_N500_perm"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
   geom_point() +
   geom_label(aes(label = round(performance,2)), nudge_y = -0.2, nudge_x = +0.1) +
