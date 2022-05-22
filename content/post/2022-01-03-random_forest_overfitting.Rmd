@@ -8,7 +8,7 @@ summary: This blog post demonstrates that the presence of irrelevant variables c
   The solution is either to tune one of the algorithm's parameters, OR to remove irrelevant
   features using a procedure called Recursive Feature Elimination (RFE).
 slug: random-forest-overfitting
-draft: yes
+draft: no
 categories:
 - Random Forest
 - Machine Learning
@@ -19,10 +19,12 @@ tags:
 - ranger
 baseurl: https://gsverhoeven.github.io
 header:
-  image: headers/wilhelm-gunkel-di8ognBauG0-unsplash.png
+  image: headers/steven-kamenar-MMJx78V7xS8-unsplash.png
   preview: no
 ---
 
+(Photo by <a href="https://unsplash.com/@skamenar?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Steven Kamenar</a> on <a href="https://unsplash.com/s/photos/forest?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Unsplash</a>)
+  
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
