@@ -1,0 +1,354 @@
+---
+title: 'Cluster analysis of Blood Bowl teams using FUMBBL data in R: PCA vs T-SNE'
+author: "Gertjan Verhoeven"
+date: '2022-05-05'
+summary: This blog post compares two unsupervised learning methods to learn which Blood Bowl teams cluster together if we look at various match related metrics from FUMBBL such as scoring, injuries, passes and blocks.
+slug: blood-bowl-cluster-analysis
+draft: yes
+categories:
+- Blood Bowl
+- Machine Learning
+- Clustering
+- Unsupervised learning
+tags:
+- t-sne
+- pca
+baseurl: https://gsverhoeven.github.io
+header:
+  image: headers/wilhelm-gunkel-di8ognBauG0-unsplash.png
+  preview: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# packages
+
+```{r}
+library(tidyverse)
+library(ggfortify)
+```
+
+# Read in the FUMBBL data
+
+```{r}
+df_mbt <- read.csv(file = "datasets/current/df_mbt.csv")
+```
+
+Make four selections of datasets. Try the purrr code.
+
+```{r eval = F}
+league_data <- c("REBBL" = "REBBL_S567.rds", "OCC" = "OCC_All.rds", "MML" = "MML_S91011.rds", "CCL XII" = "CCL_XII.rds")
+
+read_and_clean <- function(path) {
+  readRDS(str_c(data_dir, path)) %>% 
+    map_dfr(
+      ~.x$teams %>% # .x$teams stores the statistics for the match
+        map_dfr(
+          ~purrr::flatten(.x) %>% 
+            purrr::modify_if(is.null, ~NA) %>% 
+            as_data_frame()
+        )
+    ) %>% 
+    filter(mvp == 1) # only want completed games
+}
+
+data_tables <- map(league_data, read_and_clean)
+```
+
+```{r eval = F}
+select_stats <- function(df) {
+  df %>% 
+    mutate(race = id_to_race(idraces)) %>% # race names rather than idcodes
+    select(
+      race,
+      occupationown:sustaineddead, 
+      -mvp, 
+      -inflictedpushouts, # always zero, so uninformative
+      -inflictedcatches # passes/catches are duplicates so only keep one
+      ) 
+}
+
+data_tables <- map(data_tables, select_stats)
+
+data_tables$REBBL %>% colnames()
+```
+
+
+# Selecting variables to include
+
+The nufflytics blog post has a somewhat surprising selection of "performance" statistics.
+For example, the number of inflicted touchdowns is selected, but not the number of sustained touchdowns.
+
+The Cyanide Blood Bowl 2 API (not publicly accessible) apparently offers the following stats for each match, for both teams:
+
+Scoring related:
+
+* Ball occupation
+* Touchdowns
+
+Blocking related:
+
+* Casualties
+* Knock outs
+* Injuries
+* Dead
+
+Passing related:
+
+* Interceptions
+* Meters running
+* Meters passing
+* Passes
+
+Fouling related:
+
+* Expulsions (sent off players after fouling)
+
+Other:
+
+* Tackles
+
+# Simulated data
+
+He mentions that each match generates two data points, one for each team.
+
+If we include all stats for both the home and away team, something peculiar happens:
+The principal components are exactly opposite.
+
+```{r}
+set.seed(123)
+home_score <- rpois(n = 10000, lambda = 1)
+away_score <- rpois(n = 10000, lambda = 1)
+
+df <- rbind(data.frame(home_score, away_score), 
+            data.frame(home_score = away_score, away_score = home_score))
+
+PCA <-  df %>% 
+    as.matrix() %>% 
+    prcomp(scale = T)
+PCA
+```
+
+```{r}
+round(PCA$sdev^2/sum(PCA$sdev^2)*100,1)
+```
+
+```{r}
+autoplot(PCA, loadings = TRUE, loadings.label = TRUE)
+```
+Can we fix this by selecting at random one team for each match?
+
+```{r}
+set.seed(123)
+sel_vec <- rbinom(n = 10000, size = 1, p = 0.5)
+
+sel_vec <- c(sel_vec, 1 -  sel_vec)
+
+
+```
+
+
+```{r}
+PCA <- df[sel_vec == 1,] %>% 
+    as.matrix() %>% 
+    prcomp(scale = T)
+PCA
+```
+```{r fig.height = 4, fig.width = 4}
+autoplot(PCA, loadings = TRUE, loadings.label = TRUE)
+```
+
+```{r}
+cor(df$home_score, df$away_score)
+```
+The scores are completely uncorrelated, even with the duplicate "mirror" matches included.
+
+# Select for each match only one team at random
+
+```{r}
+set.seed(123)
+sel_vec <- rbinom(n = nrow(df_mbt)/2, size = 1, p = 0.5)
+
+sel_vec <- c(sel_vec, 1 -  sel_vec)
+
+  
+# check if it works
+df_mbt2 <- df_mbt[sel_vec == 1,]
+df_mbt2 <- df_mbt2 %>% filter(match_id != 4239544)
+```
+
+We leave out the cas breakdown in badly hurt, injured and dead, since this biases the analysis strongly to differences in Armor value.
+
+```{r}
+df_pca <- df_mbt2 %>%
+  #filter(division_name == "Blackbox") %>%
+  filter(division_name == "Regular_league") %>%
+  filter(race_name != "Treeman") %>%
+  filter(race_name != "Simyin") %>%
+  select(race_name, race_type, team_score, away_team_score:away_cas_rip) %>%
+  select(-(home_cas_bh:home_cas_rip), -(away_cas_bh:away_cas_rip))
+
+colnames(df_pca)
+```
+
+```{r}
+cor(df_pca$team_score, df_pca$away_team_score)
+```
+
+In the real data, a strong negative correlation exists for home and away score.
+
+<!-- ##  [1] "race"                   "occupationown"          -->
+<!-- ##  [3] "occupationtheir"        "inflictedpasses"        -->
+<!-- ##  [5] "inflictedinterceptions" "inflictedtouchdowns"    -->
+<!-- ##  [7] "inflictedcasualties"    "inflictedtackles"       -->
+<!-- ##  [9] "inflictedko"            "inflictedinjuries"      -->
+<!-- ## [11] "inflicteddead"          "inflictedmetersrunning" -->
+<!-- ## [13] "inflictedmeterspassing" "sustainedexpulsions"    -->
+<!-- ## [15] "sustainedcasualties"    "sustainedko"            -->
+<!-- ## [17] "sustainedinjuries"      "sustaineddead" -->
+
+<!-- ##  [1] "race"    
+ "occupationown"          --> <!-- ##  [3] "occupationtheir"   
+    "inflictedpasses"        -->
+<!-- ##  [5] "inflictedinterceptions" 
+"inflictedtouchdowns"    -->
+<!-- ##  [7] "inflictedcasualties"    "inflictedtackles"       -->
+<!-- ##  [9] "inflictedko"            "inflictedinjuries"      -->
+<!-- ## [11] "inflicteddead"          "inflictedmetersrunning" -->
+<!-- ## [13] "inflictedmeterspassing" 
+
+"sustainedexpulsions"    -->
+<!-- ## [15] "sustainedcasualties"    "sustainedko"            -->
+<!-- ## [17] "sustainedinjuries"      "sustaineddead" -->
+
+
+```{r}
+# df_pca <- df_mbt %>%
+#   filter(division_name == "Competitive") %>%
+#   select(race_name, race_type, team_score, away_team_score:away_cas_rip) %>%
+#   select( -home_foul, -(away_comp:away_block)) # -away_team_score,
+# 
+# colnames(df_pca)
+```
+
+```{r}
+PCA <-  df_pca %>% 
+    select(-race_name, -race_type) %>% 
+    as.matrix() %>% 
+    prcomp(scale = T)
+
+```
+
+```{r}
+PCA
+```
+```{r}
+autoplot(PCA, loadings = TRUE, loadings.label = TRUE)
+```
+
+```{r}
+round(PCA$sdev^2/sum(PCA$sdev^2)*100,1)
+```
+The first two components explain 33% of variation in the match statistics.
+The more variables we include, the lower the first components explain variation.
+
+```{r}
+cbind(as_data_frame(PCA$x), race = df_pca$race_name) %>% 
+  ggplot(aes(x = PC1, y = -1*PC2, colour = factor(race) %>% forcats::fct_reorder2(PC1, PC2, sum))) +
+  geom_point(alpha = 0.5) +
+  theme(legend.position = "none") +
+  ggtitle("PCA", "FUMBBL")
+```
+
+```{r fig.height = 8, fig.width = 8}
+flip_x <- -1
+flip_y <- 1
+ #   ggplot(aes(PC1, PC2, label = race, colour = factor(race) %>% forcats::fct_reorder2(PC1,PC2,sum))) +
+
+race_types <- unique(df_pca %>% select(race_name, race_type))
+
+cbind(data.frame(PCA$x), race = df_pca$race_name, race_type = df_pca$race_type) %>% 
+    group_by(race) %>% 
+    summarise(PC1 = median(PC1)*flip_x, PC2 = median(PC2)*flip_y, count = n()) %>% 
+    left_join(race_types, by = c("race" = "race_name")) %>%
+     ggplot(aes(PC1, PC2, label = race, colour = factor(race_type))) +
+    geom_point(aes(size = count), alpha = 0.4) +
+    ggrepel::geom_text_repel(size = 3, point.padding = unit(0.05, "lines")) + 
+    #theme(legend.position = "none") +
+    ggtitle("FUMBBL") +
+    scale_x_continuous(expand = c(0.2,0)) +
+    scale_y_continuous(expand = c(0.2,0))
+```
+# T-SNE
+
+Swiss Roll (Geron book)
+https://jlmelville.github.io/smallvis/swisssne.html
+
+https://members.loria.fr/moberger/Enseignement/AVR/Exposes/TR_Dimensiereductie.pdf
+
+Jesse Krijthe created an R package that "wraps" around the C++ code of Laurens van der Maaten.
+t-distributed Stochastic Nearest Neighbour Embedding (T-SNE) needs some serious computation that scales unfavourably with the size of the dataset. There are various tricks to reduce computation. A Tree model is built to find 3 * perplexity nearest neighbours, ignoring the rest. The Barnes-Hutt approximation is controlled by the $theta$ parameter. To help the algorithm an initial PCA step is also computed.
+
+A high perplexity means that a lot of nearest neighbours are taken into account. This means that the higher this parameter, the more the clustering resembles the global structure, i.e. how ALL datapoints relate to each other.
+
+```{r}
+library(Rtsne)
+
+set.seed(1234)
+df_pca_small <- df_pca %>% 
+      sample_n(10000)
+
+TSNE <-  df_pca %>% 
+    select(-race_name, -race_type) %>% 
+    as.matrix() %>% 
+    Rtsne(check_duplicates = FALSE, pca = TRUE, perplexity=50, max_iter = 1000, theta=0.5, dims=2, verbose = TRUE, num_threads = 2 )
+```
+
+```{r fig.height = 5, fig.width = 7}
+flip_x <- -1
+flip_y <- 1
+
+race_types <- unique(df_pca %>% select(race_name, race_type))
+
+cbind(data.frame(TSNE$Y), race = df_pca$race_name, race_type = df_pca$race_type) %>% 
+    group_by(race) %>% 
+    summarise(PC1 = median(X1)*flip_x, PC2 = median(X2)*flip_y, count = n()) %>% 
+    left_join(race_types, by = c("race" = "race_name")) %>%
+     ggplot(aes(PC1, PC2, label = race, colour = factor(race_type))) +
+    geom_point(aes(size = count), alpha = 0.4) +
+    ggrepel::geom_text_repel(size = 3, point.padding = unit(0.05, "lines")) + 
+    #theme(legend.position = "none") +
+    ggtitle("FUMBBL t-sne clustering") +
+    scale_x_continuous(expand = c(0.2,0)) +
+    scale_y_continuous(expand = c(0.2,0))
+```
+Interestingly, the non-linear clustering has placed Black Orc close to Lizardmen, which sort of makes sense given the similarities between both teams. The big difference is in fouling, and that is only one characteristic of the 14 included.
+
+Khorne is close to humans and Chaos Renegade.
+
+This suggests that the new teams are not typed properly by me.
+Ogre should be stunty as well.
+
+# Manual clustering: touchdown difference vs passing
+
+
+```{r fig.height = 5, fig.width = 7}
+flip_x <- -1
+flip_y <- 1
+
+race_types <- unique(df_pca %>% select(race_name, race_type))
+
+cbind(df_pca %>% select(team_score, away_team_score, home_pass), race = df_pca$race_name, race_type = df_pca$race_type) %>% 
+    group_by(race) %>% 
+    summarise(PC1 = median(scale(team_score - away_team_score))*flip_x, PC2 = median(scale(home_pass))*flip_y, count = n()) %>% 
+    left_join(race_types, by = c("race" = "race_name")) %>%
+     ggplot(aes(PC1, PC2, label = race, colour = factor(race_type))) +
+    geom_point(aes(size = count), alpha = 0.4) +
+    ggrepel::geom_text_repel(size = 3, point.padding = unit(0.05, "lines")) + 
+    #theme(legend.position = "none") +
+    ggtitle("FUMBBL t-sne clustering") +
+    scale_x_continuous(expand = c(0.2,0)) +
+    scale_y_continuous(expand = c(0.2,0))
+```
