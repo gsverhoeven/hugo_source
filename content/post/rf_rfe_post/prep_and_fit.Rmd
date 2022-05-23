@@ -92,7 +92,7 @@ bodyfat = getOMLDataSet(data.id = 560L)
 bodyfat <- bodyfat$data
 ```
 
-`bodyfat` on OpenML has a weird dependant variable ("class"), whereas the same dataset on Kaggle has "Body fat" as a dependant variable, which is also present on OpenML. Both variables correlate strongly, giving us an artificial situation with one predictor being highly predictive of the outcome, with the other variables demoted to the status of noise variable.
+`bodyfat` on OpenML has a weird dependent variable ("class"), whereas the same dataset on Kaggle has "Body fat" as a dependent variable, which is also present on OpenML. Both variables correlate strongly, giving us an artificial situation with one predictor being highly predictive of the outcome, with the other variables demoted to the status of noise variable.
 
 ```{r}
 plot(bodyfat$class, bodyfat$Density)
@@ -428,7 +428,43 @@ rfe_fit <- readRDS("fits/fit_29.rds")
 rfe_fit$fit
 ```
 
+```{r}
+r.squared <- c()
 
+for(i in 1:30){
+  rf.fit <- ranger(y ~ ., data = df_friedman1_N500, num.threads = 6, num.trees = 100)
+  r.squared[i] <- rf.fit$r.squared
+}
+```
+
+```{r}
+hist(r.squared)
+```
+```{r}
+r.squared2 <- c()
+
+for(i in 1:30){
+  rf.fit <- ranger(y ~ ., data = df_friedman1_N500, num.threads = 6, num.trees = 1000)
+  r.squared2[i] <- rf.fit$r.squared
+}
+```
+
+```{r}
+hist(r.squared)
+```
+
+```{r}
+r.squared3 <- c()
+
+for(i in 1:5){
+  rf.fit <- ranger(y ~ ., data = df_friedman1_N500, num.threads = 6, num.trees = 5000)
+  r.squared3[i] <- rf.fit$r.squared
+}
+```
+
+```{r}
+hist(r.squared3)
+```
 
 ### ISLR datasets (NCI60)
 
@@ -617,7 +653,7 @@ plot(res)
 ```{r}
 res
 ```
-Simply tuning the RF does not give optimal performance.
+Simply tuning the RF (mtry) does not give optimal performance with 100+5 noise.
 
 ```{r}
 set.seed(1234)
@@ -639,6 +675,65 @@ plot(res)
 ```
 
 This gets worse if we add more noise variables.
+
+```{r}
+set.seed(1234)
+fullrun <- 1
+
+rangerGrid <- data.frame(mtry = c(60),
+                       splitrule = "variance", 
+                       min.node.size = 5)
+
+if(fullrun){
+res2 <- train(y ~ ., 
+              data = df_friedman1_N100, 
+              method = "ranger", 
+              metric = "Rsquared",
+             tuneGrid = rangerGrid,
+              trControl = trainControl(method = "repeatedcv", repeats = 10, returnResamp = "all"),
+              num.threads = 6,
+             num.trees = 250
+             )
+saveRDS(res2, "res2.rds")
+} else { res2 <- readRDS("res2.rds")}
+res2
+```
+
+Now increase num.trees
+
+```{r}
+set.seed(1234)
+fullrun <- 1
+
+rangerGrid <- data.frame(mtry = c(60),
+                       splitrule = "variance", 
+                       min.node.size = 5)
+
+if(fullrun){
+res2 <- train(y ~ ., 
+              data = df_friedman1_N100, 
+              method = "ranger", 
+              metric = "Rsquared",
+             tuneGrid = rangerGrid,
+              trControl = trainControl(method = "repeatedcv", repeats = 10, returnResamp = "all"),
+              num.threads = 6,
+             num.trees = 2500
+             )
+saveRDS(res2, "res3.rds")
+} else { res2 <- readRDS("res3.rds")}
+res2
+```
+
+```{r}
+sres <- rbind(data.frame(res$resample, num.trees = 500),
+              data.frame(res2$resample, num.trees = 5000))
+
+sres$Rep <- substr(sres$Resample, 8,12)
+
+ggplot(sres, aes(x = MAE, y = Rsquared )) +
+  facet_wrap(~ Rep)
+```
+
 
 ### OpenML datasets
 
