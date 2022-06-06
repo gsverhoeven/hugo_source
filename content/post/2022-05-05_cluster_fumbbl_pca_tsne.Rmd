@@ -206,6 +206,9 @@ run_pca <- function(df) {
 PCAs <- map(data_tables, run_pca)
 ```
 
+```{r}
+PCAs[[1]]
+```
 
 ```{r}
 autoplot(PCAs[1], loadings = TRUE, loadings.label = TRUE)
@@ -251,6 +254,21 @@ plots = pmap(.l = list(PCAs, data_tables,
 cowplot::plot_grid(plotlist = plots)
 ```
 
+# back to the data
+
+```{r}
+res <- data_tables$Competitive %>%
+  mutate(pc1 = PCAs[[1]]$x[,1]) %>%
+  group_by(race_name) %>%
+  select(where(is.numeric)) %>%
+  summarise(across(everything(), mean)) %>%
+  arrange(-home_block)
+
+View(res)
+```
+
+
+
 # T-SNE
 
 Swiss Roll (Geron book)
@@ -267,10 +285,10 @@ A high perplexity means that a lot of nearest neighbours are taken into account.
 library(Rtsne)
 
 set.seed(1234)
-df_pca_small <- df_pca %>% 
-      sample_n(10000)
 
-TSNE <-  df_pca %>% 
+## 15 min
+
+TSNE <-  data_tables$Blackbox %>% 
     select(-race_name, -race_type) %>% 
     as.matrix() %>% 
     Rtsne(check_duplicates = FALSE, pca = TRUE, perplexity=50, max_iter = 1000, theta=0.5, dims=2, verbose = TRUE, num_threads = 2 )
@@ -279,8 +297,6 @@ TSNE <-  df_pca %>%
 ```{r fig.height = 5, fig.width = 7}
 flip_x <- -1
 flip_y <- 1
-
-race_types <- unique(df_pca %>% select(race_name, race_type))
 
 cbind(data.frame(TSNE$Y), race = df_pca$race_name, race_type = df_pca$race_type) %>% 
     group_by(race) %>% 
@@ -301,24 +317,3 @@ Khorne is close to humans and Chaos Renegade.
 This suggests that the new teams are not typed properly by me.
 Ogre should be stunty as well.
 
-# Manual clustering: touchdown difference vs passing
-
-
-```{r fig.height = 5, fig.width = 7}
-flip_x <- -1
-flip_y <- 1
-
-race_types <- unique(df_pca %>% select(race_name, race_type))
-
-cbind(df_pca %>% select(team_score, away_team_score, home_pass), race = df_pca$race_name, race_type = df_pca$race_type) %>% 
-    group_by(race) %>% 
-    summarise(PC1 = median(scale(team_score - away_team_score))*flip_x, PC2 = median(scale(home_pass))*flip_y, count = n()) %>% 
-    left_join(race_types, by = c("race" = "race_name")) %>%
-     ggplot(aes(PC1, PC2, label = race, colour = factor(race_type))) +
-    geom_point(aes(size = count), alpha = 0.4) +
-    ggrepel::geom_text_repel(size = 3, point.padding = unit(0.05, "lines")) + 
-    #theme(legend.position = "none") +
-    ggtitle("FUMBBL t-sne clustering") +
-    scale_x_continuous(expand = c(0.2,0)) +
-    scale_y_continuous(expand = c(0.2,0))
-```
