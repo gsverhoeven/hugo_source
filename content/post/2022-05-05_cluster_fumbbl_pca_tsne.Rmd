@@ -33,46 +33,58 @@ library(ggfortify)
 # Read in the FUMBBL data
 
 ```{r}
-df_mbt <- read.csv(file = "datasets/current/df_mbt.csv")
+df_mbt <- read.csv(file = "../../../fumbbl_datasets/datasets/current/df_mbt.csv")
+
+race_types <- unique(df_mbt %>% select(race_name, race_type))
+
 ```
+
+```{r}
+df_mbt %>% 
+  filter(division_name == "Blackbox") %>%
+  saveRDS("fumbbl_cluster/blackbox.rds")
+
+df_mbt %>% 
+  filter(division_name == "Competitive") %>%
+  saveRDS("fumbbl_cluster/competitive.rds")
+
+df_mbt %>% 
+  filter(division_name == "Ranked") %>%
+  saveRDS("fumbbl_cluster/ranked.rds")
+
+df_mbt %>% 
+  filter(division_name == "Regular_league") %>%
+  filter(race_name != "Treeman") %>%
+  filter(race_name != "Simyin") %>%
+  saveRDS("fumbbl_cluster/league.rds")
+```
+
 
 Make four selections of datasets. Try the purrr code.
 
 ```{r eval = F}
-league_data <- c("REBBL" = "REBBL_S567.rds", "OCC" = "OCC_All.rds", "MML" = "MML_S91011.rds", "CCL XII" = "CCL_XII.rds")
+data_dir <- c("fumbbl_cluster/")
+
+league_data <- c("Competitive" = "competitive.rds", "Blackbox" = "blackbox.rds", 
+                 "Ranked" = "ranked.rds", "League" = "league.rds")
 
 read_and_clean <- function(path) {
-  readRDS(str_c(data_dir, path)) %>% 
-    map_dfr(
-      ~.x$teams %>% # .x$teams stores the statistics for the match
-        map_dfr(
-          ~purrr::flatten(.x) %>% 
-            purrr::modify_if(is.null, ~NA) %>% 
-            as_data_frame()
-        )
-    ) %>% 
-    filter(mvp == 1) # only want completed games
+  readRDS(str_c(data_dir, path))
 }
 
 data_tables <- map(league_data, read_and_clean)
-```
 
-```{r eval = F}
 select_stats <- function(df) {
   df %>% 
-    mutate(race = id_to_race(idraces)) %>% # race names rather than idcodes
-    select(
-      race,
-      occupationown:sustaineddead, 
-      -mvp, 
-      -inflictedpushouts, # always zero, so uninformative
-      -inflictedcatches # passes/catches are duplicates so only keep one
-      ) 
+  select(race_name, race_type, team_score, away_team_score:away_cas_rip) %>%
+  select(-(home_cas_bh:home_cas_rip), -(away_cas_bh:away_cas_rip))
 }
 
 data_tables <- map(data_tables, select_stats)
 
-data_tables$REBBL %>% colnames()
+data_tables$Competitive %>% colnames()
+
+
 ```
 
 
@@ -181,71 +193,22 @@ df_mbt2 <- df_mbt2 %>% filter(match_id != 4239544)
 
 We leave out the cas breakdown in badly hurt, injured and dead, since this biases the analysis strongly to differences in Armor value.
 
-```{r}
-df_pca <- df_mbt2 %>%
-  #filter(division_name == "Blackbox") %>%
-  filter(division_name == "Regular_league") %>%
-  filter(race_name != "Treeman") %>%
-  filter(race_name != "Simyin") %>%
-  select(race_name, race_type, team_score, away_team_score:away_cas_rip) %>%
-  select(-(home_cas_bh:home_cas_rip), -(away_cas_bh:away_cas_rip))
-
-colnames(df_pca)
-```
+# Analysis
 
 ```{r}
-cor(df_pca$team_score, df_pca$away_team_score)
-```
-
-In the real data, a strong negative correlation exists for home and away score.
-
-<!-- ##  [1] "race"                   "occupationown"          -->
-<!-- ##  [3] "occupationtheir"        "inflictedpasses"        -->
-<!-- ##  [5] "inflictedinterceptions" "inflictedtouchdowns"    -->
-<!-- ##  [7] "inflictedcasualties"    "inflictedtackles"       -->
-<!-- ##  [9] "inflictedko"            "inflictedinjuries"      -->
-<!-- ## [11] "inflicteddead"          "inflictedmetersrunning" -->
-<!-- ## [13] "inflictedmeterspassing" "sustainedexpulsions"    -->
-<!-- ## [15] "sustainedcasualties"    "sustainedko"            -->
-<!-- ## [17] "sustainedinjuries"      "sustaineddead" -->
-
-<!-- ##  [1] "race"    
- "occupationown"          --> <!-- ##  [3] "occupationtheir"   
-    "inflictedpasses"        -->
-<!-- ##  [5] "inflictedinterceptions" 
-"inflictedtouchdowns"    -->
-<!-- ##  [7] "inflictedcasualties"    "inflictedtackles"       -->
-<!-- ##  [9] "inflictedko"            "inflictedinjuries"      -->
-<!-- ## [11] "inflicteddead"          "inflictedmetersrunning" -->
-<!-- ## [13] "inflictedmeterspassing" 
-
-"sustainedexpulsions"    -->
-<!-- ## [15] "sustainedcasualties"    "sustainedko"            -->
-<!-- ## [17] "sustainedinjuries"      "sustaineddead" -->
-
-
-```{r}
-# df_pca <- df_mbt %>%
-#   filter(division_name == "Competitive") %>%
-#   select(race_name, race_type, team_score, away_team_score:away_cas_rip) %>%
-#   select( -home_foul, -(away_comp:away_block)) # -away_team_score,
-# 
-# colnames(df_pca)
-```
-
-```{r}
-PCA <-  df_pca %>% 
+run_pca <- function(df) {
+  df %>% 
     select(-race_name, -race_type) %>% 
     as.matrix() %>% 
     prcomp(scale = T)
+}
 
+PCAs <- map(data_tables, run_pca)
 ```
 
+
 ```{r}
-PCA
-```
-```{r}
-autoplot(PCA, loadings = TRUE, loadings.label = TRUE)
+autoplot(PCAs[1], loadings = TRUE, loadings.label = TRUE)
 ```
 
 ```{r}
@@ -255,32 +218,39 @@ The first two components explain 33% of variation in the match statistics.
 The more variables we include, the lower the first components explain variation.
 
 ```{r}
-cbind(as_data_frame(PCA$x), race = df_pca$race_name) %>% 
+cbind(as_data_frame(PCAs[[1]]$x), race = data_tables[[1]]$race_name) %>% 
   ggplot(aes(x = PC1, y = -1*PC2, colour = factor(race) %>% forcats::fct_reorder2(PC1, PC2, sum))) +
   geom_point(alpha = 0.5) +
   theme(legend.position = "none") +
   ggtitle("PCA", "FUMBBL")
 ```
-
-```{r fig.height = 8, fig.width = 8}
-flip_x <- -1
-flip_y <- 1
- #   ggplot(aes(PC1, PC2, label = race, colour = factor(race) %>% forcats::fct_reorder2(PC1,PC2,sum))) +
-
-race_types <- unique(df_pca %>% select(race_name, race_type))
-
-cbind(data.frame(PCA$x), race = df_pca$race_name, race_type = df_pca$race_type) %>% 
+```{r fig.width= 16, fig.height = 16}
+plot_pca <- function(pca, data, flip_x = 1, flip_y = 1, league) { 
+  cbind(data.frame(pca$x), race = data$race_name, race_type = data$race_type) %>% 
     group_by(race) %>% 
-    summarise(PC1 = median(PC1)*flip_x, PC2 = median(PC2)*flip_y, count = n()) %>% 
+    summarise(PC1 = median(PC1)*flip_x, 
+              PC2 = median(PC2)*flip_y, 
+              count = n()) %>% 
     left_join(race_types, by = c("race" = "race_name")) %>%
-     ggplot(aes(PC1, PC2, label = race, colour = factor(race_type))) +
-    geom_point(aes(size = count), alpha = 0.4) +
-    ggrepel::geom_text_repel(size = 3, point.padding = unit(0.05, "lines")) + 
-    #theme(legend.position = "none") +
-    ggtitle("FUMBBL") +
-    scale_x_continuous(expand = c(0.2,0)) +
-    scale_y_continuous(expand = c(0.2,0))
+    ggplot(aes(PC1, PC2, label = race, colour = factor(race_type))) +
+      geom_point(aes(size = count), alpha = 0.4) +
+      ggrepel::geom_text_repel(size = 4, point.padding = unit(0.05, "lines")) + 
+      theme(legend.position = "none") +
+      ggtitle(league) +
+      scale_x_continuous(expand = c(0.2,0))+
+      scale_y_continuous(expand = c(0.2,0))
+}
+
+# do a parallel map over multiple inputs (lists)
+plots = pmap(.l = list(PCAs, data_tables, 
+                       flip_x = c(-1,-1,1,-1), 
+                       flip_y = c(1,1,-1,1), 
+                       names(league_data)), 
+             .f = plot_pca)
+
+cowplot::plot_grid(plotlist = plots)
 ```
+
 # T-SNE
 
 Swiss Roll (Geron book)
