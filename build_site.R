@@ -40,9 +40,12 @@ print("site build")
 # Do a local preview of the site
 
 # knit opnieuw na elke save
-options(blogdown.knit.on_save = TRUE) # dit willen we 
-options(blogdown.skip.draft = TRUE) # werkt niet
+options(blogdown.knit.on_save = FALSE) # voorkom dat alle RMds gemonitord worden, waardoor drafts Rmd ook gebouwd worden
 
+#options(blogdown.skip.draft = TRUE) # werkt niet
+
+#you should know that in the YAML front matter of your new file, you can add draft: TRUE and 
+#you will be able to preview your post using blogdown::serve_site(), but conveniently your post will not show up on your deployed site until you set it to false.
 blogdown::serve_site()
 
 
