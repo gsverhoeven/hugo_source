@@ -330,6 +330,7 @@ ctrl <- rfeControl(functions = rangerFuncs,
                    saveDetails = TRUE)
 ```
 
+Set num.threads to match the processor specs.
 
 ```{r}
 res <- list()
@@ -421,6 +422,13 @@ It looks like tuning mtry can reduce the negative effect of irrelevant features,
 ```{r}
 fit_list %>% filter(ds_group == "df_friedman1")
 ```
+
+#### effect of num.trees 
+
+```{r}
+fit_list %>% filter(fit_id == 29)
+```
+
 
 ```{r}
 rfe_fit <- readRDS("fits/fit_29.rds")

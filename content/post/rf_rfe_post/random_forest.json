@@ -810,5 +810,88 @@
 			]
 		},
 		"citation-key": "geron19"
+	},
+	{
+		"id": "goldstein_etal11",
+		"type": "article-journal",
+		"abstract": "The Random Forests (RF) algorithm has become a commonly used machine learning algorithm for genetic association studies. It is well suited for genetic applications since it is both computationally efficient and models genetic causal mechanisms well. With its growing ubiquity, there has been inconsistent and less than optimal use of RF in the literature. The purpose of this review is to breakdown the theoretical and statistical basis of RF so that practitioners are able to apply it in their work. An emphasis is placed on showing how the various components contribute to bias and variance, as well as discussing variable importance measures. Applications specific to genetic studies are highlighted. To provide context, RF is compared to other commonly used machine learning algorithms.",
+		"container-title": "Statistical Applications in Genetics and Molecular Biology",
+		"DOI": "10.2202/1544-6115.1691",
+		"ISSN": "1544-6115",
+		"issue": "1",
+		"journalAbbreviation": "Stat Appl Genet Mol Biol",
+		"language": "eng",
+		"note": "PMID: 22889876\nPMCID: PMC3154091",
+		"page": "32",
+		"source": "PubMed",
+		"title": "Random forests for genetic association studies",
+		"volume": "10",
+		"author": [
+			{
+				"family": "Goldstein",
+				"given": "Benjamin A."
+			},
+			{
+				"family": "Polley",
+				"given": "Eric C."
+			},
+			{
+				"family": "Briggs",
+				"given": "Farren B. S."
+			}
+		],
+		"issued": {
+			"date-parts": [
+				[
+					"2011"
+				]
+			]
+		},
+		"citation-key": "goldstein_etal11"
+	},
+	{
+		"id": "kauffman_jurs01",
+		"type": "article-journal",
+		"abstract": "Experimental IC50 data for 314 selective cyclooxygenase-2 (COX-2) inhibitors are used to develop quantitation and classification models as a potential screening mechanism for larger libraries of target compounds. Experimental log(IC50) values ranged from 0.23 to ≥ 5.00. Numerical descriptors encoding solely topological information are calculated for all structures and are used as inputs for linear regression, computational neural network, and classification analysis routines. Evolutionary optimization algorithms are then used to search the descriptor space for information-rich subsets which minimize the rms error of a diverse training set of compounds. An eight-descriptor model was identified as a robust predictor of experimental log(IC50) values, producing a root-mean-square error of 0.625 log units for an external prediction set of inhibitors which took no part in model development. A k-nearest neighbor classification study of the data set discriminating between active and inactive members produced a nine-descriptor model able to accurately classify 83.3% of the prediction set compounds correctly.",
+		"container-title": "Journal of Chemical Information and Computer Sciences",
+		"DOI": "10.1021/ci010073h",
+		"ISSN": "0095-2338",
+		"issue": "6",
+		"journalAbbreviation": "J. Chem. Inf. Comput. Sci.",
+		"note": "publisher: American Chemical Society",
+		"page": "1553-1560",
+		"source": "ACS Publications",
+		"title": "QSAR and k-Nearest Neighbor Classification Analysis of Selective Cyclooxygenase-2 Inhibitors Using Topologically-Based Numerical Descriptors",
+		"URL": "https://doi.org/10.1021/ci010073h",
+		"volume": "41",
+		"author": [
+			{
+				"family": "Kauffman",
+				"given": "Gregory W."
+			},
+			{
+				"family": "Jurs",
+				"given": "Peter C."
+			}
+		],
+		"accessed": {
+			"date-parts": [
+				[
+					"2022",
+					6,
+					10
+				]
+			]
+		},
+		"issued": {
+			"date-parts": [
+				[
+					"2001",
+					11,
+					1
+				]
+			]
+		},
+		"citation-key": "kauffman_jurs01"
 	}
 ]
