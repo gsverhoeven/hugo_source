@@ -68,15 +68,11 @@ fit_list %>% filter(ds_group == "df_iris" & algo == "ranger_mtry_default")
 ```
 
 ```{r, fig.width= 8, fig.height= 3}
-ggplot(fit_list %>% filter(ds_group == "df_iris" & algo == "ranger_mtry_default"), 
-       aes(x = reorder(algo, performance), y = performance*100, col = factor(algo))) +
-  geom_point() +
-  geom_label(aes(label = paste0(round(performance*100,0), "%")), nudge_y = -0.02, nudge_x = +0.1) +
-  geom_segment(aes(xend = algo, y = 0, yend = performance*100)) +
-  coord_flip() +
-  facet_wrap(~ ds_name) +
-  scale_y_continuous(expand = c(0.2,0))+
-  labs(y = "Accuracy (% correct)", x = "", title = "Adding 100 noise variables to the iris dataset")
+source("rf_rfe_post/plot_performance.R")
+
+plot_performance(data = fit_list %>% filter(ds_group == "df_iris" & algo == "ranger_mtry_default"),
+                 axis_label = "Accuracy (% correct)",
+                 plot_title = "Adding 100 noise variables to the iris dataset")
 ```
 
 Indeed, the performance (here i looked at *Accuracy* as percentage of observations correctly classified) is hardly affected.
@@ -96,15 +92,10 @@ Kuhn added 40 more noise variables to the dataset and simulated N = 100 observat
 I also reproduced this analysis, but with N = 1000 and with 0, 100 and 500 **additional** noise variables added (instead of 40).
 
 ```{r, fig.width= 8, fig.height= 3}
-ggplot(fit_list %>% filter(ds_group == "df_friedman1" & algo %in% c("ranger_mtry_default")), 
-       aes(x = reorder(algo, performance), y = performance*100, col = factor(algo))) +
-  geom_point() +
-  geom_label(aes(label = round(performance*100,0)), nudge_y = -0.02, nudge_x = +0.1) +
-  geom_segment(aes(xend = algo, y = 0, yend = performance*100)) +
-  coord_flip() +
-  facet_wrap(~ ds_name) +
-  scale_y_continuous(expand = c(0.2,0))+
-  labs(y = "R-squared (%)", x = "", title = "Adding increasing amount of noise to the Friedman 1 dataset")
+plot_performance(data = fit_list %>% filter(ds_group == "df_friedman1" & algo %in% c("ranger_mtry_default")),
+                 axis_label = "R-squared (%)",
+                 plot_title = "Adding increasing amount of noise to the Friedman 1 dataset")
+
 ```
 
 We can check the optimal performance by only including the relevant predictors $x_1, x_2,x_3,x_4, x_5$ in the RF algorithm. 
@@ -164,13 +155,9 @@ In this blog post, we use `mtry` as the only tuning parameter of Random Forest. 
 Reproducing the results using `ranger()` myself, and playing around with the `mtry` parameter, I discovered that the three datasets have something in common: they all contain only a few variables that are predictive of the outcome, in the presence of a lot of irrelevant variables. Furthermore, setting `mtry` at its maximum value was sufficient to achieve the performance found by Probst after using `tuneRanger` (blue line in the figure above). 
 
 ```{r, fig.width= 8, fig.height= 3}
-ggplot(fit_list %>% filter(ds_group == "openML" & algo %in% c("ranger_mtry_default", "ranger_mtry_max")), 
-       aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
-  geom_point() +
-  geom_label(aes(label = round(performance,2)), nudge_y = -0.02, nudge_x = +0.1) +
-  geom_segment(aes(xend = algo, y = 0, yend = performance)) +
-  coord_flip() +
-  facet_wrap(~ ds_name)
+plot_performance(data =fit_list %>% filter(ds_group == "openML" & algo %in% c("ranger_mtry_default", "ranger_mtry_max")),
+                 axis_label = "R-squared (%)",
+                 plot_title = "mtry tuning for optimal performance on OpenML datasets")
 ```
 
 That tuning `mtry` for a Random Forest is important in the presence of many irrelevant features was already shown by Hastie *et al.* in their 2009 classic book "Elements of statistical Learning" (p615, Figure 15.7) [@hastie_etal09]. 
@@ -221,24 +208,22 @@ So we expect that either tuning `mtry` , OR performing feature selection solves 
 Indeed, this is also what we find on the three OpenML datasets. Both the RF tuning approach (Setting `mtry` at its maximum value) as well as the RF feature selection using RFE result in optimal performance:
 
 ```{r fig.width= 8, fig.height= 3}
-ggplot(fit_list %>% filter(ds_group == "openML"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
-  geom_point() +
-  geom_label(aes(label = round(performance,2)), nudge_y = -0.2, nudge_x = +0.1) +
-  geom_segment(aes(xend = algo, y = 0, yend = performance)) +
-  coord_flip() +
-  facet_wrap(~ ds_name)
+
+plot_performance(data =fit_list %>% filter(ds_group == "openML"),
+                 axis_label = "R-squared (%)",
+                 plot_title = "mtry tuning vs feature selection for three OpenML datasets")
+
 ```
 
 Can RF feature selection ("ranger-rfe" in the plot below) solve our problems with the "Friedman 1" simulated data as well? 
 
 ```{r fig.width= 8, fig.height= 3}
-ggplot(fit_list %>% filter(ds_group == "df_friedman1"), 
-       aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
-  geom_point() +
-  geom_label(aes(label = round(performance,2)), nudge_y = -0.2, nudge_x = +0.1) +
-  geom_segment(aes(xend = algo, y = 0, yend = performance)) +
-  coord_flip() +
-  facet_wrap(~ ds_name)
+
+plot_performance(data = fit_list %>% filter(ds_group == "df_friedman1"),
+                 axis_label = "R-squared (%)",
+                 plot_title = "Feature selection vs tuning on simulated data with noise added")
+
+
 ```
 
 Yes, it can! And here we see that RF tuning is not enough, we really need to identify and remove the irrelevant variables.
@@ -246,12 +231,11 @@ Yes, it can! And here we see that RF tuning is not enough, we really need to ide
 A similar pattern is seen for the `solubility` dataset with noise added, an example taken from [@kuhn_johnson13]:
 
 ```{r fig.width= 8, fig.height= 3}
-ggplot(fit_list %>% filter(ds_group == "solubility" & ds_name != "solubility_N500_perm"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
-  geom_point() +
-  geom_label(aes(label = round(performance,2)), nudge_y = -0.2, nudge_x = +0.1) +
-  geom_segment(aes(xend = algo, y = 0, yend = performance)) +
-  coord_flip() +
-  facet_wrap(~ ds_name)
+
+plot_performance(data = fit_list %>% filter(ds_group == "solubility" & ds_name != "solubility_N500_perm"),
+                 axis_label = "R-squared (%)",
+                 plot_title = "Feature selection vs tuning on Solubility data with noise added")
+
 ```
 
 Note that on the original `solubility` dataset, neither tuning nor feature selection is needed, RF already performs well out of the box. 
@@ -265,13 +249,12 @@ To drive the point home, I have taken the `solubility` dataset with 500 noise pr
 All three RF modeling approaches now correctly report an R-squared of 0%.
 
 ```{r fig.width= 8, fig.height= 3}
-ggplot(fit_list %>% filter(ds_name == "solubility_N500_perm"), aes(x = reorder(algo, performance), y = performance, col = factor(algo))) +
-  geom_point() +
-  geom_label(aes(label = round(performance,2)), nudge_y = -0.2, nudge_x = +0.1) +
-  geom_segment(aes(xend = algo, y = 0, yend = performance)) +
-  expand_limits(y = 0.9) +
-  coord_flip() +
-  facet_wrap(~ ds_name)
+
+plot_performance(fit_list %>% filter(ds_name == "solubility_N500_perm"),
+                 axis_label = "R-squared (%)",
+                 plot_title = "Feature selection vs tuning on simulated data after scrambling y") + expand_limits(y = 90)
+
+
 ```
 
 However, if we retrain the model with RF (for example, to tune `mtry`) **after** RFE feature selection, we get cross-validated R-squared values of 5-10%, purely based on noise variables "dredged" from the hundreds of variables we supplied to the algorithm. For full code see the [R notebook](rf_rfe_post/prep_and_fit.Rmd)
@@ -296,6 +279,6 @@ Interestingly, on the "real" datasets (openML, the solubility QSAR data) both tu
 
 The fact that tuning and feature selection are rarely compared head to head might be that both procedures have different implicit use cases: ML tuning is often performed on datasets that are thought to contain mostly relevant predictors. In this setting feature selection does not improve performance, as it primarily works through the removal of noise variables. On the other hand, feature selection is often performed on high-dimensional datasets where prior information is available telling us that relatively few predictors are related to the outcome, and the many noise variables in the data can negatively influence RF performance. 
 
-**N.b.** As is often the case with simulation studies, an open question is how far we can generalize our results. [@svetnik_etal03] identified a classification dataset **Cox-2** that exhibits unexpected behavior: The dataset gives optimal performance with `mtry` at its maximum setting, indicative of a many irrelevant predictors, so we expect feature selection to find a smaller model that gives the same performance at default `mtry`. However, surprisingly, performance only degrades after RFE. I wrote one of the authors (Vladimir Svetnik) to ask for the dataset, I'll update this post when I hear from him. 
+**N.b.** As is often the case with simulation studies, an open question is how far we can generalize our results. [@svetnik_etal03] identified a classification dataset **Cox-2** that exhibits unexpected behavior: The dataset gives optimal performance with `mtry` at its maximum setting, indicative of a many irrelevant predictors, so we expect feature selection to find a smaller model that gives the same performance at default `mtry`. However, surprisingly, performance only degraded after performing feature selection using RFE. I wrote the authors (Vladimir Svetnik and Andy Liaw) to ask for the dataset, unfortunately they suffered a data loss some time ago. They obtained the data from Greg Kauffman and Peter Jurs [@kauffman01], I reached out to them as well but did not receive a reply.  
 
 # References
