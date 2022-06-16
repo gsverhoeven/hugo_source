@@ -23,11 +23,12 @@ header:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# packages
+# Load packages
 
 ```{r}
 library(tidyverse)
 library(ggfortify)
+library(ggrepel)
 ```
 
 # Read in the FUMBBL data
@@ -86,19 +87,58 @@ data_tables$Competitive %>% colnames()
 
 
 ```
+Suppose we want to compare the 25+ Blood Bowl races on their match statistics with each other, and see which races have comparable stats.
+If we have only one statistic, it is easy: we can just plot the races on a horizontal line and see which races are closest by.
 
+Lets do that for number of blocks made:
+
+```{r}
+res <- data_tables$Competitive %>% group_by(race_name, race_type) %>% summarise(avg_block = mean(home_block), size = n())
+ggplot(res, aes(x = avg_block, y = 0, size = size, col = race_type)) +
+         geom_point() +
+scale_size_area()
+```
+But races can be similar if we look at blocks, but dissimilar if we look at e.g. passing. So lets add passing on the y axis.
+
+```{r}
+res <- data_tables$Competitive %>% group_by(race_name, race_type) %>% summarise(avg_block = mean(home_block), avg_pass = mean(abs(home_pass)), size = n())
+
+ggplot(res, aes(x = avg_block, y = avg_pass, size = size, col = race_type)) +
+         geom_point() +
+  scale_size_area() +
+  expand_limits(y=-0.5) +
+  geom_label_repel(aes(label = race_name), size  = 2)
+  
+
+```
+If we look at the Human race, this plot suggests that it is more similar to Imperial Nobility and Old World Alliance, than it is to Skaven.
+Although Human has the same average passing distance as Skaven (which is surprisingly short, as there are a lot of 0 distance passes), the number of blocks for Skaven is much lower, and thus if we compare on both statistics, Imperial Nobility and OWA win out.
+
+Now with two statistics, we can simply plot them and calculate a distance between all points.
+What if we have more than two statistics? E.g. we have 5 statistics? We have too many dimensions to plot.
+For these there exists so-called dimension reduction techniques.
+In this blog post we'll examine two of them.
+
+So we have for each combination of race and performance statistic (touchdowns, blocks etc) a value.
+We can now either try to group the performance variables, this is about correlations between variables. Which variables are related to each other? 
+This produces things like a correlation network graph. This is a poor mans factor analysis.
+Alternatively, we can try to group the races: which races are close by? This is cluster analysis.
+How can this be different whereas we simply can flip the dataset and have races as columns and performance stats as rows?
 
 # Selecting variables to include
 
-The nufflytics blog post has a somewhat surprising selection of "performance" statistics.
+The nufflytics blog post has a somewhat surprising selection of match statistics.
 For example, the number of inflicted touchdowns is selected, but not the number of sustained touchdowns.
+
+# Blood Bowl 2 performance statistics
 
 The Cyanide Blood Bowl 2 API (not publicly accessible) apparently offers the following stats for each match, for both teams:
 
 Scoring related:
 
-* Ball occupation
+* Ball occupation (not available in FUMBBL)
 * Touchdowns
+* Meters running (rushes)
 
 Blocking related:
 
@@ -109,14 +149,14 @@ Blocking related:
 
 Passing related:
 
-* Interceptions
-* Meters running
-* Meters passing
-* Passes
+* Interceptions (not available in FUMBBL)
+* Meters passing (passing yards)
+* Passes (completions)
 
 Fouling related:
 
 * Expulsions (sent off players after fouling)
+* FUMBBL: fouls (not available in BB2 API)
 
 Other:
 
