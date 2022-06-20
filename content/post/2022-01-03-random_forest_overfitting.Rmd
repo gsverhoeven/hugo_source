@@ -133,8 +133,8 @@ However, a few did, and three stood out (blue line above dashed line).
 *Figure created by Philipp Probst and reproduced from his TuneRanger Github repository*
 
 
-As he made all his code available on Github, I could identify the three datasets as being `tecator`, `bodyfat` and `puma32H`.
-`Puma32H` is noteworthy in that it is a classic ML dataset for a simulated PUMA 560 robotarm, that contains mostly irrelevant features (30 out of 32) [@geurts_etal06]. For details on the other two datasets see the `prep_and_fit.Rmd` notebook on my Github.
+As he made all his code available on Github, I could identify the three datasets as being [bodyfat](https://www.openml.org/search?type=data&sort=runs&id=560&status=active), [tecator](https://www.openml.org/search?type=data&sort=runs&id=505&status=active) and [puma32H]([bodyfat](https://www.openml.org/search?type=data&sort=runs&id=308&status=active).
+`Puma32H` is noteworthy in that it is a classic ML dataset for a simulated PUMA 560 robotarm, that contains mostly irrelevant features (30 out of 32) [@geurts_etal06].
 
 ![](rf_rfe_post/puma560_schematic.png){width=50%}
 
