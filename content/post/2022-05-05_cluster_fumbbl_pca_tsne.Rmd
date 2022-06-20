@@ -114,6 +114,8 @@ ggplot(res, aes(x = avg_block, y = avg_pass, size = size, col = race_type)) +
 If we look at the Human race, this plot suggests that it is more similar to Imperial Nobility and Old World Alliance, than it is to Skaven.
 Although Human has the same average passing distance as Skaven (which is surprisingly short, as there are a lot of 0 distance passes), the number of blocks for Skaven is much lower, and thus if we compare on both statistics, Imperial Nobility and OWA win out.
 
+AndyDavo Chaos are a bash team, but Undead is hybrid. Zero agility access. 
+
 Now with two statistics, we can simply plot them and calculate a distance between all points.
 What if we have more than two statistics? E.g. we have 5 statistics? We have too many dimensions to plot.
 For these there exists so-called dimension reduction techniques.
