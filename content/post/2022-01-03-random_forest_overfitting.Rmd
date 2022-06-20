@@ -7,15 +7,15 @@ summary: This blog post demonstrates that the presence of irrelevant variables c
   reduce the performance of the Random Forest algorithm (as implemented in R by `ranger()`).
   The solution is either to tune one of the algorithm's parameters, OR to remove irrelevant
   features using a procedure called Recursive Feature Elimination (RFE).
-slug: random-forest-overfitting
+slug: random-forest-rfe_vs_tuning
 draft: no
 categories:
 - Random Forest
 - Machine Learning
-- Overfitting
+- Feature Selection
 tags:
 - caret
-- tidymodels
+- R
 - ranger
 baseurl: https://gsverhoeven.github.io
 header:
@@ -78,11 +78,11 @@ plot_performance(data = fit_list %>% filter(ds_group == "df_iris" & algo == "ran
 
 Indeed, the performance (here i looked at *Accuracy* as percentage of observations correctly classified) is hardly affected. 
 
-The line segments display the sampling variation in the R-squared statistic as a 90% confidence interval, this interval was generated using 1000 bootstrapped values of R2 using the vectors of (out-of-bag) predictions and the observed y-values (This deserves its own future blog post, if you can't wait just check the `prep_and_fit.Rmd` notebook on my Github).
+(As we will be doing a lot of model performance comparison, I added 90% bootstrapped confidence intervals for the performance metrics used in this post. This interval was generated from 1000 bootstrapped values of R2 using resampling on the vectors of (out-of-bag) predictions and the observed y-values (This deserves its own future blog post, if you can't wait just check the `prep_and_fit.Rmd` notebook on my Github)).
 
 However, a counter example, where adding irrelevant features **does hurt** performance, is quickly found. In [Chapter 20](https://topepo.github.io/caret/recursive-feature-elimination.html) of the documentation of `caret`, a popular ML package in `R`, Max Kuhn introduces the regression problem **Friedman 1** to illustrate the problem, as well as a possible solution. See for a different example in the literature [@genuer_etal10]. 
 
-`mlbench.friedman1()` simulates the regression problem **Friedman 1**. Inputs are 10 independent variables uniformly distributed on the interval [0,1], only 5 out of these 10 are actually used. Outputs are created according to the formula:
+`mlbench.friedman1()` simulates the regression problem **Friedman 1**. Inputs are 10 independent variables uniformly distributed on the interval [0,1], only 5 out of these 10 are actually used in the formula to generate the dependent variable $y$:
 
 $y = 10 sin(\pi x_1 x_2) + 20 (x_3 - 0.5)^2 + 10 x_4 + 5 x_5 + \epsilon$
 
@@ -135,7 +135,7 @@ However, a few did, and three stood out (blue line above dashed line).
 *Figure created by Philipp Probst and reproduced from his TuneRanger Github repository*
 
 
-As he made all his code available on Github, I could identify the three datasets as being [bodyfat](https://www.openml.org/search?type=data&sort=runs&id=560&status=active), [tecator](https://www.openml.org/search?type=data&sort=runs&id=505&status=active) and [puma32H]([bodyfat](https://www.openml.org/search?type=data&sort=runs&id=308&status=active).
+As he made all his code available on Github, I could identify the three datasets as being [bodyfat](https://www.openml.org/search?type=data&sort=runs&id=560&status=active), [tecator](https://www.openml.org/search?type=data&sort=runs&id=505&status=active) and [puma32H](https://www.openml.org/search?type=data&sort=runs&id=308&status=active).
 `Puma32H` is noteworthy in that it is a classic ML dataset for a simulated PUMA 560 robotarm, that contains mostly irrelevant features (30 out of 32) [@geurts_etal06].
 
 ![](rf_rfe_post/puma560_schematic.png){width=50%}
@@ -190,7 +190,7 @@ The classic book *Applied Predictive Modeling* [@kuhn_johnson13] contains a simi
 
 To perform feature selection, we use the recursive feature elimination (RFE) procedure, implemented for `ranger` in `caret` as the function `rfe()`. This is a backward feature selection method, starting will all predictors and in stepwise manner dropping the least important features [@guyon_etal02].
 
-    When the full model is created, a measure of variable importance is computed that ranks the predictors from most important to least. […] At each stage of the search, the least important predictors are iteratively eliminated prior to rebuilding the model.
+*When the full model is created, a measure of variable importance is computed that ranks the predictors from most important to least. […] At each stage of the search, the least important predictors are iteratively eliminated prior to rebuilding the model.*
 
 — Pages 494-495, Applied Predictive Modeling, 2013.
 
@@ -247,7 +247,7 @@ plot_performance(data = fit_list %>% filter(ds_group == "solubility" & ds_name !
 
 Note that on the original `solubility` dataset, neither tuning nor feature selection is needed, RF already performs well out of the box. 
 
-## Doing it wrong: RF tuning after RFE feature selection on the same data
+## Doing it wrong: RF tuning after RFE feature selection on the same dataset
 
 Finally, we echo others in stressing the importance of using a special nested cross-validation loop to perform the feature selection and performance assessment, especially when a test set is not available. "If the model is refit using only the important predictors, model performance almost certainly improves" according to Kuhn & Johnson (APM 2013). I also found a blog post [here] that references [@hastie_etal09] regarding the dangers when using both feature selection and cross validation.
 
