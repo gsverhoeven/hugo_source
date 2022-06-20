@@ -37,6 +37,8 @@ df_friedman1_N500 <- add_spurious_predictors(df_friedman1, 500)
 rm(sim)
 ```
 
+### df_friedman1_small (N = 100)
+
 ```{r}
 n <- 100
 p <- 40
@@ -332,6 +334,7 @@ ctrl <- rfeControl(functions = rangerFuncs,
 ```
 
 Set num.threads to match the processor specs.
+Takes roughly 20 min to fit all models.
 
 ```{r}
 res <- list()
@@ -413,6 +416,7 @@ source("bootstrap_performance.R")
 fit_list$performance_lower <- NA
 fit_list$performance_upper <- NA
 fit_list$performance_boot <- NA
+fit_list$performance_boot_corr <- NA
 
 for(i in 1:nrow(fit_list)){
   filename <- paste0("fits/fit_", fit_list[i,]$fit_id, ".rds")
@@ -426,19 +430,33 @@ for(i in 1:nrow(fit_list)){
   } else { stop("unknown fit method")}
   
   if(fit_list[i,]$forest_type == "reg"){
-    boot_vals <- bootstrap_r_squared(obs = df$y, pred = predictions)
+    boot_vals <- bootstrap_r_squared(obs = df[,fit_list[i,]$target], pred = predictions)
+    boot_vals_corr <- bootstrap_r_squared_corr(obs = df[,fit_list[i,]$target], pred = predictions)
   } else if(fit_list[i,]$forest_type == "class"){
     boot_vals <- bootstrap_accuracy(obs = df[,fit_list[i,]$target], pred = predictions)
+    boot_vals_corr <- 0
   } else {stop("unknown forest type")}
   
   fit_list[i,]$performance_lower <- quantile(boot_vals, p = 0.05)
   fit_list[i,]$performance_boot <- quantile(boot_vals, p = 0.5)
   fit_list[i,]$performance_upper <- quantile(boot_vals, p = 0.95)
+  fit_list[i,]$performance_boot_corr <- quantile(boot_vals_corr, p = 0.5)
 }
+
+filename <- paste0("fitlist.rds")
+saveRDS(object = fit_list, file = filename)
 
 fit_list
 ```
+### Compare (bootstrapped) correlation R2 to ranger R2
 
+```{r}
+ggplot(fit_list %>% filter(forest_type == "reg"), aes(x = performance_boot, y = performance_boot_corr)) +
+  geom_point() +
+  geom_text(aes(label = ds_name)) +
+  geom_abline(intercept = 0, slope = 1)
+```
+The R2 measures correlate well except for Friedman1 with extra noise added.
 
 ## Ranger separate calls 
 
@@ -460,7 +478,24 @@ It looks like tuning mtry can reduce the negative effect of irrelevant features,
 fit_list %>% filter(ds_group == "df_friedman1")
 ```
 
+## Add 90% confidence intervals 
+
+```{r}
+ggplot(fit_list %>% filter(ds_group == "df_friedman1"), 
+       aes(x = reorder(algo, performance_boot), y = performance_boot, col = factor(algo))) +
+  geom_point() +
+  geom_label(aes(label = round(performance_boot,2)), nudge_y = -0.2, nudge_x = +0.1) +
+  geom_segment(aes(xend = algo, y = performance_lower, yend = performance_upper)) +
+  coord_flip() +
+  expand_limits(y=0) +
+  facet_wrap(~ ds_name)
+```
+
+Same pattern, but impact appears less.
+
 #### effect of num.trees 
+
+The reduced performance with many noise predictors could improve if we grow more trees than the default 500.
 
 ```{r}
 fit_list %>% filter(fit_id == 29)
@@ -470,8 +505,13 @@ fit_list %>% filter(fit_id == 29)
 ```{r}
 rfe_fit <- readRDS("fits/fit_29.rds")
 
-rfe_fit$fit
+rfe_fit
 ```
+
+Lets look at the variability of R2 when using 100 trees for each forest.
+Repeat 30 times.
+Since the R squared is based on OOB predictions, we mix 2 things here: the model quality is less with less trees, AND the sample on which we calculate R2 is lower with less trees.
+Makes it a tricky experiment to draw conclusions from.
 
 ```{r}
 r.squared <- c()
@@ -485,6 +525,10 @@ for(i in 1:30){
 ```{r}
 hist(r.squared)
 ```
+
+Now lets do the same with 1000 trees for each forest.
+Repeat 30 times.
+
 ```{r}
 r.squared2 <- c()
 
@@ -495,21 +539,31 @@ for(i in 1:30){
 ```
 
 ```{r}
-hist(r.squared)
+hist(r.squared2)
+```
+
+Clearly the variability in R2 is much reduced with 1000 trees.
+It is reasonable to compare the bootstrapped R2 with repeated runs, since the variation in OOB samples will be similar to the bootstrapping sampling variation.
+
+```{r}
+summary(bootstrap_r_squared(df_friedman1_N500$y , rf.fit$predictions))
+
+summary(bootstrap_r_squared_alt(df_friedman1_N500$y , rf.fit$predictions))
+
+
 ```
 
 ```{r}
-r.squared3 <- c()
-
-for(i in 1:5){
-  rf.fit <- ranger(y ~ ., data = df_friedman1_N500, num.threads = 6, num.trees = 5000)
-  r.squared3[i] <- rf.fit$r.squared
-}
+(cor(df_friedman1_N500$y , rf.fit$predictions))^2
 ```
-
 ```{r}
-hist(r.squared3)
+plot(rf.fit$predictions, df_friedman1_N500$y)
+abline(a = 0, b = 1)
 ```
+So why is the R2 of ranger so low here? It seems to perform pretty well judged by the correlation.
+
+WOW: the predictions are super attenuated. Here the correlation based R2 really breaks down.
+
 
 ### ISLR datasets (NCI60)
 
@@ -664,7 +718,7 @@ rangerGrid <- data.frame(mtry = c(2:5),
                        min.node.size = 5)
 
 res <- train(y ~ X1 + X2 + X3 + X4 + X5, 
-              data = df_friedman1, 
+              data = df_friedman1_N100, 
               method = "ranger", 
               tuneGrid = rangerGrid,
               trControl = trainControl(method = "oob")
@@ -905,6 +959,9 @@ Here, RFE beats mtry tuning. Can we also find a non artificial dataset where thi
 
 ```{r}
 rfProfile
+```
+```{r}
+bootstrap_r_squared(df_friedman1$y, rfProfile$fit$predictions)
 ```
 
 
