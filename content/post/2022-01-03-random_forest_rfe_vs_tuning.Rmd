@@ -1,7 +1,7 @@
 ---
 title: 'Optimal performance with Random Forests: does feature selection beat tuning?'
 author: "Gertjan Verhoeven"
-date: '2022-04-15'
+date: '2022-06-20'
 bibliography: rf_rfe_post/random_forest.json
 summary: This blog post demonstrates that the presence of irrelevant variables can
   reduce the performance of the Random Forest algorithm (as implemented in R by `ranger()`).

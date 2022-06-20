@@ -18,7 +18,7 @@
 #blogdown:::build_rmds("content/post/2021_12_30_fumbbl_dataset.Rmd")
 #blogdown:::build_rmds("content/post/2022-01-04_java_webstart_forensics_ubuntu.Rmd")
 #blogdown:::build_rmds("content/post/2022-03-20_nufflytics_blog_post.Rmd")
-blogdown:::build_rmds("content/post/2022-01-03-random_forest_overfitting.Rmd")
+blogdown:::build_rmds("content/post/2022-01-03-random_forest_rfe_vs_tuning.Rmd")
 
 # rebuild site
 
