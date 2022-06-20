@@ -48,6 +48,7 @@ options(blogdown.knit.on_save = FALSE) # voorkom dat alle RMds gemonitord worden
 #you will be able to preview your post using blogdown::serve_site(), but conveniently your post will not show up on your deployed site until you set it to false.
 blogdown::serve_site()
 
+# http://localhost:4321
 
 blogdown::stop_server()
 
