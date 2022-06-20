@@ -1,0 +1,195 @@
+---
+title: "Bootstrapping performance metrics when doing model comparison"
+author: "Gertjan Verhoeven"
+date: '2022-04-15'
+bibliography: x
+summary: x.
+slug: bootstrapping-performance
+draft: yes
+categories:
+- Random Forest
+- Machine Learning
+- Overfitting
+tags:
+- caret
+- tidymodels
+- ranger
+baseurl: https://gsverhoeven.github.io
+header:
+  image: headers/steven-kamenar-MMJx78V7xS8-unsplash.png
+  preview: no
+---
+
+When comparing models using performance statistics such as accuracy or the R-squared, we have to remember that these metrics are statistics that are computed from our dataset at hand. If we would have a different draw of the data from the same data generating process, we would likely get a different value for this statistic.
+Especially with small samples, or with data with long tails, this can lead to substantial variation in our performance statistic.
+
+For example, the Root mean squared error typically has such long tails. There are a few observations that lie far away from the predicted values, and those squared errors can have a strong effect on the estimate of the mean of these squared errors.
+
+Here we demonstrate how to bootstrap R-squared using the out of bag (OOB) predictions from a fitted random forest model.
+Using OOB data means that we can use all the data to build the model.
+Using Bootstrap R2 means that we do not need repeated cross validation or anything to observe sampling variation in the R2.
+
+Since we use simulated data, we can create new datasets to check our results: does our estimate of the R2 variance match the observed variance on new datasets not used to fit the model?
+
+# The bootstrap
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(AppliedPredictiveModeling)
+library(caret)
+library(tidyverse)
+library(mlbench)
+library(ranger)
+```
+
+Lets simulate a dataset to fit a model in.
+We take 100 observations, so we can easily create many instances from this DGP.
+
+# Example DGP: Friedman1 dataset
+
+```{r}
+n <- 100
+p <- 40
+sigma <- 1
+#set.seed(1)
+sim <- mlbench.friedman1(n, sd = sigma)
+
+colnames(sim$x) <- c(paste("real", 1:5, sep = ""),
+                     paste("bogus", 1:5, sep = ""))
+bogus <- matrix(rnorm(n * p), nrow = n)
+colnames(bogus) <- paste("bogus", 5+(1:ncol(bogus)), sep = "")
+x <- cbind(sim$x, bogus)
+y <- sim$y
+
+df_friedman1_small <- data.frame(y, x)
+```
+
+
+# Approximation using a single OOB set of predictions from ranger
+
+
+
+```{r}
+set.seed(123)
+
+rf.fit <- ranger(y ~ ., df_friedman1_small, mtry = 50)
+
+rf.fit
+```
+
+## RF predictions
+
+A fitted ranger object contains predictions	that are based on out of bag samples (classification and regression only).
+
+```{r}
+1 - rf.fit$prediction.error / var(df_friedman1_small$y)
+```
+
+
+```{r}
+# uses OOB predictions, use this to estimate OOB performance
+cor(df_friedman1_small$y,rf.fit$predictions)^2
+
+# does not use OOB predictions
+cor(df_friedman1_small$y, predict(rf.fit, df_friedman1_small)$predictions)^2
+
+```
+
+
+```{r}
+bootstrap_r_squared <- function(obs, pred, n = 1000){
+  if(length(obs) != length(pred)) stop("obs and pred differ in length")
+  n_obs <- length(obs)
+  r_squared <- c()
+  for(i in 1:n) {
+    indices <- sample(1:n_obs, n_obs, replace = TRUE)
+    r_squared[i] <- cor(obs[indices],pred[indices])^2
+  }
+  
+  r_squared
+}
+```
+
+Lets do the bootstrap approach using the OOB predictions to calculate 1000 R2 values.
+
+```{r}
+boot_rsq <- bootstrap_r_squared(obs = df_friedman1_small$y, pred = rf.fit$predictions)
+
+hist(boot_rsq)
+```
+
+Now compare to Rsquared of predictions on new datasets of the same size (100)
+
+```{r}
+r_squared_oos <- c()
+
+for(i in 1:1000){
+  n <- 100
+  p <- 40
+  sigma <- 1
+  #set.seed(1)
+  sim <- mlbench.friedman1(n, sd = sigma)
+  colnames(sim$x) <- c(paste("real", 1:5, sep = ""),
+                       paste("bogus", 1:5, sep = ""))
+  bogus <- matrix(rnorm(n * p), nrow = n)
+  colnames(bogus) <- paste("bogus", 5+(1:ncol(bogus)), sep = "")
+  x <- cbind(sim$x, bogus)
+  y <- sim$y
+  
+  df_friedman1_small <- data.frame(y, x)
+  
+  r_squared_oos[i] <- cor(df_friedman1_small$y, predict(rf.fit, df_friedman1_small)$predictions)^2
+
+}
+
+summary(r_squared_oos) # 64 - 71%
+summary(boot_rsq) # 72% - 77%
+```
+Gives comparable ranges.
+
+# caret uncertainty
+
+Now we follow the approach from APM and the caret documentation online.
+
+In APM, Kuhn et al view the set of test errors obtained during cross validation as a distribution for which we need to estimate mean.
+
+This means that for a single run of 10-fold CV, we have 10 R2 values, we average them, and do 2x std error to obtain a confidence interval.
+
+Such an approach however, allows us to simply increase the number of repeats to say a hundred, to get an arbitrarily accurate estimate of our performance metric.
+
+The code below does this, and indeed, we find that if we apply the normal approximation, and take the standard deviation divided by the square root of the sample size as standard error, we get an estimate of OOB R-squared 52+/- 1%
+
+But what kind of R-squared values can we expect on a new sample of the same size as the learning sample? I.e. in this case 100.
+
+
+
+```{r eval = FALSE}
+set.seed(1234)
+fullrun <- 0
+
+rangerGrid <- data.frame(mtry = 50,
+                       splitrule = "variance", 
+                       min.node.size = 5)
+
+if(fullrun){
+  res <- train(y ~ ., 
+              data = df_friedman1_small, 
+              method = "ranger", 
+              tuneGrid = rangerGrid,
+              trControl = trainControl(method = "repeatedcv", repeats = 100)
+             )
+
+  saveRDS(res, file = "100repeats_friedman.rds")
+} else {res <- readRDS("100repeats_friedman.rds")}
+
+res
+```
+
+```{r}
+mean(res$resample$Rsquared)
+sd(res$resample$Rsquared)/sqrt(1000)*2
+
+summary(lm(Rsquared ~ 1, data = res$resample))
+```
+
