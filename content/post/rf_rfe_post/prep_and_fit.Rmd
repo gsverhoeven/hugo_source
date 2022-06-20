@@ -318,6 +318,7 @@ fit_list <- fit_list %>%
 fit_list
 ```
 
+
 # Fit all methods on all datasets (CV performance)
 
 ```{r}
@@ -364,6 +365,7 @@ if(fullrun){
                                            fit$r.squared,
                                            1 - fit$prediction.error)
     }
+    # RFE
     if(fit_list[i,]$method == "ranger-rfe"){
       
       if(fit_list[i,]$forest_type == "reg"){ 
@@ -401,6 +403,41 @@ if(fullrun){
 fit_list$algo <- paste0(fit_list$method, "_mtry_", fit_list$mtry)
 ```
 
+## Add bootstrap performance to fit_list
+
+Note: this R-squared uses the correlation based definition.
+
+```{r}
+source("bootstrap_performance.R")
+
+fit_list$performance_lower <- NA
+fit_list$performance_upper <- NA
+fit_list$performance_boot <- NA
+
+for(i in 1:nrow(fit_list)){
+  filename <- paste0("fits/fit_", fit_list[i,]$fit_id, ".rds")
+  fitobj <- readRDS(filename)
+  #print(fitobj)
+  df <- get(fit_list[i,]$ds_name)
+  if(fit_list[i,]$method == "ranger"){
+   predictions <- fitobj$predictions 
+  } else if(fit_list[i,]$method == "ranger-rfe"){
+   predictions <- fitobj$fit$predictions
+  } else { stop("unknown fit method")}
+  
+  if(fit_list[i,]$forest_type == "reg"){
+    boot_vals <- bootstrap_r_squared(obs = df$y, pred = predictions)
+  } else if(fit_list[i,]$forest_type == "class"){
+    boot_vals <- bootstrap_accuracy(obs = df[,fit_list[i,]$target], pred = predictions)
+  } else {stop("unknown forest type")}
+  
+  fit_list[i,]$performance_lower <- quantile(boot_vals, p = 0.05)
+  fit_list[i,]$performance_boot <- quantile(boot_vals, p = 0.5)
+  fit_list[i,]$performance_upper <- quantile(boot_vals, p = 0.95)
+}
+
+fit_list
+```
 
 
 ## Ranger separate calls 
