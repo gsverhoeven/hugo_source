@@ -72,10 +72,13 @@ source("rf_rfe_post/plot_performance.R")
 
 plot_performance(data = fit_list %>% filter(ds_group == "df_iris" & algo == "ranger_mtry_default"),
                  axis_label = "Accuracy (% correct)",
-                 plot_title = "Adding 100 noise variables to the iris dataset")
+                 plot_title = "Adding 100 noise variables to the iris dataset", 
+                 facet_var = "algo", x_var = "ds_name")
 ```
 
-Indeed, the performance (here i looked at *Accuracy* as percentage of observations correctly classified) is hardly affected.
+Indeed, the performance (here i looked at *Accuracy* as percentage of observations correctly classified) is hardly affected. 
+
+The line segments display the sampling variation in the R-squared statistic as a 90% confidence interval, this interval was generated using 1000 bootstrapped values of R2 using the vectors of (out-of-bag) predictions and the observed y-values (This deserves its own future blog post, if you can't wait just check the `prep_and_fit.Rmd` notebook on my Github).
 
 However, a counter example, where adding irrelevant features **does hurt** performance, is quickly found. In [Chapter 20](https://topepo.github.io/caret/recursive-feature-elimination.html) of the documentation of `caret`, a popular ML package in `R`, Max Kuhn introduces the regression problem **Friedman 1** to illustrate the problem, as well as a possible solution. See for a different example in the literature [@genuer_etal10]. 
 
@@ -94,12 +97,11 @@ I also reproduced this analysis, but with N = 1000 and with 0, 100 and 500 **add
 ```{r, fig.width= 8, fig.height= 3}
 plot_performance(data = fit_list %>% filter(ds_group == "df_friedman1" & algo %in% c("ranger_mtry_default")),
                  axis_label = "R-squared (%)",
-                 plot_title = "Adding increasing amount of noise to the Friedman 1 dataset")
+                 plot_title = "Adding increasing amount of noise to the Friedman 1 dataset", facet_var = "algo", x_var = "ds_name")
 
 ```
 
-We can check the optimal performance by only including the relevant predictors $x_1, x_2,x_3,x_4, x_5$ in the RF algorithm. 
-This model has an R-squared of around 88% (not shown). RF including both signal and five noise predictors, the original **Friedman 1** problem, shows a slight drop in performance to 84% with the default `mtry` value. After including an additional 100 noise variables, performance drops further to 56%. And if we add 500 instead of 100 additional noise variables, performance drops even further to 34% R2.
+We can check the optimal performance by only including the relevant predictors $x_1, x_2,x_3,x_4, x_5$ in the RF algorithm: such a model has an R-squared of around 88% (not shown). RF including both signal and five noise predictors, the original **Friedman 1** problem, shows a slight drop in performance to 84% with the default `mtry` value. After including an additional 100 noise variables, performance drops further to 56%. And if we add 500 instead of 100 additional noise variables, performance drops even further to 34% R2.
 
 So how to solve this? In this blog post, I will compare both RF **hyperparameter tuning** and **feature selection** in the presence of many irrelevant features.
 
@@ -226,8 +228,12 @@ plot_performance(data = fit_list %>% filter(ds_group == "df_friedman1"),
 
 ```
 
-Yes, it can! And here we see that RF tuning is not enough, we really need to identify and remove the irrelevant variables.
-With so many irrelevant variables, we might need to average over more than the default `num.trees` splits 
+Yes, it can! And here we see that RF tuning is not enough, we really need to identify and remove the irrelevant variables. 
+
+**N.b.** For `df_friedman1_N100`, the RFE tuning grid is based on equidistant steps starting with $p = 2$ and included as smallest values only $p = 2$ and $p = 14$, so it skipped the optimal value $p = 5$. This explains the sub optimal performance for RFE with 105 noise variables added. For `df_friedman1_N500`, the tuning grid was exponential and included 2, 3, 6 and 12 (up to $p = 510$). The RFE procedure selected $p = 6$ as optimal, this included as top five variables the five predictors that contained the signal.
+
+With so many irrelevant variables, we might need to average over more than the default `num.trees` splits.
+
 
 A similar pattern is seen for the `solubility` dataset with noise added, an example taken from [@kuhn_johnson13]:
 
