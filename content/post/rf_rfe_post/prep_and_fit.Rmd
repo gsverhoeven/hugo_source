@@ -499,7 +499,7 @@ It looks like tuning mtry can reduce the negative effect of irrelevant features,
 fit_list %>% filter(ds_group == "df_friedman1")
 ```
 
-## Add 90% confidence intervals 
+#### Add 90% confidence intervals 
 
 ```{r}
 ggplot(fit_list %>% filter(ds_group == "df_friedman1"), 
@@ -519,7 +519,8 @@ Same pattern, but impact appears less.
 The reduced performance with many noise predictors could improve if we grow more trees than the default 500.
 
 Lets look at the variability of OOB R2 when using 100 trees for each forest.
-Repeat 30 times.
+We set mtry at max (bagging).
+Repeat 60 times.
 
 Since the R squared is based on OOB predictions, we mix 2 things here: the model quality is less with less trees, AND the sample on which we calculate R2 is lower with less trees. For each datapoint, the average of all trees is made that do not contain the datapoint. This is on average 33 trees.
 Makes it a tricky experiment to draw conclusions from.
@@ -528,16 +529,19 @@ Makes it a tricky experiment to draw conclusions from.
 r.squared <- c()
 
 for(i in 1:60){
-  rf.fit <- ranger(y ~ ., data = df_friedman1_N500, num.threads = 6, num.trees = 100)
+  cat(".")
+  rf.fit <- ranger(y ~ ., data = df_friedman1_N500, num.threads = 6, num.trees = 100, mtry = 510)
   r.squared[i] <- rf.fit$r.squared
 }
+
+rf.fit
 ```
 
 ```{r}
 hist(r.squared)
 ```
 
-This gives us a range between 0.26 and 0.36 R2.
+This gives us a range between 0.75 and 0.76 R2. Already close to the value we get with 500 trees.
 
 Now lets do the same with 1000 trees for each forest.
 Repeat 30 times.
@@ -545,8 +549,9 @@ Repeat 30 times.
 ```{r}
 r.squared2 <- c()
 
-for(i in 1:30){
-  rf.fit <- ranger(y ~ ., data = df_friedman1_N500, num.threads = 6, num.trees = 1000)
+for(i in 1:3){
+  cat(".")
+  rf.fit <- ranger(y ~ ., data = df_friedman1_N500, num.threads = 6, num.trees = 1000, mtry = 510)
   r.squared2[i] <- rf.fit$r.squared
 }
 ```
@@ -557,14 +562,19 @@ Now each datapoint is predicted on 333 trees.
 hist(r.squared2)
 ```
 
-Clearly the variability in R2 is much reduced with 1000 trees. It ranges between 0.32 and 0.35.
+It appears that the variability is reduced with more trees. However, the R2 does not increase, so it does not solve the problem of the irrelevant variables negatively influencing the model quality.
 
-It is reasonable to compare the bootstrapped R2 with repeated runs, since the variation in OOB samples will be similar to the bootstrapping sampling variation.
+##### Repeated runs R2 vs bootstrap R2
+
+
+It is reasonable to compare the bootstrapped R2 with repeated runs R2, since the variation in OOB samples will be similar to the bootstrapping sampling variation.
 
 ```{r}
+source("bootstrap_performance.R")
+
 summary(bootstrap_r_squared(df_friedman1_N500$y , rf.fit$predictions))
 ```
-
+This looks similar. But bootstrap is much cheaper computationally.
 
 
 ### ISLR datasets (NCI60)
