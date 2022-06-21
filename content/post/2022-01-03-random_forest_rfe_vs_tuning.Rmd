@@ -10,13 +10,15 @@ summary: This blog post demonstrates that the presence of irrelevant variables c
 slug: random-forest-rfe_vs_tuning
 draft: no
 categories:
-- Random Forest
+- Statistics
 - Machine Learning
-- Feature Selection
 tags:
 - caret
 - R
 - ranger
+- Feature Selection
+- Recursive Feature Elimination
+- Random Forest
 baseurl: https://gsverhoeven.github.io
 header:
   image: headers/steven-kamenar-MMJx78V7xS8-unsplash.png

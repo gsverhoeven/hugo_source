@@ -408,9 +408,10 @@ fit_list$algo <- paste0(fit_list$method, "_mtry_", fit_list$mtry)
 
 ## Add bootstrap performance to fit_list
 
-Note: this R-squared uses the correlation based definition.
+Note: we add both traditional R2 and the correlation based R-squared that caret uses.
+The latter can over estimate model performance if there is strong correlation but large bias towards the mean.
 
-```{r}
+```{r eval = FALSE}
 source("bootstrap_performance.R")
 
 fit_list$performance_lower <- NA
@@ -458,6 +459,26 @@ ggplot(fit_list %>% filter(forest_type == "reg"), aes(x = performance_boot, y = 
 ```
 The R2 measures correlate well except for Friedman1 with extra noise added.
 
+```{r}
+rf.fit <- ranger(y ~ ., data = df_friedman1_N500, num.threads = 6, num.trees = 500)
+
+rf.fit
+```
+So why is the R2 of ranger so low here?
+
+```{r}
+(cor(df_friedman1_N500$y , rf.fit$predictions))^2
+```
+ It seems to perform pretty well judged by the correlation.
+
+Lets make a scatterplot.
+
+```{r}
+plot(rf.fit$predictions, df_friedman1_N500$y)
+abline(a = 0, b = 1)
+```
+WOW: the predictions are super attenuated. Here the correlation based R2 really breaks down.
+
 ## Ranger separate calls 
 
 ### Friedman1 datasets
@@ -493,30 +514,20 @@ ggplot(fit_list %>% filter(ds_group == "df_friedman1"),
 
 Same pattern, but impact appears less.
 
-#### effect of num.trees 
+#### effect of num.trees on OOB R-squared variance
 
 The reduced performance with many noise predictors could improve if we grow more trees than the default 500.
 
-```{r}
-fit_list %>% filter(fit_id == 29)
-```
-
-
-```{r}
-rfe_fit <- readRDS("fits/fit_29.rds")
-
-rfe_fit
-```
-
-Lets look at the variability of R2 when using 100 trees for each forest.
+Lets look at the variability of OOB R2 when using 100 trees for each forest.
 Repeat 30 times.
-Since the R squared is based on OOB predictions, we mix 2 things here: the model quality is less with less trees, AND the sample on which we calculate R2 is lower with less trees.
+
+Since the R squared is based on OOB predictions, we mix 2 things here: the model quality is less with less trees, AND the sample on which we calculate R2 is lower with less trees. For each datapoint, the average of all trees is made that do not contain the datapoint. This is on average 33 trees.
 Makes it a tricky experiment to draw conclusions from.
 
 ```{r}
 r.squared <- c()
 
-for(i in 1:30){
+for(i in 1:60){
   rf.fit <- ranger(y ~ ., data = df_friedman1_N500, num.threads = 6, num.trees = 100)
   r.squared[i] <- rf.fit$r.squared
 }
@@ -525,6 +536,8 @@ for(i in 1:30){
 ```{r}
 hist(r.squared)
 ```
+
+This gives us a range between 0.26 and 0.36 R2.
 
 Now lets do the same with 1000 trees for each forest.
 Repeat 30 times.
@@ -538,31 +551,20 @@ for(i in 1:30){
 }
 ```
 
+Now each datapoint is predicted on 333 trees.
+
 ```{r}
 hist(r.squared2)
 ```
 
-Clearly the variability in R2 is much reduced with 1000 trees.
+Clearly the variability in R2 is much reduced with 1000 trees. It ranges between 0.32 and 0.35.
+
 It is reasonable to compare the bootstrapped R2 with repeated runs, since the variation in OOB samples will be similar to the bootstrapping sampling variation.
 
 ```{r}
 summary(bootstrap_r_squared(df_friedman1_N500$y , rf.fit$predictions))
-
-summary(bootstrap_r_squared_alt(df_friedman1_N500$y , rf.fit$predictions))
-
-
 ```
 
-```{r}
-(cor(df_friedman1_N500$y , rf.fit$predictions))^2
-```
-```{r}
-plot(rf.fit$predictions, df_friedman1_N500$y)
-abline(a = 0, b = 1)
-```
-So why is the R2 of ranger so low here? It seems to perform pretty well judged by the correlation.
-
-WOW: the predictions are super attenuated. Here the correlation based R2 really breaks down.
 
 
 ### ISLR datasets (NCI60)
