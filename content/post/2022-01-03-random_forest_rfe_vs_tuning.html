@@ -10,13 +10,15 @@ summary: This blog post demonstrates that the presence of irrelevant variables c
 slug: random-forest-rfe_vs_tuning
 draft: no
 categories:
-- Random Forest
+- Statistics
 - Machine Learning
-- Feature Selection
 tags:
 - caret
 - R
 - ranger
+- Feature Selection
+- Recursive Feature Elimination
+- Random Forest
 baseurl: https://gsverhoeven.github.io
 header:
   image: headers/steven-kamenar-MMJx78V7xS8-unsplash.png
@@ -39,7 +41,7 @@ header:
 <h2>But it is not perfect: the effect of irrelevant variables</h2>
 <p>In that talk, Marvin Wright discusses the common claim that “Random Forest works well on high-dimensional data”. High-dimensional data is common in genetics, when we have say complete genomes for only a handful of subjects. The suggestion is that RF can be used on small datasets with lots of (irrelevant / noise) features without having to do variable selection first.</p>
 <p>To check this claim, Wright shows that RF performance is unaffected by adding 100 noise variables to the <code>iris</code> dataset, a simple example classification problem with three different species. Because RF uses decision trees, it performs “automatic” feature (predictor / variable) selection as part of the model building process. This property of the algorithm is used to explain this result. A tree model will simply ignore the noise predictors and choose the relevant predictors instead.</p>
-<p>See the accompanying R notebook <a href="rf_rfe_post/prep_and_fit.Rmd">prep_and_fit.Rmd</a> (@@@ fix link) that contains all the simulations I performed for this blog post. It also includes the simulation on the <code>iris</code> dataset:</p>
+<p>See the accompanying R notebook <a href="https://github.com/gsverhoeven/hugo_source/blob/master/content/post/rf_rfe_post/prep_and_fit.Rmd">prep_and_fit.Rmd</a> that contains all the simulations I performed for this blog post. It also includes the simulation on the <code>iris</code> dataset:</p>
 <pre class="r"><code>fit_list &lt;- readRDS(&quot;rf_rfe_post/fitlist.rds&quot;)
 fit_list$algo &lt;- paste0(fit_list$method, &quot;_mtry_&quot;, fit_list$mtry)</code></pre>
 <pre class="r"><code>fit_list %&gt;% filter(ds_group == &quot;df_iris&quot; &amp; algo == &quot;ranger_mtry_default&quot;)</code></pre>
@@ -59,7 +61,7 @@ plot_performance(data = fit_list %&gt;% filter(ds_group == &quot;df_iris&quot; &
                  facet_var = &quot;algo&quot;, x_var = &quot;ds_name&quot;)</code></pre>
 <p><img src="/post/2022-01-03-random_forest_rfe_vs_tuning_files/figure-html/unnamed-chunk-3-1.png" width="768" /></p>
 <p>Indeed, the performance (here i looked at <em>Accuracy</em> as percentage of observations correctly classified) is hardly affected.</p>
-<p>(As we will be doing a lot of model performance comparison, I added 90% bootstrapped confidence intervals for the performance metrics used in this post. This interval was generated from 1000 bootstrapped values of R2 using resampling on the vectors of (out-of-bag) predictions and the observed y-values (This deserves its own future blog post, if you can’t wait just check the <code>prep_and_fit.Rmd</code> notebook on my Github)).</p>
+<p>(As we will be doing a lot of model performance comparison, I added 90% bootstrapped confidence intervals for the performance metrics used in this post. This interval was generated from 1000 bootstrapped values of R2 using resampling on the vectors of (out-of-bag) predictions and the observed y-values (This deserves its own future blog post, if you can’t wait just check the <a href="https://github.com/gsverhoeven/hugo_source/blob/master/content/post/rf_rfe_post/prep_and_fit.Rmd"><code>prep_and_fit.Rmd</code> notebook</a> on my Github)).</p>
 <p>However, a counter example, where adding irrelevant features <strong>does hurt</strong> performance, is quickly found. In <a href="https://topepo.github.io/caret/recursive-feature-elimination.html">Chapter 20</a> of the documentation of <code>caret</code>, a popular ML package in <code>R</code>, Max Kuhn introduces the regression problem <strong>Friedman 1</strong> to illustrate the problem, as well as a possible solution. See for a different example in the literature <span class="citation">(<a href="#ref-genuer_etal10" role="doc-biblioref">Genuer, Poggi, and Tuleau-Malot 2010</a>)</span>.</p>
 <p><code>mlbench.friedman1()</code> simulates the regression problem <strong>Friedman 1</strong>. Inputs are 10 independent variables uniformly distributed on the interval [0,1], only 5 out of these 10 are actually used in the formula to generate the dependent variable <span class="math inline">\(y\)</span>:</p>
 <p><span class="math inline">\(y = 10 sin(\pi x_1 x_2) + 20 (x_3 - 0.5)^2 + 10 x_4 + 5 x_5 + \epsilon\)</span></p>
@@ -90,11 +92,11 @@ In their book available online, they have a section called <a href="http://www.f
 <p>Furthermore, For the RF tuning, he created an R package, aptly called <code>tuneRanger</code>, available on CRAN as well as on <a href="https://github.com/PhilippPro/tuneRanger">Github</a>.</p>
 <p>Ignoring the red and green lines, and comparing the tuned vs default ranger, it is clear that on many datasets, tuning hardly improves things. Here we see the reputation of RF, that it works well straight out of the box, borne out in practice.</p>
 <p>However, a few did, and three stood out (blue line above dashed line).</p>
-<p><img src="rf_rfe_post/probst_tuning_ranger.png" style="width:66.0%" /></p>
+<p><img src="/post/2022-01-03-random_forest_rfe_vs_tuning_files/probst_tuning_ranger.png" style="width:66.0%" /></p>
 <p><em>Figure created by Philipp Probst and reproduced from his TuneRanger Github repository</em></p>
 <p>As he made all his code available on Github, I could identify the three datasets as being <a href="https://www.openml.org/search?type=data&amp;sort=runs&amp;id=560&amp;status=active">bodyfat</a>, <a href="https://www.openml.org/search?type=data&amp;sort=runs&amp;id=505&amp;status=active">tecator</a> and <a href="https://www.openml.org/search?type=data&amp;sort=runs&amp;id=308&amp;status=active">puma32H</a>.
 <code>Puma32H</code> is noteworthy in that it is a classic ML dataset for a simulated PUMA 560 robotarm, that contains mostly irrelevant features (30 out of 32) <span class="citation">(<a href="#ref-geurts_etal06" role="doc-biblioref">Geurts, Ernst, and Wehenkel 2006</a>)</span>.</p>
-<p><img src="rf_rfe_post/puma560_schematic.png" style="width:50.0%" /></p>
+<p><img src="/post/2022-01-03-random_forest_rfe_vs_tuning_files/puma560_schematic.png" style="width:50.0%" /></p>
 <p>For these three datasets, I reproduced the results of default <code>ranger()</code> and tuned the <code>mtry</code> parameter.</p>
 <p>mtry? what try?</p>
 </div>
@@ -116,7 +118,7 @@ In their book available online, they have a section called <a href="http://www.f
 <div id="rf-tuning-what-else-can-we-tune" class="section level2">
 <h2>RF tuning: what else can we tune?</h2>
 <p>With respect to the other RF parameters, a quick rundown:</p>
-<p>I left the <code>num.trees</code> at its default (500), and chose “variance” as the <code>splitrule</code> for regression problems, and “gini” for classification problems (alternative is “extratrees” which implements the “Extremely Randomized Trees” method <span class="citation">(<a href="#ref-geurts_etal06" role="doc-biblioref">Geurts, Ernst, and Wehenkel 2006</a>)</span> but I have yet to see convincing results that demonstrate ERT performs substantially better). I checked a few key results at higher <code>num.trees</code> as well, just to be sure.(@@@)</p>
+<p>I left the <code>num.trees</code> at its default (500), and chose “variance” as the <code>splitrule</code> for regression problems, and “gini” for classification problems (alternative is “extratrees” which implements the “Extremely Randomized Trees” method <span class="citation">(<a href="#ref-geurts_etal06" role="doc-biblioref">Geurts, Ernst, and Wehenkel 2006</a>)</span> but I have yet to see convincing results that demonstrate ERT performs substantially better). I checked a few key results at lower and higher <code>num.trees</code> as well (100 and 1000 respectively): 100 is a bit low for the Out-of-bag predictions to stabilize, 500 appears to be a sweet spot, with no improvement in R-squared mean or a significant reduction in R2 variance between runs either.</p>
 <p>I played around a bit with the <code>min.node.size</code> parameter, for which often the sequence 5,10,20 is mentioned to vary over. Setting this larger should reduce computation, since it leads to shorter trees, but for the datasets here, the effect is on the order of say 10% reduction, which does not warrant tuning it IMO. I left this at its default of 5 for regression and 1 for classification.</p>
 <p>Finally, Marvin Wright points to results from Probst <em>et al.</em><span class="citation">(<a href="#ref-probst_etal19" role="doc-biblioref">Probst, Wright, and Boulesteix 2019</a>)</span> that show <code>sample.fraction</code> to be an important parameter as well. This determines the number of samples from the dataset to draw for each tree. I have not looked into this, instead I used the default setting from <code>ranger()</code> which is to sample with replacement, and to use all samples for each tree, i.e <code>sample.fraction = 1</code>.</p>
 <p>To conclude: we focus on <code>mtry</code> and leave the rest alone.</p>
@@ -150,7 +152,6 @@ Indeed, this is also what we find on the three OpenML datasets. Both the RF tuni
 <p><img src="/post/2022-01-03-random_forest_rfe_vs_tuning_files/figure-html/unnamed-chunk-7-1.png" width="768" /></p>
 <p>Yes, it can! And here we see that RF tuning is not enough, we really need to identify and remove the irrelevant variables.</p>
 <p><strong>N.b.</strong> For <code>df_friedman1_N100</code>, the RFE tuning grid is based on equidistant steps starting with <span class="math inline">\(p = 2\)</span> and included as smallest values only <span class="math inline">\(p = 2\)</span> and <span class="math inline">\(p = 14\)</span>, so it skipped the optimal value <span class="math inline">\(p = 5\)</span>. This explains the sub optimal performance for RFE with 105 noise variables added. For <code>df_friedman1_N500</code>, the tuning grid was exponential and included 2, 3, 6 and 12 (up to <span class="math inline">\(p = 510\)</span>). The RFE procedure selected <span class="math inline">\(p = 6\)</span> as optimal, this included as top five variables the five predictors that contained the signal.</p>
-<p>With so many irrelevant variables, we might need to average over more than the default <code>num.trees</code> splits.</p>
 <p>A similar pattern is seen for the <code>solubility</code> dataset with noise added, an example taken from <span class="citation">(<a href="#ref-kuhn_johnson13" role="doc-biblioref">Kuhn and Johnson 2013</a>)</span>:</p>
 <pre class="r"><code>plot_performance(data = fit_list %&gt;% filter(ds_group == &quot;solubility&quot; &amp; ds_name != &quot;solubility_N500_perm&quot;),
                  axis_label = &quot;R-squared (%)&quot;,
@@ -167,7 +168,7 @@ Indeed, this is also what we find on the three OpenML datasets. Both the RF tuni
                  axis_label = &quot;R-squared (%)&quot;,
                  plot_title = &quot;Feature selection vs tuning on simulated data after scrambling y&quot;) + expand_limits(y = 90)</code></pre>
 <p><img src="/post/2022-01-03-random_forest_rfe_vs_tuning_files/figure-html/unnamed-chunk-9-1.png" width="768" /></p>
-<p>However, if we do RF tuning on this scrambled dataset, <strong>after</strong> we performed RFE feature selection, we get cross-validated R-squared values of 5-10%, purely based on noise variables “dredged” from the hundreds of variables we supplied to the algorithm. For full code see the <a href="rf_rfe_post/prep_and_fit.Rmd">R notebook</a></p>
+<p>However, if we do RF tuning on this scrambled dataset, <strong>after</strong> we performed RFE feature selection, we get cross-validated R-squared values of 5-10%, purely based on noise variables “dredged” from the hundreds of variables we supplied to the algorithm. For full code see the <a href="https://github.com/gsverhoeven/hugo_source/blob/master/content/post/rf_rfe_post/prep_and_fit.Rmd">R notebook on my Github</a></p>
 <p>(Note that I had to play around a bit with the RFE settings to not have it pick either the model with <strong>all</strong> features or the model with only 1 feature: using <code>RMSE</code> as a metric, and setting <code>pickSizeTolerance</code> the procedure selected a model with 75 predictors.
 Retraining this model using <code>caret::train</code> gave me the result below)</p>
 <pre class="r"><code>trainObject &lt;- readRDS(&quot;rf_rfe_post/post_rfe_train.rds&quot;)
@@ -210,6 +211,7 @@ This can be either tuning the RF, most importantly increasing the <code>mtry</co
 <p>Interestingly, on the “real” datasets (openML, the solubility QSAR data) both tuning and feature selection give the same result. Only when we use simulated data (Friedman1), or if we add noise to real datasets (iris, solubility)) we find that <code>mtry</code> tuning is not enough, and removal of the irrelevant features is needed to obtain optimal performance.</p>
 <p>The fact that tuning and feature selection are rarely compared head to head might be that both procedures have different implicit use cases: ML tuning is often performed on datasets that are thought to contain mostly relevant predictors. In this setting feature selection does not improve performance, as it primarily works through the removal of noise variables. On the other hand, feature selection is often performed on high-dimensional datasets where prior information is available telling us that relatively few predictors are related to the outcome, and the many noise variables in the data can negatively influence RF performance.</p>
 <p><strong>N.b.</strong> As is often the case with simulation studies, an open question is how far we can generalize our results. <span class="citation">(<a href="#ref-svetnik_etal03" role="doc-biblioref">Svetnik et al. 2003</a>)</span> identified a classification dataset <strong>Cox-2</strong> that exhibits unexpected behavior: The dataset gives optimal performance with <code>mtry</code> at its maximum setting, indicative of a many irrelevant predictors, so we expect feature selection to find a smaller model that gives the same performance at default <code>mtry</code>. However, surprisingly, performance only degraded after performing feature selection using RFE. I wrote the authors (Vladimir Svetnik and Andy Liaw) to ask for the dataset, unfortunately they suffered a data loss some time ago. They obtained the data from Greg Kauffman and Peter Jurs <span class="citation">(<a href="#ref-kauffman_jurs01" role="doc-biblioref">Kauffman and Jurs 2001</a>)</span>, I reached out to them as well but did not receive a reply.</p>
+<p><em><strong>Acknowledgements</strong>: I’d like to thank Philipp Probst and Anne-Laure Boulesteix for their constructive comments and suggestions on this blog post.</em></p>
 </div>
 <div id="references" class="section level2 unnumbered">
 <h2>References</h2>

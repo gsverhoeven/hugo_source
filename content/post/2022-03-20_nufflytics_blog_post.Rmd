@@ -79,7 +79,7 @@ res = (df_matches
 
 
     
-![png](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_4_0.png)
+![](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_4_0.png)
     
 
 
@@ -130,7 +130,7 @@ group = 'factor(division_name)', color = 'factor(division_name)'))
 
 
     
-![png](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_7_0.png)
+![](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_7_0.png)
     
 
 
@@ -191,7 +191,7 @@ res['perc'] = res['n_games']/res['n_games_bin']
 
 
     
-![png](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_10_0.png)
+![](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_10_0.png)
     
 
 
@@ -251,7 +251,7 @@ res = res.dropna()
 
 
     
-![png](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_13_1.png)
+![](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_13_1.png)
     
 
 
@@ -294,7 +294,7 @@ res = res.dropna()
 
 
     
-![png](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_14_0.png)
+![](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_14_0.png)
     
 
 
@@ -355,7 +355,7 @@ res = res.dropna()
 
 
     
-![png](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_17_1.png)
+![](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_17_1.png)
     
 
 
@@ -419,7 +419,7 @@ res['lower_CI'], res['upper_CI'] =  proportion_confint(
 
 
     
-![png](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_20_0.png)
+![](/post/2022-03-20_nufflytics_blog_post_files/nufflytics_blog_post_20_0.png)
     
 
 

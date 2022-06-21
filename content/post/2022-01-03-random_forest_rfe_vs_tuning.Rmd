@@ -58,7 +58,7 @@ In that talk, Marvin Wright discusses the common claim that "Random Forest works
 
 To check this claim, Wright shows that RF performance is unaffected by adding 100 noise variables to the `iris` dataset, a simple example classification problem with three different species. Because RF uses decision trees, it performs "automatic" feature (predictor / variable) selection as part of the model building process. This property of the algorithm is used to explain this result. A tree model will simply ignore the noise predictors and choose the relevant predictors instead. 
 
-See the accompanying R notebook [prep_and_fit.Rmd](rf_rfe_post/prep_and_fit.Rmd) (@@@ fix link) that contains all the simulations I performed for this blog post. It also includes the simulation on the `iris` dataset:
+See the accompanying R notebook [prep_and_fit.Rmd](https://github.com/gsverhoeven/hugo_source/blob/master/content/post/rf_rfe_post/prep_and_fit.Rmd) that contains all the simulations I performed for this blog post. It also includes the simulation on the `iris` dataset:
 
 ```{r}
 fit_list <- readRDS("rf_rfe_post/fitlist.rds")
@@ -80,7 +80,7 @@ plot_performance(data = fit_list %>% filter(ds_group == "df_iris" & algo == "ran
 
 Indeed, the performance (here i looked at *Accuracy* as percentage of observations correctly classified) is hardly affected. 
 
-(As we will be doing a lot of model performance comparison, I added 90% bootstrapped confidence intervals for the performance metrics used in this post. This interval was generated from 1000 bootstrapped values of R2 using resampling on the vectors of (out-of-bag) predictions and the observed y-values (This deserves its own future blog post, if you can't wait just check the `prep_and_fit.Rmd` notebook on my Github)).
+(As we will be doing a lot of model performance comparison, I added 90% bootstrapped confidence intervals for the performance metrics used in this post. This interval was generated from 1000 bootstrapped values of R2 using resampling on the vectors of (out-of-bag) predictions and the observed y-values (This deserves its own future blog post, if you can't wait just check the [`prep_and_fit.Rmd` notebook](https://github.com/gsverhoeven/hugo_source/blob/master/content/post/rf_rfe_post/prep_and_fit.Rmd) on my Github)).
 
 However, a counter example, where adding irrelevant features **does hurt** performance, is quickly found. In [Chapter 20](https://topepo.github.io/caret/recursive-feature-elimination.html) of the documentation of `caret`, a popular ML package in `R`, Max Kuhn introduces the regression problem **Friedman 1** to illustrate the problem, as well as a possible solution. See for a different example in the literature [@genuer_etal10]. 
 
@@ -132,7 +132,7 @@ Ignoring the red and green lines, and comparing the tuned vs default ranger, it 
 
 However, a few did, and three stood out (blue line above dashed line).
 
-![](rf_rfe_post/probst_tuning_ranger.png){width=66%}
+![](/post/2022-01-03-random_forest_rfe_vs_tuning_files/probst_tuning_ranger.png){width=66%}
 
 *Figure created by Philipp Probst and reproduced from his TuneRanger Github repository*
 
@@ -140,7 +140,7 @@ However, a few did, and three stood out (blue line above dashed line).
 As he made all his code available on Github, I could identify the three datasets as being [bodyfat](https://www.openml.org/search?type=data&sort=runs&id=560&status=active), [tecator](https://www.openml.org/search?type=data&sort=runs&id=505&status=active) and [puma32H](https://www.openml.org/search?type=data&sort=runs&id=308&status=active).
 `Puma32H` is noteworthy in that it is a classic ML dataset for a simulated PUMA 560 robotarm, that contains mostly irrelevant features (30 out of 32) [@geurts_etal06].
 
-![](rf_rfe_post/puma560_schematic.png){width=50%}
+![](/post/2022-01-03-random_forest_rfe_vs_tuning_files/puma560_schematic.png){width=50%}
 
 For these three datasets, I reproduced the results of default `ranger()` and tuned the `mtry` parameter.
 
@@ -263,7 +263,7 @@ plot_performance(fit_list %>% filter(ds_name == "solubility_N500_perm"),
 
 ```
 
-However, if we do RF tuning on this scrambled dataset, **after** we performed RFE feature selection, we get cross-validated R-squared values of 5-10%, purely based on noise variables "dredged" from the hundreds of variables we supplied to the algorithm. For full code see the [R notebook](rf_rfe_post/prep_and_fit.Rmd)
+However, if we do RF tuning on this scrambled dataset, **after** we performed RFE feature selection, we get cross-validated R-squared values of 5-10%, purely based on noise variables "dredged" from the hundreds of variables we supplied to the algorithm. For full code see the [R notebook on my Github](https://github.com/gsverhoeven/hugo_source/blob/master/content/post/rf_rfe_post/prep_and_fit.Rmd)
 
 (Note that I had to play around a bit with the RFE settings to not have it pick either the model with **all** features or the model with only 1 feature: using `RMSE` as a metric, and setting `pickSizeTolerance` the procedure selected a model with 75 predictors. 
 Retraining this model using `caret::train` gave me the result below)
@@ -287,5 +287,7 @@ Interestingly, on the "real" datasets (openML, the solubility QSAR data) both tu
 The fact that tuning and feature selection are rarely compared head to head might be that both procedures have different implicit use cases: ML tuning is often performed on datasets that are thought to contain mostly relevant predictors. In this setting feature selection does not improve performance, as it primarily works through the removal of noise variables. On the other hand, feature selection is often performed on high-dimensional datasets where prior information is available telling us that relatively few predictors are related to the outcome, and the many noise variables in the data can negatively influence RF performance. 
 
 **N.b.** As is often the case with simulation studies, an open question is how far we can generalize our results. [@svetnik_etal03] identified a classification dataset **Cox-2** that exhibits unexpected behavior: The dataset gives optimal performance with `mtry` at its maximum setting, indicative of a many irrelevant predictors, so we expect feature selection to find a smaller model that gives the same performance at default `mtry`. However, surprisingly, performance only degraded after performing feature selection using RFE. I wrote the authors (Vladimir Svetnik and Andy Liaw) to ask for the dataset, unfortunately they suffered a data loss some time ago. They obtained the data from Greg Kauffman and Peter Jurs [@kauffman_jurs01], I reached out to them as well but did not receive a reply.  
+
+_**Acknowledgements**: I'd like to thank Philipp Probst and Anne-Laure Boulesteix for their constructive comments and suggestions on this blog post._
 
 ## References

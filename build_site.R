@@ -63,6 +63,7 @@
 
 # Toevoegen: 
 # en uitzoeken hoe ik losse pngs automatisch in post/*-files/x.png krijg
+# dit geldt alleen voor figuren die niet door Rmarkdown chunks worden gemaakt
 
 # do blogdown:::build_rmds
 
@@ -93,6 +94,10 @@ blogdown:::build_rmds("content/post/2022-01-03-random_forest_rfe_vs_tuning.Rmd")
 # Do not call build_site(), but blogdown::hugo_build() instead. 
 # The latter does not compile any Rmd files, but simply runs the hugo command to build the site. 
 # Please use this method only if you are sure that your Rmd files do not need to be recompiled.
+
+#deleten public folder voordat we hugo_build doen
+unlink("public/*", recursive = TRUE)
+
 
 blogdown::hugo_build()
 print("site build")
