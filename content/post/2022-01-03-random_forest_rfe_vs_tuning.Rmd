@@ -174,7 +174,7 @@ Before we move on to RF feature selection, let's see what else we can tune in RF
 
 With respect to the other RF parameters, a quick rundown:
 
-I left the `num.trees` at its default (500), and chose "variance" as the `splitrule` for regression problems, and "gini" for classification problems (alternative is "extratrees" which implements the "Extremely Randomized Trees" method [@geurts_etal06] but I have yet to see convincing results that demonstrate ERT performs substantially better). I checked a few key results at higher `num.trees` as well, just to be sure.(@@@)
+I left the `num.trees` at its default (500), and chose "variance" as the `splitrule` for regression problems, and "gini" for classification problems (alternative is "extratrees" which implements the "Extremely Randomized Trees" method [@geurts_etal06] but I have yet to see convincing results that demonstrate ERT performs substantially better). I checked a few key results at lower and higher `num.trees` as well (100 and 1000 respectively): 100 is a bit low for the Out-of-bag predictions to stabilize, 500 appears to be a sweet spot, with no improvement in R-squared mean or a significant reduction in R2 variance between runs either.
 
 I played around a bit with the `min.node.size` parameter, for which often the sequence 5,10,20 is mentioned to vary over. Setting this larger should reduce computation, since it leads to shorter trees, but for the datasets here, the effect is on the order of say 10% reduction, which does not warrant tuning it IMO. I left this at its default of 5 for regression and 1 for classification.
 
@@ -233,9 +233,6 @@ plot_performance(data = fit_list %>% filter(ds_group == "df_friedman1"),
 Yes, it can! And here we see that RF tuning is not enough, we really need to identify and remove the irrelevant variables. 
 
 **N.b.** For `df_friedman1_N100`, the RFE tuning grid is based on equidistant steps starting with $p = 2$ and included as smallest values only $p = 2$ and $p = 14$, so it skipped the optimal value $p = 5$. This explains the sub optimal performance for RFE with 105 noise variables added. For `df_friedman1_N500`, the tuning grid was exponential and included 2, 3, 6 and 12 (up to $p = 510$). The RFE procedure selected $p = 6$ as optimal, this included as top five variables the five predictors that contained the signal.
-
-With so many irrelevant variables, we might need to average over more than the default `num.trees` splits.
-
 
 A similar pattern is seen for the `solubility` dataset with noise added, an example taken from [@kuhn_johnson13]:
 
