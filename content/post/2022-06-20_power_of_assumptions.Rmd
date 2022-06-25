@@ -1,0 +1,44 @@
+---
+title: "The power of assumptions"
+author: "Gertjan Verhoeven"
+date: '2022-06-25'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+x1 <- rbinom(100, 1, prob = 0.2)
+x2 <- rbinom(100, 1, prob = 0.5)
+x3 <- rbinom(100, 1, prob = 0.3)
+
+y <- 2*x1 + 5*x2 + 3 * x3 + rnorm(100, sd = 2)
+
+```
+
+```{r}
+summary(lm(y ~ x1 + x2 + x3))
+```
+```{r}
+library(caret)
+
+```
+
+```{r}
+caret.fit <- train(y ~ ., data = data.frame(y, x1, x2, x3), method = "rf")
+
+caret.fit
+```
+
+```{r}
+caret.fit <- train(y ~ ., data = data.frame(y, x1, x2, x3), method = "lm")
+
+caret.fit
+```
+```{r}
+caret.fit <- train(y ~ ., data = data.frame(y, x1, x2, x3), method = "rpart", tuneLength = 10)
+
+caret.fit
+```

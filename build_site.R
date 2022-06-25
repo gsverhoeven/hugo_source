@@ -1,5 +1,7 @@
 # Choose background image
 
+TODO: create category R for r-bloggers and a link to R-bloggers on the blog roll.
+
 # choose categories (more like a blog post taxonomy, high level)
 
 # Blood Bowl
