@@ -2,7 +2,7 @@
 title: 'Cluster analysis of Blood Bowl teams using FUMBBL data in R: PCA vs T-SNE'
 author: "Gertjan Verhoeven"
 date: '2022-05-05'
-summary: This blog post compares two unsupervised learning methods to learn which Blood Bowl teams cluster together if we look at various match related metrics from FUMBBL such as scoring, injuries, passes and blocks.
+summary: This blog post compares two unsupervised learning methods to learn which Blood Bowl teams are similar. Similarity is quantified by looking atvarious match related metrics from such as scoring, injuries, passes and blocks.
 slug: blood-bowl-cluster-analysis
 draft: yes
 categories:
@@ -19,61 +19,43 @@ header:
   preview: no
 ---
 
+This is my third blog post on Blood Bowl, the game of Fantasy Football. Blood Bowl can be summarized as "chess-with-dice" , but this would hardly do the game justice. For example, in chess both players play with the same pieces, but in Blood Bowl, almost 30 different teams (e.g. orcs, elves, etc) are available to choose from, each team with different skills that require different playing styles. In addition, Blood Bowl coaches must assemble and paint their playing pieces themselves, making it a creative hobby as well.
+
+Using data analysis, we can compare teams on their performance statistics and see which teams cluster together. Teams that cluster together have a similar set of performance statistics. Teams can of course still be different on some aspect we did not include in the analysis, but let's just have a look at what we get! 
+
+This post at its heart is basically an update from [this 2018 nufflytics blog post](https://www.nufflytics.com/post/bash-dash-hybrid-by-the-numbers/).
+In that blog post, the author used cluster analysis to categorize (classify) the different teams in six clusters, depending on their play style as well as performance. Since then, there have been changes to the rules, and new teams have been created, such as Imperial Nobility, Khorne, Black Orcs etc. It will be interesting to see where these teams fit in.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Load packages
-
 ```{r}
+# Load packages
 library(tidyverse)
 library(ggfortify)
 library(ggrepel)
 ```
 
-# Read in the FUMBBL data
+We starting with reading in the scraped FUMBBL match data.
+From the full dataset, we select four groups of Blood Bowl matches to compare: Three divisions (Blackbox, Ranked and League) that used 2016 rulesets and were active up until september 2020, and the new Competitive division that uses the ruleset from the new Blood Bowl 2020 version of the game.
 
 ```{r}
 df_mbt <- read.csv(file = "../../../fumbbl_datasets/datasets/current/df_mbt.csv")
 
 race_types <- unique(df_mbt %>% select(race_name, race_type))
 
-```
+divisions <- c("Competitive", "Blackbox", "Ranked", "League")
 
-```{r}
-df_mbt %>% 
-  filter(division_name == "Blackbox") %>%
-  saveRDS("fumbbl_cluster/blackbox.rds")
-
-df_mbt %>% 
-  filter(division_name == "Competitive") %>%
-  saveRDS("fumbbl_cluster/competitive.rds")
-
-df_mbt %>% 
-  filter(division_name == "Ranked") %>%
-  saveRDS("fumbbl_cluster/ranked.rds")
-
-df_mbt %>% 
-  filter(division_name == "Regular_league") %>%
+filter_division <- function(div_name){
+  df_mbt %>% 
+  filter(division_name == div_name) %>%
   filter(race_name != "Treeman") %>%
-  filter(race_name != "Simyin") %>%
-  saveRDS("fumbbl_cluster/league.rds")
-```
-
-
-Make four selections of datasets. Try the purrr code.
-
-```{r eval = F}
-data_dir <- c("fumbbl_cluster/")
-
-league_data <- c("Competitive" = "competitive.rds", "Blackbox" = "blackbox.rds", 
-                 "Ranked" = "ranked.rds", "League" = "league.rds")
-
-read_and_clean <- function(path) {
-  readRDS(str_c(data_dir, path))
+  filter(race_name != "Simyin")
 }
 
-data_tables <- map(league_data, read_and_clean)
+data_tables <- map(divisions, filter_division)
+names(data_tables) <- divisions
 
 select_stats <- function(df) {
   df %>% 
@@ -84,13 +66,14 @@ select_stats <- function(df) {
 data_tables <- map(data_tables, select_stats)
 
 data_tables$Competitive %>% colnames()
-
-
 ```
+
+# Comparing the races on a single statistic
+
 Suppose we want to compare the 25+ Blood Bowl races on their match statistics with each other, and see which races have comparable stats.
 If we have only one statistic, it is easy: we can just plot the races on a horizontal line and see which races are closest by.
 
-Lets do that for number of blocks made:
+Lets do that for the **number of blocks made**:
 
 ```{r}
 res <- data_tables$Competitive %>% group_by(race_name, race_type) %>% summarise(avg_block = mean(home_block), size = n())
@@ -98,10 +81,21 @@ ggplot(res, aes(x = avg_block, y = 0, size = size, col = race_type)) +
          geom_point() +
 scale_size_area()
 ```
-But races can be similar if we look at blocks, but dissimilar if we look at e.g. passing. So lets add passing on the y axis.
 
 ```{r}
-res <- data_tables$Competitive %>% group_by(race_name, race_type) %>% summarise(avg_block = mean(home_block), avg_pass = mean(abs(home_pass)), size = n())
+df_mbt %>% filter(home_comp == 0 & race_name == "Wood Elf" & division_name == "Competitive")
+```
+
+But races can be similar if we look at **blocks**, but dissimilar if we look at e.g. **passing**. So lets add passing on the y axis.
+It should be noted that the passing statistic can also be negative, so races that pass "back" in the direction of their own touch down line can make many passes but still end up with a low average passing distance. 
+Here we look at average succesfull passing completions.
+
+```{r}
+res <- data_tables$Competitive %>% 
+  group_by(race_name, race_type) %>% 
+  summarise(avg_block = mean(home_block), 
+            avg_pass = mean(abs(home_comp)), 
+            size = n())
 
 ggplot(res, aes(x = avg_block, y = avg_pass, size = size, col = race_type)) +
          geom_point() +
@@ -111,7 +105,7 @@ ggplot(res, aes(x = avg_block, y = avg_pass, size = size, col = race_type)) +
   
 
 ```
-If we look at the Human race, this plot suggests that it is more similar to Imperial Nobility and Old World Alliance, than it is to Skaven.
+If we look at the **Human** team race,  we can  **Imperial Nobility** and **Old World Alliance**, than it is to **Skaven**. That
 Although Human has the same average passing distance as Skaven (which is surprisingly short, as there are a lot of 0 distance passes), the number of blocks for Skaven is much lower, and thus if we compare on both statistics, Imperial Nobility and OWA win out.
 
 AndyDavo Chaos are a bash team, but Undead is hybrid. Zero agility access. 
