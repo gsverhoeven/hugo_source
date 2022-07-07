@@ -1,8 +1,19 @@
 ---
-title: "The power of assumptions"
+title: 'The power of assumptions'
 author: "Gertjan Verhoeven"
 date: '2022-06-25'
-output: html_document
+summary: This blog post ..
+slug: power-assumptions
+draft: yes
+categories:
+- Statistics
+- Machine Learning
+tags:
+- R
+baseurl: https://gsverhoeven.github.io
+header:
+  image: headers/wilhelm-gunkel-di8ognBauG0-unsplash.png
+  preview: no
 ---
 
 ```{r setup, include=FALSE}
