@@ -132,7 +132,7 @@ Ignoring the red and green lines, and comparing the tuned vs default ranger, it 
 
 However, a few did, and three stood out (blue line above dashed line).
 
-![](/post/2022-01-03-random_forest_rfe_vs_tuning_files/probst_tuning_ranger.png){width=66%}
+![](/post/22-07-09-random_forest_rfe_vs_tuning_files/probst_tuning_ranger.png){width=66%}
 
 *Figure created by Philipp Probst and reproduced from his TuneRanger Github repository*
 
@@ -140,7 +140,7 @@ However, a few did, and three stood out (blue line above dashed line).
 As he made all his code available on Github, I could identify the three datasets as being [bodyfat](https://www.openml.org/search?type=data&sort=runs&id=560&status=active), [tecator](https://www.openml.org/search?type=data&sort=runs&id=505&status=active) and [puma32H](https://www.openml.org/search?type=data&sort=runs&id=308&status=active).
 `Puma32H` is noteworthy in that it is a classic ML dataset for a simulated PUMA 560 robotarm, that contains mostly irrelevant features (30 out of 32) [@geurts_etal06].
 
-![](/post/2022-01-03-random_forest_rfe_vs_tuning_files/puma560_schematic.png){width=50%}
+![](/post/22-07-09-random_forest_rfe_vs_tuning_files/puma560_schematic.png){width=50%}
 
 For these three datasets, I reproduced the results of default `ranger()` and tuned the `mtry` parameter.
 
