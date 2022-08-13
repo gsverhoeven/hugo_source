@@ -21,10 +21,50 @@ header:
 
 This is my third blog post on Blood Bowl, the game of Fantasy Football. Blood Bowl can be summarized as "chess-with-dice" , but this would hardly do the game justice. For example, in chess both players play with the same pieces, but in Blood Bowl, almost 30 different teams (e.g. orcs, elves, etc) are available to choose from, each team with different skills that require different playing styles. In addition, Blood Bowl coaches must assemble and paint their playing pieces themselves, making it a creative hobby as well.
 
-Using data analysis, we can compare teams on their performance statistics and see which teams cluster together. Teams that cluster together have a similar set of performance statistics. Teams can of course still be different on some aspect we did not include in the analysis, but let's just have a look at what we get! 
+Using data analysis, we can compare teams on their match performance statistics and see which teams cluster together. From this clustering we might learn something, for example that teams with similar stats might also have a similar play style. Teams can of course still be different on some aspect we did not include in the analysis, but let's just have a look at what we get! 
 
 This post at its heart is basically an update from [this 2018 nufflytics blog post](https://www.nufflytics.com/post/bash-dash-hybrid-by-the-numbers/).
-In that blog post, the author used cluster analysis to categorize (classify) the different teams in six clusters, depending on their play style as well as performance. Since then, there have been changes to the rules, and new teams have been created, such as Imperial Nobility, Khorne, Black Orcs etc. It will be interesting to see where these teams fit in.
+In that blog post, the author used cluster analysis as well as his own domain knowledge to categorize (classify) the different teams in six clusters, depending on their play style as well as performance (chance of winning the game). Since then, there have been changes to the rules, and new teams have been created, such as Imperial Nobility, Khorne, Black Orcs etc. It will be interesting to reproduce the analysis, and see where the new teams end up.
+
+# Team play style divisions
+
+Here we use the following division of team types:
+
+```
+https://www.reddit.com/r/bloodbowl/comments/64o8hw/bashy_and_nonbashy_teams/
+
+OCC uses the following system:
+
+Bash: Orcs, Dwarves, Chaos, Chaos Dwarves, Khemri, Nurgle
+
+Agility: Wood, High, Pro, Dark and Skaven
+
+Hybrid: Amazon, Human, Norse, Necro, Undead, Lizard
+
+Non-T1: Pact, Underworld, Slann, (Brets, Khorne, Simyin), Vamps
+
+Stunty: Goblins, Halflings, Ogres
+
+The bottom two are clearly performance-based, but there is an actual method behind the differentiation between Bash, Agi and Hybrid teams. 
+
+If a team has 4+ S(trength) access players but fewer than 4 A(gility) access players it is Bash; 
+if it has 4+ A access players but fewer than 4 S access players it is Agi; 
+if it has 4 or more of each it is Hybrid.
+
+This might look like Orcs should be hybrid, but they are so rarely played with more than one goblin (and very often with no goblins) so they go in the Bash category.
+
+Brets, Khorne and Simyin are in brackets because their performance isn't as clearly defined. Khorne are intended as a T1.5 team and perform as such, and I believe Brets and Simyin are too. Khorne and Brets would be Hybrid teams and Simyin would be Bash if you wanted them to be categorised as the above are, though
+```
+
+I wouldn't class undead as a bashy team. 4 players with ST access (Wights, Mummys) and 4 with AG access (4 Ghouls) makes them a hybrid team.
+
+AndyDavo: Chaos are a bash team, but Undead is hybrid. Zero agility access defines bash. 
+
+Other than Orcs, the other true "bash" teams are Dwarves, Chaos, Chaos Dwarves, Nurgle and perhaps Khemri
+
+
+
+# Loading the datasets
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -37,14 +77,9 @@ library(ggfortify)
 library(ggrepel)
 ```
 
-We starting with reading in the scraped FUMBBL match data.
-From the full dataset, we select four groups of Blood Bowl matches to compare: Three divisions (Blackbox, Ranked and League) that used 2016 rulesets and were active up until september 2020, and the new Competitive division that uses the ruleset from the new Blood Bowl 2020 version of the game.
+From the full dataset, we select four groups of Blood Bowl matches to compare: Three divisions (**Blackbox**, **Ranked** and **League**) that used Blood Bowl 2016 rulesets and were active up until september 2020, and the new **Competitive** division that uses the ruleset from the new Blood Bowl 2020 version of the game ("Second Edition").
 
 ```{r}
-df_mbt <- read.csv(file = "../../../fumbbl_datasets/datasets/current/df_mbt.csv")
-
-race_types <- unique(df_mbt %>% select(race_name, race_type))
-
 divisions <- c("Competitive", "Blackbox", "Ranked", "League")
 
 filter_division <- function(div_name){
@@ -53,7 +88,35 @@ filter_division <- function(div_name){
   filter(race_name != "Treeman") %>%
   filter(race_name != "Simyin")
 }
+```
 
+We starting with reading in the scraped FUMBBL match data, see my previous blog posts for details.
+
+The dataset already contains a categorization into race types.
+The common way to group Blood Bowl teams is to look at the balance between access to skills related to Agility (Ball handling) and Strength ("bashing" of the opponent). Teams that have no or very little access to Agility skills but
+
+
+* Agile
+* Bash
+* Hybrid
+* Stunty ("weak", "difficult to play", "a lot of stunty (very small) players", "big guys with negatrait")
+* New (or unknown)
+* Other
+
+```{r}
+df_mbt <- read.csv(file = "../../../fumbbl_datasets/datasets/current/df_mbt.csv")
+
+race_types <- unique(df_mbt %>% 
+                       select(race_name, race_type) %>%
+                       filter(race_type != "") %>%
+                       arrange(race_type))
+
+race_types
+```
+
+Hybrid is negatively defined as "not stunty, not agile, not bash".
+
+```{r}
 data_tables <- map(divisions, filter_division)
 names(data_tables) <- divisions
 
@@ -76,28 +139,32 @@ If we have only one statistic, it is easy: we can just plot the races on a horiz
 Lets do that for the **number of blocks made**:
 
 ```{r}
-res <- data_tables$Competitive %>% group_by(race_name, race_type) %>% summarise(avg_block = mean(home_block), size = n())
+res <- data_tables$Competitive %>% 
+  group_by(race_name, race_type) %>% 
+  summarise(avg_block = mean(home_block), size = n())
+
 ggplot(res, aes(x = avg_block, y = 0, size = size, col = race_type)) +
          geom_point() +
 scale_size_area()
 ```
-
+<!-- check a few Wood Elf matches with zero completions to check if the data is correct -->
 ```{r}
-df_mbt %>% filter(home_comp == 0 & race_name == "Wood Elf" & division_name == "Competitive")
+df_mbt %>% 
+  filter(home_comp == 0 & race_name == "Wood Elf" & division_name == "Competitive")
 ```
 
 But races can be similar if we look at **blocks**, but dissimilar if we look at e.g. **passing**. So lets add passing on the y axis.
 It should be noted that the passing statistic can also be negative, so races that pass "back" in the direction of their own touch down line can make many passes but still end up with a low average passing distance. 
-Here we look at average succesfull passing completions.
+Therefore, we look at average successful passing completions.
 
 ```{r}
 res <- data_tables$Competitive %>% 
   group_by(race_name, race_type) %>% 
   summarise(avg_block = mean(home_block), 
-            avg_pass = mean(abs(home_comp)), 
+            avg_comp = mean(abs(home_comp)), 
             size = n())
 
-ggplot(res, aes(x = avg_block, y = avg_pass, size = size, col = race_type)) +
+ggplot(res, aes(x = avg_block, y = avg_comp, size = size, col = race_type)) +
          geom_point() +
   scale_size_area() +
   expand_limits(y=-0.5) +
@@ -105,10 +172,7 @@ ggplot(res, aes(x = avg_block, y = avg_pass, size = size, col = race_type)) +
   
 
 ```
-If we look at the **Human** team race,  we can  **Imperial Nobility** and **Old World Alliance**, than it is to **Skaven**. That
-Although Human has the same average passing distance as Skaven (which is surprisingly short, as there are a lot of 0 distance passes), the number of blocks for Skaven is much lower, and thus if we compare on both statistics, Imperial Nobility and OWA win out.
-
-AndyDavo Chaos are a bash team, but Undead is hybrid. Zero agility access. 
+If we look at the **Human** team race,  we can see that, depending on how we weigh the relative importance of blocks vs completions, there are three teams that are nearest to **Humans**:  **Imperial Nobility**,  **Old World Alliance**, and **Skaven**. 
 
 Now with two statistics, we can simply plot them and calculate a distance between all points.
 What if we have more than two statistics? E.g. we have 5 statistics? We have too many dimensions to plot.
@@ -116,12 +180,37 @@ For these there exists so-called dimension reduction techniques.
 In this blog post we'll examine two of them.
 
 So we have for each combination of race and performance statistic (touchdowns, blocks etc) a value.
+
+# Correlations between the variables
+
 We can now either try to group the performance variables, this is about correlations between variables. Which variables are related to each other? 
 This produces things like a correlation network graph. This is a poor mans factor analysis.
 Alternatively, we can try to group the races: which races are close by? This is cluster analysis.
 How can this be different whereas we simply can flip the dataset and have races as columns and performance stats as rows?
 
-# Selecting variables to include
+```{r}
+library(infotheo)
+
+data(USArrests)
+dat<-discretize(USArrests)
+#computes the MIM (mutual information matrix)
+I <- mutinformation(dat,method= "emp")
+I2<- mutinformation(dat[,1],dat[,2])
+```
+
+
+```{r}
+library(qgraph)
+cor_mat <- cor(data_tables$Competitive %>% 
+                 select(-c(race_name, race_type)))
+
+
+qgraph(cor_mat, cut=0, layout="spring", 
+       title=paste("Correlation matrix, mean correlation = ", round(means_cor, digits=2), sep=" "))
+```
+
+
+# Selecting variables to include: weighting the different characteristics
 
 The nufflytics blog post has a somewhat surprising selection of match statistics.
 For example, the number of inflicted touchdowns is selected, but not the number of sustained touchdowns.
@@ -263,6 +352,7 @@ cbind(as_data_frame(PCAs[[1]]$x), race = data_tables[[1]]$race_name) %>%
   theme(legend.position = "none") +
   ggtitle("PCA", "FUMBBL")
 ```
+
 ```{r fig.width= 16, fig.height = 16}
 plot_pca <- function(pca, data, flip_x = 1, flip_y = 1, league) { 
   cbind(data.frame(pca$x), race = data$race_name, race_type = data$race_type) %>% 
