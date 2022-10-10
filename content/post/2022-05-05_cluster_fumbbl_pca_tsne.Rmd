@@ -192,10 +192,15 @@ How can this be different whereas we simply can flip the dataset and have races 
 library(infotheo)
 
 data(USArrests)
-dat<-discretize(USArrests)
+dat <- infotheo::discretize(USArrests)
 #computes the MIM (mutual information matrix)
-I <- mutinformation(dat,method= "emp")
-I2<- mutinformation(dat[,1],dat[,2])
+I <- infotheo::mutinformation(dat, method = "emp")
+#I2<- mutinformation(dat[,1],dat[,2])
+
+I
+#I2
+
+cor(USArrests)
 ```
 
 
@@ -204,11 +209,35 @@ library(qgraph)
 cor_mat <- cor(data_tables$Competitive %>% 
                  select(-c(race_name, race_type)))
 
+cor_mat
 
-qgraph(cor_mat, cut=0, layout="spring", 
-       title=paste("Correlation matrix, mean correlation = ", round(means_cor, digits=2), sep=" "))
+
 ```
+```{r}
+qgraph(cor_mat, cut=0, layout="spring", 
+       title="Correlation matrix", nodeNames = colnames(cor_mat))
+```
+```{r}
+I <- mutinformation(data_tables$Competitive %>% 
+                 select(-c(race_name, race_type)), method = "emp")
+diag(I)
+# mutinformation returns the mutual information I(X;Y) in nats.
 
+qgraph(I, cut=0, layout="spring", 
+       title="Correlation matrix using MI", nodeNames = colnames(cor_mat), graph = "cor")
+```
+Variables that show strong relations:
+
+* Home passes and home completions
+* Away passes and away completions
+* Home score and home rushes
+* Away score and away rushes
+* Home score and away score
+
+Individual variables: home fouls, away fouls, home cas, away cas, home blocks, away blocks.
+
+We can explain this if these variables are team properties, that do not depend on the opposing team, and on playing skill.
+I.e. some teams are just teams that can foul more.
 
 # Selecting variables to include: weighting the different characteristics
 
