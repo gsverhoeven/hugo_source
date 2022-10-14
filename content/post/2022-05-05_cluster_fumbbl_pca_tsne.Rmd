@@ -153,9 +153,10 @@ df_mbt %>%
   filter(home_comp == 0 & race_name == "Wood Elf" & division_name == "Competitive")
 ```
 
-But races can be similar if we look at **blocks**, but dissimilar if we look at e.g. **passing**. So lets add passing on the y axis.
-It should be noted that the passing statistic can also be negative, so races that pass "back" in the direction of their own touch down line can make many passes but still end up with a low average passing distance. 
-Therefore, we look at average successful passing completions.
+But races can be similar if we look at **blocks**, but dissimilar if we look at e.g. **passing**. So lets add the average number of successful passes on the y axis.
+
+(Note: The FUMBBL passing statistic can also be negative, so races that pass "back" in the direction of their own touch down line can make many passes but still end up with a low average passing distance. Therefore, we look at average successful passing completions.)
+
 
 ```{r}
 res <- data_tables$Competitive %>% 
