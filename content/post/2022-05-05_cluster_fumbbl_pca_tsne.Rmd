@@ -147,25 +147,23 @@ ggplot(res, aes(x = avg_block, y = 0, size = size, col = race_type)) +
          geom_point() +
 scale_size_area()
 ```
-<!-- check a few Wood Elf matches with zero completions to check if the data is correct -->
-```{r}
-df_mbt %>% 
-  filter(home_comp == 0 & race_name == "Wood Elf" & division_name == "Competitive")
-```
 
 But races can be similar if we look at **blocks**, but dissimilar if we look at e.g. **passing**. So lets add the average number of successful passes on the y axis.
 
-(Note: The FUMBBL passing statistic can also be negative, so races that pass "back" in the direction of their own touch down line can make many passes but still end up with a low average passing distance. Therefore, we look at average successful passing completions.)
+(Note: The FUMBBL passing statistic is a "net" passing distance. It can also be negative, so races that pass "back" in the direction of their own touch down line can make many passes but still end up with a low average passing distance)
 
-
+# completions vs blocking
 ```{r}
-res <- data_tables$Competitive %>% 
+df_agg <- data_tables$Competitive %>% 
   group_by(race_name, race_type) %>% 
   summarise(avg_block = mean(home_block), 
-            avg_comp = mean(abs(home_comp)), 
+            avg_comp = mean(abs(home_comp)),
+            avg_foul = mean(home_foul),
+            avg_pass = mean(abs(home_pass)), 
+            avg_rush = mean(abs(home_rush)), 
             size = n())
 
-ggplot(res, aes(x = avg_block, y = avg_comp, size = size, col = race_type)) +
+ggplot(df_agg, aes(x = avg_block, y = avg_comp, size = size, col = race_type)) +
          geom_point() +
   scale_size_area() +
   expand_limits(y=-0.5) +
@@ -173,21 +171,112 @@ ggplot(res, aes(x = avg_block, y = avg_comp, size = size, col = race_type)) +
   
 
 ```
-If we look at the **Human** team race,  we can see that, depending on how we weigh the relative importance of blocks vs completions, there are three teams that are nearest to **Humans**:  **Imperial Nobility**,  **Old World Alliance**, and **Skaven**. 
+
+If we look at the **Human** team race,  we can see that, depending on how we weigh the relative importance (FOR WHAT) of blocks vs completions, there are three teams that are nearest to **Humans**:  **Imperial Nobility**,  **Old World Alliance**, and **Skaven**. 
 
 Now with two statistics, we can simply plot them and calculate a distance between all points.
 What if we have more than two statistics? E.g. we have 5 statistics? We have too many dimensions to plot.
-For these there exists so-called dimension reduction techniques.
+Now in the plot above,there appears to be a negative correlation between passes and blocks. Teams that make more blocks tend to pass less.
+
+However, there are also teams that do not conform: for example, the Goblin and Snotling races tend to make less blocks, but also less passes compared to other teams.
+
+The passing (distance) statistic is surprisingly correlated with the number of succesfull passes.
+The halflings are an exception, that can be explained by the combination of having Catchers (making passing more attractive), but also the Stunty trait, making low distance passes more risky. So the average passing distance is lower than other teams that pass at similar rates.
+
+# passing vs completions
+
+```{r}
+res <- data_tables$Competitive %>% 
+  group_by(race_name, race_type) %>% 
+  summarise(avg_pass = mean(abs(home_pass)), 
+            avg_comp = mean(home_comp), 
+            size = n())
+
+ggplot(res, aes(x = avg_pass, y = avg_comp, size = size, col = race_type)) +
+         geom_point() +
+  scale_size_area() +
+  expand_limits(y=-0.5) +
+  geom_label_repel(aes(label = race_name), size  = 2) +
+  labs(x = "Averaged absolute net passing distance")
+  
+```
+For rushes the same story holds as for passing distance, the direction of the rush is taken into account.
+
+# rushing vs scoring
+
+```{r}
+res <- data_tables$Competitive %>% 
+  group_by(race_name, race_type) %>% 
+  summarise(avg_rush = mean(home_rush), 
+            avg_score = mean(abs(team_score)), 
+            size = n())
+
+ggplot(res, aes(x = avg_rush, y = avg_score, size = size, col = race_type)) +
+         geom_point() +
+  scale_size_area() +
+  expand_limits(y=-0.5) +
+  geom_label_repel(aes(label = race_name), size  = 2)
+  
+```
+Surprisingly, Skaven and UW lead in the average rushing distance metric. Check a few FUMBBL matches.
+It turns out that rushing also includes movement with the ball.
+So that is nice, the rushing metric quantifies mobility / speed of the teams, with Skaven's gutter runners (movement 9!) topping the charts, and the relatively slow ogres (movement 5) at the bottom.
+
+From a post by SkiJunkie (the author of the predecessor of FUMBBL):
+```
+running/passing in the wrong direction counts negative. So if you run one step forward then one step back, your net rushing is 0.
+
+Running/passing up and down neither adds nor subtracts. Getting pushed/thrown does not count. 
+Only movement made during the players move who has the ball counts.
+
+So, you can end up with negative rushing/passing. 
+```
+
+For these there exists so-called **dimensionality reduction techniques**.
 In this blog post we'll examine two of them.
 
 So we have for each combination of race and performance statistic (touchdowns, blocks etc) a value.
+
+# fouling vs passing
+
+```{r}
+res <- data_tables$Competitive %>% 
+  group_by(race_name, race_type) %>% 
+  summarise(avg_pass = mean(home_pass), 
+            avg_foul = mean(home_foul), 
+            size = n())
+
+ggplot(res, aes(x = avg_pass, y = avg_foul, size = size, col = race_type)) +
+         geom_point() +
+  scale_size_area() +
+  expand_limits(y=-0.5) +
+  geom_label_repel(aes(label = race_name), size  = 2)
+  
+```
+```{r}
+res <- data_tables$Competitive %>% 
+  group_by(race_name, race_type) %>% 
+  summarise(avg_block = mean(home_block), 
+            avg_foul = mean(home_foul), 
+            size = n())
+
+ggplot(res, aes(x = avg_block, y = avg_foul, size = size, col = race_type)) +
+         geom_point() +
+  scale_size_area() +
+  expand_limits(y=-0.5) +
+  geom_label_repel(aes(label = race_name), size  = 2)
+  
+```
 
 # Correlations between the variables
 
 We can now either try to group the performance variables, this is about correlations between variables. Which variables are related to each other? 
 This produces things like a correlation network graph. This is a poor mans factor analysis.
 Alternatively, we can try to group the races: which races are close by? This is cluster analysis.
+
 How can this be different whereas we simply can flip the dataset and have races as columns and performance stats as rows?
+
+# Mutual information vs Pearson correlation
 
 ```{r}
 library(infotheo)
@@ -224,21 +313,68 @@ I <- mutinformation(data_tables$Competitive %>%
 diag(I)
 # mutinformation returns the mutual information I(X;Y) in nats.
 
-qgraph(I, cut=0, layout="spring", 
+qgraph(sqrt(I), cut=0, layout="spring", 
        title="Correlation matrix using MI", nodeNames = colnames(cor_mat), graph = "cor")
 ```
 Variables that show strong relations:
 
-* Home passes and home completions
-* Away passes and away completions
-* Home score and home rushes
-* Away score and away rushes
-* Home score and away score
+* Home passes and home completions (you have to pass to make a completion)
+* Away passes and away completions (you have to pass to make a completion)
+
+* Home score and home rushing (movement with the ball)
+* Away score and away rushing (movement with the ball)
+
+* Home score and away score (if one team is scoring, the other team is not scoring)
+* Blocks generates casualties (removals), and teams that block a lot have higher AV, leading to lower removals on their side
+
+* Fouling
+
+So the variables that hold independent information on the team are:
+
+* Fouling (access to stunty, bribes etc)
+* Blocking (vulnerability)
+* Rushing (mobility, average movement of ball carriers)
+* Passing (passing)
 
 Individual variables: home fouls, away fouls, home cas, away cas, home blocks, away blocks.
 
+Agile is a combination of running with the ball and passing. I.e. high elf more passing, skaven more running.
+
 We can explain this if these variables are team properties, that do not depend on the opposing team, and on playing skill.
 I.e. some teams are just teams that can foul more.
+
+# MOETEN NAAR HIERARCHICAL CLUSTERING!!! 1D of 2D reduction is te grof.
+
+```{r}
+library(ggoheatmap)
+```
+
+```{r}
+df_long <- df_agg %>%
+  pivot_longer(cols = !c(race_name, race_type, size), names_to = "variable") %>%
+  group_by(variable) %>%
+  mutate(sd_value = scale(value))
+
+df_long <- hclust_order(df_long, 
+                        xvar = "race_name", 
+                        yvar = "variable", 
+                        value_var = "value",
+                   clust_method = "complete",
+                   dist_method = "euclidean")
+df_long
+```
+<!-- NEXT UP: ANNOTATE ROWS AND SORT ORDER COLS AND INTRODUCE GAPS? OR FACETS -->
+
+```{r}
+ggorder_heatmap(df_long, 
+                xvar = "race_name", 
+                yvar = "variable", 
+                col_var = "sd_value", 
+                order_var = "cluster_order",
+                label_var = "value", round.digits = 1) +
+  ggtitle("FUMBBL BB2020 average match statistics by race") + coord_flip()
+```
+
 
 # Selecting variables to include: weighting the different characteristics
 
@@ -420,7 +556,6 @@ res <- data_tables$Competitive %>%
   summarise(across(everything(), mean)) %>%
   arrange(-home_block)
 
-View(res)
 ```
 
 
@@ -444,17 +579,18 @@ set.seed(1234)
 
 ## 15 min
 
-TSNE <-  data_tables$Blackbox %>% 
-    select(-race_name, -race_type) %>% 
+TSNE <-  data_tables$Competitive %>% 
+    select(home_foul, home_pass, home_rush, home_block) %>% 
     as.matrix() %>% 
-    Rtsne(check_duplicates = FALSE, pca = TRUE, perplexity=50, max_iter = 1000, theta=0.5, dims=2, verbose = TRUE, num_threads = 2 )
+  scale() %>%
+    Rtsne(check_duplicates = FALSE, pca = TRUE, perplexity=50, max_iter = 400, theta=0.5, dims=2, verbose = TRUE, num_threads = 2 )
 ```
 
 ```{r fig.height = 5, fig.width = 7}
 flip_x <- -1
 flip_y <- 1
 
-cbind(data.frame(TSNE$Y), race = df_pca$race_name, race_type = df_pca$race_type) %>% 
+cbind(data.frame(TSNE$Y), race = data_tables$Competitive$race_name, race_type = data_tables$Competitive$race_type) %>% 
     group_by(race) %>% 
     summarise(PC1 = median(X1)*flip_x, PC2 = median(X2)*flip_y, count = n()) %>% 
     left_join(race_types, by = c("race" = "race_name")) %>%
@@ -466,10 +602,10 @@ cbind(data.frame(TSNE$Y), race = df_pca$race_name, race_type = df_pca$race_type)
     scale_x_continuous(expand = c(0.2,0)) +
     scale_y_continuous(expand = c(0.2,0))
 ```
-Interestingly, the non-linear clustering has placed Black Orc close to Lizardmen, which sort of makes sense given the similarities between both teams. The big difference is in fouling, and that is only one characteristic of the 14 included.
+Interestingly, the non-linear clustering has placed Black Orc close to Ogre!
+Veel foulen, niet passen, ogres minder blocking, lage rushing.
 
-Khorne is close to humans and Chaos Renegade.
+Khorne is close to Chaos Chosen and Chaos Renegade.
 
-This suggests that the new teams are not typed properly by me.
-Ogre should be stunty as well.
+So Khorne should be hybrid. Or Norse and chaos chosen are bash.
 
