@@ -92,8 +92,12 @@ filter_division <- function(div_name){
 
 We starting with reading in the scraped FUMBBL match data, see my previous blog posts for details.
 
+# Race type classification: Bash / Dash / Hybrid
+
 The dataset already contains a categorization into race types.
-The common way to group Blood Bowl teams is to look at the balance between access to skills related to Agility (Ball handling) and Strength ("bashing" of the opponent). Teams that have no or very little access to Agility skills but
+The common way to group Blood Bowl teams is to look at the balance between access to skills related to Agility (Ball handling) and Strength ("bashing" of the opponent). 
+
+Teams that have no or very little access to Agility skills but have at least four players with strength access are classified as Bash teams.
 
 
 * Agile
@@ -161,6 +165,9 @@ df_agg <- data_tables$Competitive %>%
             avg_foul = mean(home_foul),
             avg_pass = mean(abs(home_pass)), 
             avg_rush = mean(abs(home_rush)), 
+            avg_cas_infl = mean(abs(home_cas)),
+            avg_cas_rec = mean(abs(away_cas)), 
+            
             size = n())
 
 ggplot(df_agg, aes(x = avg_block, y = avg_comp, size = size, col = race_type)) +
@@ -343,44 +350,6 @@ Agile is a combination of running with the ball and passing. I.e. high elf more 
 We can explain this if these variables are team properties, that do not depend on the opposing team, and on playing skill.
 I.e. some teams are just teams that can foul more.
 
-# MOETEN NAAR HIERARCHICAL CLUSTERING!!! 1D of 2D reduction is te grof.
-
-```{r}
-library(ggoheatmap)
-```
-
-```{r}
-df_long <- df_agg %>%
-  pivot_longer(cols = !c(race_name, race_type, size), names_to = "variable") %>%
-  group_by(variable) %>%
-  mutate(sd_value = scale(value))
-
-df_long <- hclust_order(df_long, 
-                        xvar = "race_name", 
-                        yvar = "variable", 
-                        value_var = "value",
-                   clust_method = "complete",
-                   dist_method = "euclidean")
-df_long
-```
-<!-- NEXT UP: ANNOTATE ROWS AND SORT ORDER COLS AND INTRODUCE GAPS? OR FACETS -->
-
-```{r}
-ggorder_heatmap(df_long, 
-                xvar = "race_name", 
-                yvar = "variable", 
-                col_var = "sd_value", 
-                order_var = "cluster_order",
-                label_var = "value", round.digits = 1) +
-  ggtitle("FUMBBL BB2020 average match statistics by race") + coord_flip()
-```
-
-
-# Selecting variables to include: weighting the different characteristics
-
-The nufflytics blog post has a somewhat surprising selection of match statistics.
-For example, the number of inflicted touchdowns is selected, but not the number of sustained touchdowns.
-
 # Blood Bowl 2 performance statistics
 
 The Cyanide Blood Bowl 2 API (not publicly accessible) apparently offers the following stats for each match, for both teams:
@@ -411,201 +380,75 @@ Fouling related:
 
 Other:
 
-* Tackles
+* Tackles (failed dodges?)
 
-# Simulated data
 
-He mentions that each match generates two data points, one for each team.
-
-If we include all stats for both the home and away team, something peculiar happens:
-The principal components are exactly opposite.
+# Hierarchical clustering
 
 ```{r}
-set.seed(123)
-home_score <- rpois(n = 10000, lambda = 1)
-away_score <- rpois(n = 10000, lambda = 1)
-
-df <- rbind(data.frame(home_score, away_score), 
-            data.frame(home_score = away_score, away_score = home_score))
-
-PCA <-  df %>% 
-    as.matrix() %>% 
-    prcomp(scale = T)
-PCA
+library(ggoheatmap)
 ```
 
 ```{r}
-round(PCA$sdev^2/sum(PCA$sdev^2)*100,1)
+df_long <- df_agg %>%
+  pivot_longer(cols = !c(race_name, race_type, size), names_to = "variable") %>%
+  group_by(variable) %>%
+  mutate(sd_value = scale(value))
+
+df_long <- hclust_order(df_long, 
+                        xvar = "race_name", 
+                        yvar = "variable", 
+                        value_var = "value",
+                   clust_method = "complete",
+                   dist_method = "euclidean")
+df_long
 ```
 
 ```{r}
-autoplot(PCA, loadings = TRUE, loadings.label = TRUE)
+p1 <- ggplot(df_long, aes(x = reorder(race_name, cluster_order), y = 1, fill = race_type)) +
+  geom_tile() + coord_flip() + labs(x = "", y = NULL) + scale_y_discrete(labels = NULL, breaks = NULL)
+
+#p1
 ```
-Can we fix this by selecting at random one team for each match?
+From the cluster analysis, Shambling Undead clearly is more similar to hybrid teams than to bash teams.
+Khorne is a hybrid team (because of the lack of skills and frenzy reduces base contact and thus blocks).
+
+Also underworld is positioned inbetween Snotling, Goblin and Skaven, and it is in fact a mix of those three teams!!
 
 ```{r}
-set.seed(123)
-sel_vec <- rbinom(n = 10000, size = 1, p = 0.5)
-
-sel_vec <- c(sel_vec, 1 -  sel_vec)
-
-
+p2 <- ggorder_heatmap(df_long, 
+                xvar = "race_name", 
+                yvar = "variable", 
+                col_var = "sd_value", 
+                order_var = "cluster_order",
+                label_var = "value", round.digits = 1) + coord_flip() 
 ```
 
+```{r fig.width= 15}
+library(patchwork)
 
-```{r}
-PCA <- df[sel_vec == 1,] %>% 
-    as.matrix() %>% 
-    prcomp(scale = T)
-PCA
+p <- p1 + p2 + plot_layout(widths = c(1, 6))
+
+
+
+p + plot_annotation(title = 'BB2020 team typology')
 ```
-```{r fig.height = 4, fig.width = 4}
-autoplot(PCA, loadings = TRUE, loadings.label = TRUE)
-```
+Based on this plot, we conclude that both Black orcs and Khorne are hybrid teams, and that Undead and Underworld can be recategorized to Hybrid and Agile respectively.
 
-```{r}
-cor(df$home_score, df$away_score)
-```
-The scores are completely uncorrelated, even with the duplicate "mirror" matches included.
+# Related work 
 
-# Select for each match only one team at random
+Compare with master thesis 
 
-```{r}
-set.seed(123)
-sel_vec <- rbinom(n = nrow(df_mbt)/2, size = 1, p = 0.5)
+http://www.diva-portal.org/smash/get/diva2:1480241/FULLTEXT01.pdf
 
-sel_vec <- c(sel_vec, 1 -  sel_vec)
+https://www.diva-portal.org/smash/get/diva2:1541669/FULLTEXT02.pdf
 
-  
-# check if it works
-df_mbt2 <- df_mbt[sel_vec == 1,]
-df_mbt2 <- df_mbt2 %>% filter(match_id != 4239544)
-```
+SCHLICE, “Bash/dash/hybrid by the numbers.” https:
+//www.nufflytics.com/post/bash-dash-hybrid-by-the-numbers/,
+Feb 2018. Accessed on April 2020.
 
-We leave out the cas breakdown in badly hurt, injured and dead, since this biases the analysis strongly to differences in Armor value.
-
-# Analysis
-
-```{r}
-run_pca <- function(df) {
-  df %>% 
-    select(-race_name, -race_type) %>% 
-    as.matrix() %>% 
-    prcomp(scale = T)
-}
-
-PCAs <- map(data_tables, run_pca)
-```
-
-```{r}
-PCAs[[1]]
-```
-
-```{r}
-autoplot(PCAs[1], loadings = TRUE, loadings.label = TRUE)
-```
-
-```{r}
-round(PCA$sdev^2/sum(PCA$sdev^2)*100,1)
-```
-The first two components explain 33% of variation in the match statistics.
-The more variables we include, the lower the first components explain variation.
-
-```{r}
-cbind(as_data_frame(PCAs[[1]]$x), race = data_tables[[1]]$race_name) %>% 
-  ggplot(aes(x = PC1, y = -1*PC2, colour = factor(race) %>% forcats::fct_reorder2(PC1, PC2, sum))) +
-  geom_point(alpha = 0.5) +
-  theme(legend.position = "none") +
-  ggtitle("PCA", "FUMBBL")
-```
-
-```{r fig.width= 16, fig.height = 16}
-plot_pca <- function(pca, data, flip_x = 1, flip_y = 1, league) { 
-  cbind(data.frame(pca$x), race = data$race_name, race_type = data$race_type) %>% 
-    group_by(race) %>% 
-    summarise(PC1 = median(PC1)*flip_x, 
-              PC2 = median(PC2)*flip_y, 
-              count = n()) %>% 
-    left_join(race_types, by = c("race" = "race_name")) %>%
-    ggplot(aes(PC1, PC2, label = race, colour = factor(race_type))) +
-      geom_point(aes(size = count), alpha = 0.4) +
-      ggrepel::geom_text_repel(size = 4, point.padding = unit(0.05, "lines")) + 
-      theme(legend.position = "none") +
-      ggtitle(league) +
-      scale_x_continuous(expand = c(0.2,0))+
-      scale_y_continuous(expand = c(0.2,0))
-}
-
-# do a parallel map over multiple inputs (lists)
-plots = pmap(.l = list(PCAs, data_tables, 
-                       flip_x = c(-1,-1,1,-1), 
-                       flip_y = c(1,1,-1,1), 
-                       names(league_data)), 
-             .f = plot_pca)
-
-cowplot::plot_grid(plotlist = plots)
-```
-
-# back to the data
-
-```{r}
-res <- data_tables$Competitive %>%
-  mutate(pc1 = PCAs[[1]]$x[,1]) %>%
-  group_by(race_name) %>%
-  select(where(is.numeric)) %>%
-  summarise(across(everything(), mean)) %>%
-  arrange(-home_block)
-
-```
+The nufflytics blog post has a somewhat surprising selection of match statistics.
+For example, the number of inflicted touchdowns is selected, but not the number of sustained touchdowns.
 
 
-
-# T-SNE
-
-Swiss Roll (Geron book)
-https://jlmelville.github.io/smallvis/swisssne.html
-
-https://members.loria.fr/moberger/Enseignement/AVR/Exposes/TR_Dimensiereductie.pdf
-
-Jesse Krijthe created an R package that "wraps" around the C++ code of Laurens van der Maaten.
-t-distributed Stochastic Nearest Neighbour Embedding (T-SNE) needs some serious computation that scales unfavourably with the size of the dataset. There are various tricks to reduce computation. A Tree model is built to find 3 * perplexity nearest neighbours, ignoring the rest. The Barnes-Hutt approximation is controlled by the $theta$ parameter. To help the algorithm an initial PCA step is also computed.
-
-A high perplexity means that a lot of nearest neighbours are taken into account. This means that the higher this parameter, the more the clustering resembles the global structure, i.e. how ALL datapoints relate to each other.
-
-```{r}
-library(Rtsne)
-
-set.seed(1234)
-
-## 15 min
-
-TSNE <-  data_tables$Competitive %>% 
-    select(home_foul, home_pass, home_rush, home_block) %>% 
-    as.matrix() %>% 
-  scale() %>%
-    Rtsne(check_duplicates = FALSE, pca = TRUE, perplexity=50, max_iter = 400, theta=0.5, dims=2, verbose = TRUE, num_threads = 2 )
-```
-
-```{r fig.height = 5, fig.width = 7}
-flip_x <- -1
-flip_y <- 1
-
-cbind(data.frame(TSNE$Y), race = data_tables$Competitive$race_name, race_type = data_tables$Competitive$race_type) %>% 
-    group_by(race) %>% 
-    summarise(PC1 = median(X1)*flip_x, PC2 = median(X2)*flip_y, count = n()) %>% 
-    left_join(race_types, by = c("race" = "race_name")) %>%
-     ggplot(aes(PC1, PC2, label = race, colour = factor(race_type))) +
-    geom_point(aes(size = count), alpha = 0.4) +
-    ggrepel::geom_text_repel(size = 3, point.padding = unit(0.05, "lines")) + 
-    #theme(legend.position = "none") +
-    ggtitle("FUMBBL t-sne clustering") +
-    scale_x_continuous(expand = c(0.2,0)) +
-    scale_y_continuous(expand = c(0.2,0))
-```
-Interestingly, the non-linear clustering has placed Black Orc close to Ogre!
-Veel foulen, niet passen, ogres minder blocking, lage rushing.
-
-Khorne is close to Chaos Chosen and Chaos Renegade.
-
-So Khorne should be hybrid. Or Norse and chaos chosen are bash.
 
