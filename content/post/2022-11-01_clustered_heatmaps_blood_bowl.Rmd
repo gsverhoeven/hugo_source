@@ -1,7 +1,7 @@
 ---
-title: 'Classifying Blood Bowl teams using clustered heatmaps on match statistics'
+title: 'Classifying Blood Bowl teams using clustered heatmaps'
 author: "Gertjan Verhoeven"
-date: '2022-05-05'
+date: '2022-11-01'
 summary: This blog post compares two unsupervised learning methods to learn which Blood Bowl teams are similar. Similarity is quantified by looking atvarious match related metrics from such as scoring, injuries, passes and blocks.
 slug: blood-bowl-cluster-analysis
 draft: yes
@@ -21,7 +21,7 @@ header:
 
 This is my third blog post on Blood Bowl, the game of Fantasy Football. Blood Bowl can be summarized as "chess-with-dice" , but this would hardly do the game justice. For example, in chess both players play with the same pieces, but in Blood Bowl, almost 30 different teams (e.g. orcs, elves, etc) are available to choose from, each team with different skills that require different playing styles. In addition, Blood Bowl coaches must assemble and paint their playing pieces themselves, making it a creative hobby as well.
 
-Using data analysis, we can compare teams on their match performance statistics and see which teams cluster together. From this clustering we might learn something, for example that teams with similar stats might also have a similar play style. Teams can of course still be different on some aspect we did not include in the analysis, but let's just have a look at what we get! 
+Using data analysis, we can compare teams on match performance statistics and see which teams cluster together. From this clustering we might learn something, for example that teams with similar stats might also have a similar play style. Teams with similar stats can still be different on some aspect not captured in the data, but let's just have a look at what we get! 
 
 This post at its heart is basically an update from [this 2018 nufflytics blog post](https://www.nufflytics.com/post/bash-dash-hybrid-by-the-numbers/).
 In that blog post, the author used cluster analysis as well as his own domain knowledge to categorize (classify) the different teams in six clusters, depending on their play style as well as performance (chance of winning the game). Since then, there have been changes to the rules, and new teams have been created, such as Imperial Nobility, Khorne, Black Orcs etc. It will be interesting to reproduce the analysis, and see where the new teams end up.
