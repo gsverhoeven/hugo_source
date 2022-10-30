@@ -1,5 +1,5 @@
 ---
-title: 'Cluster analysis of Blood Bowl teams using FUMBBL data in R: PCA vs T-SNE'
+title: 'Classifying Blood Bowl teams using clustered heatmaps on match statistics'
 author: "Gertjan Verhoeven"
 date: '2022-05-05'
 summary: This blog post compares two unsupervised learning methods to learn which Blood Bowl teams are similar. Similarity is quantified by looking atvarious match related metrics from such as scoring, injuries, passes and blocks.
@@ -95,15 +95,60 @@ We starting with reading in the scraped FUMBBL match data, see my previous blog 
 # Race type classification: Bash / Dash / Hybrid
 
 The dataset already contains a categorization into race types.
-The common way to group Blood Bowl teams is to look at the balance between access to skills related to Agility (Ball handling) and Strength ("bashing" of the opponent). 
+The common way to group Blood Bowl teams is to look at the balance between primary skill access to **Agility** (Ball handling) and **Strength** ("bashing" of the opponent). 
 
-Teams that have no or very little access to Agility skills but have at least four players with strength access are classified as Bash teams.
+https://www.reddit.com/r/bloodbowl/comments/64o8hw/bashy_and_nonbashy_teams/
 
+From dode on the Steam Community:
+
+```
+Depends on how you define an agility team, and how you measure how agile a bash team is.
+
+For the first part, OCC tends to use:
+Agi: High, Dark, Wood and Pro Elves, and Skaven
+Hybrid: Zon, Human, Necro, Undead, Lizard, Norse
+Bash: Orc, Dorf, Chaos Dorf, Chaos, Khemri, Nurgle
+Non-T1: Vamps, Pact, Underworld, Ogre, Goblin, Fling, (Brets/Slann/Khorne - all Hybrid if you want the as T1 teams)
+
+The distinction between Agi/Hybrid/Bash is largely based on skill access: does the team normally (i.e. on rosters regularly taken) have 4 A access or 4 S access players? If it doesn't have 4 A access then it's bash; if it doesn't have 4 S access then it's Agi; otherwise it's hybrid.
+```
+
+From dode on reddit:
+
+```
+OCC (Orca Cola Championship) uses the following system:
+
+Bash: Orcs, Dwarves, Chaos, Chaos Dwarves, Khemri, Nurgle
+
+Agility: Wood, High, Pro, Dark and Skaven
+
+Hybrid: Amazon, Human, Norse, Necro, Undead, Lizard
+
+Non-T1: Pact, Underworld, Slann, (Brets, Khorne, Simyin), Vamps
+
+Stunty: Goblins, Halflings, Ogres
+
+The bottom two are clearly performance-based, but there is an actual method behind the differentiation between Bash, Agi and Hybrid teams. If a team has 4+ S access players but fewer than 4 A access players it is Bash; if it has 4+ A access players but fewer than 4 S access players it is Agi; if it has 4 or more of each it is Hybrid.
+
+This might look like Orcs should be hybrid, but they are so rarely played with more than one goblin (and very often with no goblins) so they go in the Bash category.
+
+Brets, Khorne and Simyin are in brackets because their performance isn't as clearly defined. Khorne are intended as a T1.5 team and perform as such, and I believe Brets and Simyin are too. Khorne and Brets would be Hybrid teams and Simyin would be Bash if you wanted them to be categorised as the above are, though.
+```
+
+Teams that have **at least four players with strength access** but no or very little access to Agility skills are classified as Bash teams.
+(source)
+
+Teams that have **at least four players with agility access** but no or very little access to Strength skills are classified as Agile teams.
+(source Dode)
+
+Then there is Stunty.  ("weak", "difficult to play", "a lot of stunty (very small) players", "big guys with negatrait")
+
+Hybrid is negatively defined as "not stunty, not agile, not bash".
 
 * Agile
 * Bash
 * Hybrid
-* Stunty ("weak", "difficult to play", "a lot of stunty (very small) players", "big guys with negatrait")
+* Stunty
 * New (or unknown)
 * Other
 
@@ -118,7 +163,15 @@ race_types <- unique(df_mbt %>%
 race_types
 ```
 
-Hybrid is negatively defined as "not stunty, not agile, not bash".
+# Fix team classification
+
+```{r}
+df_mbt <- df_mbt %>%
+  mutate(race_type = if_else(race_name == "Shambling Undead", "hybrid", race_type)) %>%
+  mutate(race_type = if_else(race_name == "Underworld Denizens", "agile", race_type)) %>%
+  mutate(race_type = if_else(race_name == "Chaos Chosen", "bash", race_type)) 
+```
+
 
 ```{r}
 data_tables <- map(divisions, filter_division)
@@ -160,17 +213,16 @@ But races can be similar if we look at **blocks**, but dissimilar if we look at 
 ```{r}
 df_agg <- data_tables$Competitive %>% 
   group_by(race_name, race_type) %>% 
-  summarise(avg_block = mean(home_block), 
-            avg_comp = mean(abs(home_comp)),
-            avg_foul = mean(home_foul),
-            avg_pass = mean(abs(home_pass)), 
-            avg_rush = mean(abs(home_rush)), 
-            avg_cas_infl = mean(abs(home_cas)),
-            avg_cas_rec = mean(abs(away_cas)), 
-            
+  summarise(Blocks = mean(home_block), 
+            Completions = mean(home_comp),
+            Fouls = mean(home_foul),
+            Distance_passed = mean(home_pass), 
+            Running_w_ball = mean(home_rush), 
+            Cas_inflicted = mean(home_cas),
+            Cas_suffered = mean(away_cas), 
             size = n())
 
-ggplot(df_agg, aes(x = avg_block, y = avg_comp, size = size, col = race_type)) +
+ggplot(df_agg, aes(x = Blocks, y = Completions, size = size, col = race_type)) +
          geom_point() +
   scale_size_area() +
   expand_limits(y=-0.5) +
@@ -187,7 +239,7 @@ Now in the plot above,there appears to be a negative correlation between passes 
 
 However, there are also teams that do not conform: for example, the Goblin and Snotling races tend to make less blocks, but also less passes compared to other teams.
 
-The passing (distance) statistic is surprisingly correlated with the number of succesfull passes.
+The passing (distance) statistic is surprisingly correlated with the number of successful passes (Completions).
 The halflings are an exception, that can be explained by the combination of having Catchers (making passing more attractive), but also the Stunty trait, making low distance passes more risky. So the average passing distance is lower than other teams that pass at similar rates.
 
 # passing vs completions
@@ -196,7 +248,7 @@ The halflings are an exception, that can be explained by the combination of havi
 res <- data_tables$Competitive %>% 
   group_by(race_name, race_type) %>% 
   summarise(avg_pass = mean(abs(home_pass)), 
-            avg_comp = mean(home_comp), 
+            Completions = mean(home_comp), 
             size = n())
 
 ggplot(res, aes(x = avg_pass, y = avg_comp, size = size, col = race_type)) +
@@ -380,7 +432,7 @@ Fouling related:
 
 Other:
 
-* Tackles (failed dodges?)
+* Tackles (failed dodges)
 
 
 # Hierarchical clustering
@@ -390,10 +442,14 @@ library(ggoheatmap)
 ```
 
 ```{r}
+varnames <- c("Blocks", "Fouls", "Cas_inflicted",  "Distance_passed", "Completions", "Running_w_ball", "Cas_suffered")
+yorder <- data.frame(yorder = 1:length(varnames), variable = varnames)
+
 df_long <- df_agg %>%
   pivot_longer(cols = !c(race_name, race_type, size), names_to = "variable") %>%
   group_by(variable) %>%
-  mutate(sd_value = scale(value))
+  mutate(sd_value = scale(value)) %>%
+  left_join(yorder, by = "variable")
 
 df_long <- hclust_order(df_long, 
                         xvar = "race_name", 
@@ -421,7 +477,10 @@ p2 <- ggorder_heatmap(df_long,
                 yvar = "variable", 
                 col_var = "sd_value", 
                 order_var = "cluster_order",
-                label_var = "value", round.digits = 1) + coord_flip() 
+                yorder_var ="yorder",
+                legend = FALSE,
+                label_var = "value", round.digits = 1) + coord_flip() +
+  scale_y_discrete(position = "right")
 ```
 
 ```{r fig.width= 15}
@@ -431,7 +490,9 @@ p <- p1 + p2 + plot_layout(widths = c(1, 6))
 
 
 
-p + plot_annotation(title = 'BB2020 team typology')
+gp <- p + plot_annotation(title = 'BB2020 team typology')
+
+ggsave(filename = "team_typology.png", plot = gp, width = 15, height = 8)
 ```
 Based on this plot, we conclude that both Black orcs and Khorne are hybrid teams, and that Undead and Underworld can be recategorized to Hybrid and Agile respectively.
 
