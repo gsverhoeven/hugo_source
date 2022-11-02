@@ -18,54 +18,6 @@ header:
   image: headers/wilhelm-gunkel-di8ognBauG0-unsplash.png
   preview: no
 ---
-
-This is my third blog post on Blood Bowl, the game of Fantasy Football. Blood Bowl can be summarized as "chess-with-dice" , but this would hardly do the game justice. For example, in chess both players play with the same pieces, but in Blood Bowl, almost 30 different teams (e.g. orcs, elves, etc) are available to choose from, each team with different skills that require different playing styles. In addition, Blood Bowl coaches must assemble and paint their playing pieces themselves, making it a creative hobby as well.
-
-Using data analysis, we can compare teams on match performance statistics and see which teams cluster together. From this clustering we might learn something, for example that teams with similar stats might also have a similar play style. Teams with similar stats can still be different on some aspect not captured in the data, but let's just have a look at what we get! 
-
-This post at its heart is basically an update from [this 2018 nufflytics blog post](https://www.nufflytics.com/post/bash-dash-hybrid-by-the-numbers/).
-In that blog post, the author used cluster analysis as well as his own domain knowledge to categorize (classify) the different teams in six clusters, depending on their play style as well as performance (chance of winning the game). Since then, there have been changes to the rules, and new teams have been created, such as Imperial Nobility, Khorne, Black Orcs etc. It will be interesting to reproduce the analysis, and see where the new teams end up.
-
-# Team play style divisions
-
-Here we use the following division of team types:
-
-```
-https://www.reddit.com/r/bloodbowl/comments/64o8hw/bashy_and_nonbashy_teams/
-
-OCC uses the following system:
-
-Bash: Orcs, Dwarves, Chaos, Chaos Dwarves, Khemri, Nurgle
-
-Agility: Wood, High, Pro, Dark and Skaven
-
-Hybrid: Amazon, Human, Norse, Necro, Undead, Lizard
-
-Non-T1: Pact, Underworld, Slann, (Brets, Khorne, Simyin), Vamps
-
-Stunty: Goblins, Halflings, Ogres
-
-The bottom two are clearly performance-based, but there is an actual method behind the differentiation between Bash, Agi and Hybrid teams. 
-
-If a team has 4+ S(trength) access players but fewer than 4 A(gility) access players it is Bash; 
-if it has 4+ A access players but fewer than 4 S access players it is Agi; 
-if it has 4 or more of each it is Hybrid.
-
-This might look like Orcs should be hybrid, but they are so rarely played with more than one goblin (and very often with no goblins) so they go in the Bash category.
-
-Brets, Khorne and Simyin are in brackets because their performance isn't as clearly defined. Khorne are intended as a T1.5 team and perform as such, and I believe Brets and Simyin are too. Khorne and Brets would be Hybrid teams and Simyin would be Bash if you wanted them to be categorised as the above are, though
-```
-
-I wouldn't class undead as a bashy team. 4 players with ST access (Wights, Mummys) and 4 with AG access (4 Ghouls) makes them a hybrid team.
-
-AndyDavo: Chaos are a bash team, but Undead is hybrid. Zero agility access defines bash. 
-
-Other than Orcs, the other true "bash" teams are Dwarves, Chaos, Chaos Dwarves, Nurgle and perhaps Khemri
-
-
-
-# Loading the datasets
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -77,25 +29,36 @@ library(ggfortify)
 library(ggrepel)
 ```
 
-From the full dataset, we select four groups of Blood Bowl matches to compare: Three divisions (**Blackbox**, **Ranked** and **League**) that used Blood Bowl 2016 rulesets and were active up until september 2020, and the new **Competitive** division that uses the ruleset from the new Blood Bowl 2020 version of the game ("Second Edition").
 
-```{r}
-divisions <- c("Competitive", "Blackbox", "Ranked", "League")
+# Introduction
 
-filter_division <- function(div_name){
-  df_mbt %>% 
-  filter(division_name == div_name) %>%
-  filter(race_name != "Treeman") %>%
-  filter(race_name != "Simyin")
-}
-```
+"If you graph the numbers of any natural system, patterns emerge" is one of my favorite movie quotes (from Darren Aronofsky's cult movie $\pi$ ("pi")).
+In this plot we'll graph the numbers from the Blood Bowl Fantasy football game, and see what patterns emerge. Blood Bowl is a board game that can be summarized as "chess-with-dice" , but this would hardly do the game justice. For example, in chess both players play with the same pieces, but in Blood Bowl, almost 30 different teams (e.g. orcs, elves, etc) are available to choose from, each team with different skills that require different playing styles. In addition, Blood Bowl coaches must assemble and paint their playing pieces themselves, making it a creative hobby as well.
 
-We starting with reading in the scraped FUMBBL match data, see my previous blog posts for details.
+Using data analysis, we can cluster teams that have similar (average) match performance statistics and graph the data using heatmaps. Heatmaps are a graphical representation of the data, with for example darker colors representing higher numbers. This allows patterns to emerge visually, and deviations on the patterns are also easy to spot. Note that a hundred years ago, people already "shaded matrices" but did not call it a heatmap (Wilkinson L, Friendly M (May 2009). "The History of the Cluster Heat Map". The American Statistician. 63 (2): 179–184. )
 
-# Race type classification: Bash / Dash / Hybrid
+Teams with similar stats can still be different on some aspect not captured in the data, but let's just have a look at what we get! 
 
-The dataset already contains a categorization into race types.
-The common way to group Blood Bowl teams is to look at the balance between primary skill access to **Agility** (Ball handling) and **Strength** ("bashing" of the opponent). 
+First we need data. Blood Bowl can also be played online at FUMBBL.com, from which I scraped the match data (detailed in a [previous blog plost](https://gsverhoeven.github.io/post/blood-bowl-fumbbl-dataset/)). I made the match data (currently from August 2020 up to June 2022) publicly available in a [Github repository](https://github.com/gsverhoeven/fumbbl_datasets).
+
+# Team play style categories
+
+Bonehead podcast has top 5 dash and included underworld and lizardmen !!!
+
+The most common way to classify the 25-30 different Blood Bowl teams is to distinguish four categories:
+
+* Bash (Orcs, Dwarves, Chaos Chosen, Chaos Dwarves, Khemri (Tomb Kings), Nurgle)
+* Agile (or Dash) ( Wood Elfs, High Elfs, Elven Union, Dark Elfs and Skaven)
+* Hybrid (Humans, Amazons, Shambling Undead, Necromantic Horror and several more)
+* Stunty (Goblins, Snotlings, Halflings, Ogres)
+
+The first three categories are underpinned by the balance between primary skill access to **Agility** (Ball handling) and **Strength** ("bashing" of the opponent). Agile teams tend to have high mobility as well.
+
+I wouldn't class undead as a bashy team. 4 players with ST access (Wights, Mummys) and 4 with AG access (4 Ghouls) makes them a hybrid team.
+https://bbtactics.com/forum/threads/bashy-race-choice-for-league-play.4961/#post-127457
+
+Other than Orcs, the other true "bash" teams are Dwarves, Chaos, Chaos Dwarves, Nurgle and perhaps Khemri
+https://bbtactics.com/forum/threads/bashy-race-choice-for-league-play.4961/#post-127884
 
 https://www.reddit.com/r/bloodbowl/comments/64o8hw/bashy_and_nonbashy_teams/
 
@@ -143,14 +106,12 @@ Teams that have **at least four players with agility access** but no or very lit
 
 Then there is Stunty.  ("weak", "difficult to play", "a lot of stunty (very small) players", "big guys with negatrait")
 
-Hybrid is negatively defined as "not stunty, not agile, not bash".
+# Read and prep the data
 
-* Agile
-* Bash
-* Hybrid
-* Stunty
-* New (or unknown)
-* Other
+We start with reading in the scraped FUMBBL match data, see my previous blog posts for details.
+
+The dataset already contains a categorization into race types.
+We need to fix this a bit.
 
 ```{r}
 df_mbt <- read.csv(file = "../../../fumbbl_datasets/datasets/current/df_mbt.csv")
@@ -160,23 +121,38 @@ race_types <- unique(df_mbt %>%
                        filter(race_type != "") %>%
                        arrange(race_type))
 
-race_types
-```
 
 # Fix team classification
-
-```{r}
 df_mbt <- df_mbt %>%
   mutate(race_type = if_else(race_name == "Shambling Undead", "hybrid", race_type)) %>%
   mutate(race_type = if_else(race_name == "Underworld Denizens", "agile", race_type)) %>%
   mutate(race_type = if_else(race_name == "Chaos Chosen", "bash", race_type)) 
 ```
 
+From the full dataset, we select four groups of Blood Bowl matches to compare: Three divisions (**Blackbox**, **Ranked** and **League**) that used Blood Bowl 2016 rulesets and were active up until september 2020, and the new **Competitive** division that uses the ruleset from the new Blood Bowl 2020 version of the game ("Second Edition").
+
+I experimented a bit with functional programming using R's `purrr` package, this allows us to write a function and have this function work in parallel on a list of objects, and have it return the results also in list form. For example, here I wrote a function that takes the source data and selects only matches from a particular division:
 
 ```{r}
-data_tables <- map(divisions, filter_division)
-names(data_tables) <- divisions
+divisions <- c("Competitive", "Blackbox", "Ranked", "League")
 
+filter_division <- function(div_name){
+  df_mbt %>% 
+  filter(division_name == div_name) %>%
+  filter(race_name != "Treeman") %>%
+  filter(race_name != "Simyin")
+}
+
+data_tables <- purrr::map(divisions, filter_division)
+names(data_tables) <- divisions
+```
+
+`data_tables` now contains a list of four datasets, one for each division.
+
+Next step is to select the variables we are interested in.
+Again we use the `purrr::map()` function to apply our selection function at once to all four datasets:
+
+```{r}
 select_stats <- function(df) {
   df %>% 
   select(race_name, race_type, team_score, away_team_score:away_cas_rip) %>%
@@ -184,32 +160,35 @@ select_stats <- function(df) {
 }
 
 data_tables <- map(data_tables, select_stats)
-
-data_tables$Competitive %>% colnames()
 ```
 
-# Comparing the races on a single statistic
-
-Suppose we want to compare the 25+ Blood Bowl races on their match statistics with each other, and see which races have comparable stats.
-If we have only one statistic, it is easy: we can just plot the races on a horizontal line and see which races are closest by.
-
-Lets do that for the **number of blocks made**:
+We end up with the following set of variables:
 
 ```{r}
-res <- data_tables$Competitive %>% 
-  group_by(race_name, race_type) %>% 
-  summarise(avg_block = mean(home_block), size = n())
+data_tables$Competitive %>% colnames()
+```
+# The FUMMBL match statistics
 
-ggplot(res, aes(x = avg_block, y = 0, size = size, col = race_type)) +
-         geom_point() +
-scale_size_area()
+The match statistics that are made available by FUMBBL are all related to important events during gameplay. 
+
+The most obvious one is **scoring Touchdowns** (`team_score` and `away_team_score`). As this involves getting the ball in the end zone of the opposing player, stats for actions that contribute to scoring such as **passing the ball** are also present. There is the number of **completed passes** (c`home_comp` and `away_comp`) as well as the **net passing distance** (with distance towards the opposing endzone counted positive and counted negative for passes in the opposite direction) (`home_pass` and `away_pass`). As passing is risky, running the ball into the endzone is the most common way to score. For running with the ball FUMBBL has the **rushing** statistic. This name was chosen some 20 years ago, and now may lead to confusion as under the BB2020 rules moving extra squares is called "rushing" (previously called "Going-for-it" or GFI).
+
+The **rushing** statistic is described in a [FUMBBL forum post by SkiJunkie (the author of the predecessor of FUMBBL)](https://www.fumbbl.com/index.php?name=PNphpBB2&file=viewtopic&t=1344&postdays=0&postorder=asc&start=15):
+```
+running/passing in the wrong direction counts negative. So if you run one step forward then one step back, your net rushing is 0.
+
+Running/passing up and down neither adds nor subtracts. Getting pushed/thrown does not count. 
+Only movement made during the players move who has the ball counts.
+
+So, you can end up with negative rushing/passing. 
 ```
 
-But races can be similar if we look at **blocks**, but dissimilar if we look at e.g. **passing**. So lets add the average number of successful passes on the y axis.
+The rushing statistic therefore captures both ball possession as well as mobility / speed of typical ball handlers in each team. For example, in a Skaven team, the ball is typically handled by Gutter Runners, that have a maximum movement of 9. Compare this to the Dwarf team, where the Dwarf runner only has movement 6. 
 
-(Note: The FUMBBL passing statistic is a "net" passing distance. It can also be negative, so races that pass "back" in the direction of their own touch down line can make many passes but still end up with a low average passing distance)
+Finally, we have the statistics related towards **taking out opposing players**. This involves **blocking**,leading to blocking **casualties**, as well as **fouling** (illegally hitting players that are already down). For blocking, the total number of blocks thrown is tracked (`home_block` and `away_block`), for casualties we have the number of players who suffer a casualty (`home_cas` , `away_cas` ) and for fouling we have the number of fouls performed by each team (`home_foul`, `away_foul`).
 
-# completions vs blocking
+As we are interested in statistics at the team level (not for individual matches), we take the average of all the statistics by team:
+
 ```{r}
 df_agg <- data_tables$Competitive %>% 
   group_by(race_name, race_type) %>% 
@@ -220,114 +199,76 @@ df_agg <- data_tables$Competitive %>%
             Running_w_ball = mean(home_rush), 
             Cas_inflicted = mean(home_cas),
             Cas_suffered = mean(away_cas), 
+            Touchdowns = mean(team_score),
             size = n())
 
-ggplot(df_agg, aes(x = Blocks, y = Completions, size = size, col = race_type)) +
+dim(df_agg)
+```
+
+This gives us 11 numbers for 28 different BB2020 teams.
+
+# Comparing teams on their match statistics
+
+Now we want to compare the different Blood Bowl teams on their match statistics with each other, and see which races have comparable stats.
+If we have only one statistic, it is easy: we can just plot the races on a horizontal line and see which races are closest by.
+
+Lets do that for the **number of blocks made**:
+
+```{r}
+options(dplyr.summarise.inform = FALSE)
+
+ggplot(df_agg, aes(x = Blocks, y = 0, size = size, col = race_type)) +
+         geom_point() +
+scale_size_area()
+```
+
+But races can be similar if we look at **blocks**, but dissimilar if we look at e.g. **passing**. So lets make a few plots comparing two different metrics in each plot and see what patterns we got:
+
+```{r}
+p1 <- ggplot(df_agg, aes(x = Blocks, y = Completions, size = size, col = race_type)) +
          geom_point() +
   scale_size_area() +
   expand_limits(y=-0.5) +
-  geom_label_repel(aes(label = race_name), size  = 2)
-  
+  geom_label_repel(aes(label = race_name), size  = 2) + theme(legend.position="none")
 
+p2 <- ggplot(df_agg, aes(x = Distance_passed, y = Completions, size = size, col = race_type)) +
+         geom_point() +
+  scale_size_area() +
+  expand_limits(y=-0.5) +
+  geom_label_repel(aes(label = race_name), size  = 2) + theme(legend.position="none")
+ 
+p3 <- ggplot(df_agg, aes(x = Running_w_ball, y = Touchdowns, size = size, col = race_type)) +
+         geom_point() +
+  scale_size_area() +
+  expand_limits(y=-0.5) +
+  geom_label_repel(aes(label = race_name), size  = 2)   + theme(legend.position="none")
+ 
+p4 <- ggplot(df_agg, aes(x = Distance_passed, y = Fouls, size = size, col = race_type)) +
+         geom_point() +
+  scale_size_area() +
+  expand_limits(y=-0.5) +
+  geom_label_repel(aes(label = race_name), size  = 2) + theme(legend.position="none")
+
+p5 <- ggplot(df_agg, aes(x = Blocks, y = Fouls, size = size, col = race_type)) +
+         geom_point() +
+  scale_size_area() +
+  expand_limits(y=-0.5) +
+  geom_label_repel(aes(label = race_name), size  = 2)  + theme(legend.position="none")
 ```
 
-If we look at the **Human** team race,  we can see that, depending on how we weigh the relative importance (FOR WHAT) of blocks vs completions, there are three teams that are nearest to **Humans**:  **Imperial Nobility**,  **Old World Alliance**, and **Skaven**. 
+```{r warning = F, fig.width = 12}
+library(patchwork)
+
+(p1 | p2 | p3)/(p4 |  p5 | plot_spacer())
+```
+Looking at all these plots, we can see that there are clear patterns here. Some are inherently related: Teams that make more passes during a match also cover more passing distance, that is only logical. But there are also patterns that are related to what makes teams different: teams that make more blocks tend to pass less. And given these patterns, we see teams that do not conform to the pattern: For example, in the top left plot, the Goblin and Snotling teams tend to make less blocks, but also less passes compared to other teams. And for the top middle plot we see that halflings are an exception: Given how much they pass, we would expect a higher passing distance. (A quick look at their roster explains this: Halflings have dedicated Catchers (making passing more attractive), but also the Stunty trait, making long distance passes more risky, decreasing the average passing distance).
+
+PM How to proceed from here? Take Black Orcs as example
+
+# Correlations between the variables
 
 Now with two statistics, we can simply plot them and calculate a distance between all points.
 What if we have more than two statistics? E.g. we have 5 statistics? We have too many dimensions to plot.
-Now in the plot above,there appears to be a negative correlation between passes and blocks. Teams that make more blocks tend to pass less.
-
-However, there are also teams that do not conform: for example, the Goblin and Snotling races tend to make less blocks, but also less passes compared to other teams.
-
-The passing (distance) statistic is surprisingly correlated with the number of successful passes (Completions).
-The halflings are an exception, that can be explained by the combination of having Catchers (making passing more attractive), but also the Stunty trait, making low distance passes more risky. So the average passing distance is lower than other teams that pass at similar rates.
-
-# passing vs completions
-
-```{r}
-res <- data_tables$Competitive %>% 
-  group_by(race_name, race_type) %>% 
-  summarise(avg_pass = mean(abs(home_pass)), 
-            Completions = mean(home_comp), 
-            size = n())
-
-ggplot(res, aes(x = avg_pass, y = avg_comp, size = size, col = race_type)) +
-         geom_point() +
-  scale_size_area() +
-  expand_limits(y=-0.5) +
-  geom_label_repel(aes(label = race_name), size  = 2) +
-  labs(x = "Averaged absolute net passing distance")
-  
-```
-For rushes the same story holds as for passing distance, the direction of the rush is taken into account.
-
-# rushing vs scoring
-
-```{r}
-res <- data_tables$Competitive %>% 
-  group_by(race_name, race_type) %>% 
-  summarise(avg_rush = mean(home_rush), 
-            avg_score = mean(abs(team_score)), 
-            size = n())
-
-ggplot(res, aes(x = avg_rush, y = avg_score, size = size, col = race_type)) +
-         geom_point() +
-  scale_size_area() +
-  expand_limits(y=-0.5) +
-  geom_label_repel(aes(label = race_name), size  = 2)
-  
-```
-Surprisingly, Skaven and UW lead in the average rushing distance metric. Check a few FUMBBL matches.
-It turns out that rushing also includes movement with the ball.
-So that is nice, the rushing metric quantifies mobility / speed of the teams, with Skaven's gutter runners (movement 9!) topping the charts, and the relatively slow ogres (movement 5) at the bottom.
-
-From a post by SkiJunkie (the author of the predecessor of FUMBBL):
-```
-running/passing in the wrong direction counts negative. So if you run one step forward then one step back, your net rushing is 0.
-
-Running/passing up and down neither adds nor subtracts. Getting pushed/thrown does not count. 
-Only movement made during the players move who has the ball counts.
-
-So, you can end up with negative rushing/passing. 
-```
-
-For these there exists so-called **dimensionality reduction techniques**.
-In this blog post we'll examine two of them.
-
-So we have for each combination of race and performance statistic (touchdowns, blocks etc) a value.
-
-# fouling vs passing
-
-```{r}
-res <- data_tables$Competitive %>% 
-  group_by(race_name, race_type) %>% 
-  summarise(avg_pass = mean(home_pass), 
-            avg_foul = mean(home_foul), 
-            size = n())
-
-ggplot(res, aes(x = avg_pass, y = avg_foul, size = size, col = race_type)) +
-         geom_point() +
-  scale_size_area() +
-  expand_limits(y=-0.5) +
-  geom_label_repel(aes(label = race_name), size  = 2)
-  
-```
-```{r}
-res <- data_tables$Competitive %>% 
-  group_by(race_name, race_type) %>% 
-  summarise(avg_block = mean(home_block), 
-            avg_foul = mean(home_foul), 
-            size = n())
-
-ggplot(res, aes(x = avg_block, y = avg_foul, size = size, col = race_type)) +
-         geom_point() +
-  scale_size_area() +
-  expand_limits(y=-0.5) +
-  geom_label_repel(aes(label = race_name), size  = 2)
-  
-```
-
-# Correlations between the variables
 
 We can now either try to group the performance variables, this is about correlations between variables. Which variables are related to each other? 
 This produces things like a correlation network graph. This is a poor mans factor analysis.
@@ -402,39 +343,6 @@ Agile is a combination of running with the ball and passing. I.e. high elf more 
 We can explain this if these variables are team properties, that do not depend on the opposing team, and on playing skill.
 I.e. some teams are just teams that can foul more.
 
-# Blood Bowl 2 performance statistics
-
-The Cyanide Blood Bowl 2 API (not publicly accessible) apparently offers the following stats for each match, for both teams:
-
-Scoring related:
-
-* Ball occupation (not available in FUMBBL)
-* Touchdowns
-* Meters running (rushes)
-
-Blocking related:
-
-* Casualties
-* Knock outs
-* Injuries
-* Dead
-
-Passing related:
-
-* Interceptions (not available in FUMBBL)
-* Meters passing (passing yards)
-* Passes (completions)
-
-Fouling related:
-
-* Expulsions (sent off players after fouling)
-* FUMBBL: fouls (not available in BB2 API)
-
-Other:
-
-* Tackles (failed dodges)
-
-
 # Hierarchical clustering
 
 ```{r}
@@ -460,11 +368,14 @@ df_long <- hclust_order(df_long,
 df_long
 ```
 
-```{r}
+```{r}\
+
 p1 <- ggplot(df_long, aes(x = reorder(race_name, cluster_order), y = 1, fill = race_type)) +
-  geom_tile() + coord_flip() + labs(x = "", y = NULL) + scale_y_discrete(labels = NULL, breaks = NULL)
+  geom_tile() + coord_flip() + labs(x = "", y = NULL) + scale_y_discrete(labels = NULL, breaks = NULL) +
+  facet_wrap(~race_type)
 
 #p1
+p1
 ```
 From the cluster analysis, Shambling Undead clearly is more similar to hybrid teams than to bash teams.
 Khorne is a hybrid team (because of the lack of skills and frenzy reduces base contact and thus blocks).
@@ -498,6 +409,10 @@ Based on this plot, we conclude that both Black orcs and Khorne are hybrid teams
 
 # Related work 
 
+This post at its heart is basically an update from [this 2018 nufflytics blog post](https://www.nufflytics.com/post/bash-dash-hybrid-by-the-numbers/).
+In that blog post, the author used cluster analysis as well as his own domain knowledge to categorize (classify) the different teams in six clusters, depending on their play style as well as performance (chance of winning the game). Since then, there have been changes to the rules, and new teams have been created, such as Imperial Nobility, Khorne, Black Orcs etc. It will be interesting to reproduce the analysis, and see where the new teams end up.
+
+
 Compare with master thesis 
 
 http://www.diva-portal.org/smash/get/diva2:1480241/FULLTEXT01.pdf
@@ -510,6 +425,8 @@ Feb 2018. Accessed on April 2020.
 
 The nufflytics blog post has a somewhat surprising selection of match statistics.
 For example, the number of inflicted touchdowns is selected, but not the number of sustained touchdowns.
+
+# References
 
 
 
