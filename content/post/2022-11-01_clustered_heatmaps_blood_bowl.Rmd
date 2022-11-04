@@ -17,6 +17,8 @@ baseurl: https://gsverhoeven.github.io
 header:
   image: headers/wilhelm-gunkel-di8ognBauG0-unsplash.png
   preview: no
+editor_options: 
+  chunk_output_type: inline
 ---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -126,7 +128,8 @@ race_types <- unique(df_mbt %>%
 df_mbt <- df_mbt %>%
   mutate(race_type = if_else(race_name == "Shambling Undead", "hybrid", race_type)) %>%
   mutate(race_type = if_else(race_name == "Underworld Denizens", "agile", race_type)) %>%
-  mutate(race_type = if_else(race_name == "Chaos Chosen", "bash", race_type)) 
+  mutate(race_type = if_else(race_name == "Chaos Chosen", "bash", race_type)) %>%
+  mutate(race_type = if_else(race_name == "Slann", "agile", race_type)) 
 ```
 
 From the full dataset, we select four groups of Blood Bowl matches to compare: Three divisions (**Blackbox**, **Ranked** and **League**) that used Blood Bowl 2016 rulesets and were active up until september 2020, and the new **Competitive** division that uses the ruleset from the new Blood Bowl 2020 version of the game ("Second Edition").
@@ -134,7 +137,7 @@ From the full dataset, we select four groups of Blood Bowl matches to compare: T
 I experimented a bit with functional programming using R's `purrr` package, this allows us to write a function and have this function work in parallel on a list of objects, and have it return the results also in list form. For example, here I wrote a function that takes the source data and selects only matches from a particular division:
 
 ```{r}
-divisions <- c("Competitive", "Blackbox", "Ranked", "League")
+divisions <- c("Competitive", "Blackbox", "Ranked", "Regular_league")
 
 filter_division <- function(div_name){
   df_mbt %>% 
@@ -185,12 +188,14 @@ So, you can end up with negative rushing/passing.
 
 The rushing statistic therefore captures both ball possession as well as mobility / speed of typical ball handlers in each team. For example, in a Skaven team, the ball is typically handled by Gutter Runners, that have a maximum movement of 9. Compare this to the Dwarf team, where the Dwarf runner only has movement 6. 
 
-Finally, we have the statistics related towards **taking out opposing players**. This involves **blocking**,leading to blocking **casualties**, as well as **fouling** (illegally hitting players that are already down). For blocking, the total number of blocks thrown is tracked (`home_block` and `away_block`), for casualties we have the number of players who suffer a casualty (`home_cas` , `away_cas` ) and for fouling we have the number of fouls performed by each team (`home_foul`, `away_foul`).
+Finally, we have the statistics related towards **taking out opposing players**. This involves **blocking**,leading to blocking **casualties**, as well as **fouling** (illegally hitting players that are already down). For blocking, the total number of blocks thrown is tracked (`home_block` and `away_block`), for casualties we have the number of players who suffer a casualty (`home_cas` , `away_cas` ) and for fouling we have the number of fouls performed by each team (`home_foul`, `away_foul`). For casualties, we use both the number of casualties **inflicted** as well as casualties **suffered**. This last part is related to the average armour value of a team, that determines the vulnerability of a team against opposing blocks.
 
 As we are interested in statistics at the team level (not for individual matches), we take the average of all the statistics by team:
 
 ```{r}
-df_agg <- data_tables$Competitive %>% 
+divisions <- c("Competitive", "Blackbox", "Ranked", "Regular_league")
+
+df_agg <- data_tables$Regular_league %>% 
   group_by(race_name, race_type) %>% 
   summarise(Blocks = mean(home_block), 
             Completions = mean(home_comp),
@@ -221,7 +226,6 @@ ggplot(df_agg, aes(x = Blocks, y = 0, size = size, col = race_type)) +
          geom_point() +
 scale_size_area()
 ```
-
 But races can be similar if we look at **blocks**, but dissimilar if we look at e.g. **passing**. So lets make a few plots comparing two different metrics in each plot and see what patterns we got:
 
 ```{r}
@@ -261,87 +265,20 @@ library(patchwork)
 
 (p1 | p2 | p3)/(p4 |  p5 | plot_spacer())
 ```
-Looking at all these plots, we can see that there are clear patterns here. Some are inherently related: Teams that make more passes during a match also cover more passing distance, that is only logical. But there are also patterns that are related to what makes teams different: teams that make more blocks tend to pass less. And given these patterns, we see teams that do not conform to the pattern: For example, in the top left plot, the Goblin and Snotling teams tend to make less blocks, but also less passes compared to other teams. And for the top middle plot we see that halflings are an exception: Given how much they pass, we would expect a higher passing distance. (A quick look at their roster explains this: Halflings have dedicated Catchers (making passing more attractive), but also the Stunty trait, making long distance passes more risky, decreasing the average passing distance).
+Looking at all these plots, we can see that there are clear patterns here. Some are inherently related: Teams that make more passes during a match also cover more passing distance, that is only logical. But there are also patterns that are related to what makes teams different: teams that make more blocks tend to pass less (because they are less good at it). 
 
-PM How to proceed from here? Take Black Orcs as example
+Given these patterns, we also see teams that do not conform to the pattern: For example, in the top left plot, the Goblin and Snotling teams tend to make less blocks, but also less passes compared to other teams. And for the top middle plot we see that halflings are an exception: Given how much they pass, we would expect a higher passing distance. (A quick look at their roster explains this: Halflings have dedicated Catchers (making passing more attractive), but also the Stunty trait, making long distance passes more risky, decreasing the average passing distance).
 
-# Correlations between the variables
+Finally, which teams are similar depends on which plot we look at! Take for example the Black Orc team: Based on fouling and distance passed (Bottom left plot), it is very similar to the four Stunty teams. However, In the plot that combines Fouls and Blocks, it suddenly becomes unique!
 
-Now with two statistics, we can simply plot them and calculate a distance between all points.
-What if we have more than two statistics? E.g. we have 5 statistics? We have too many dimensions to plot.
+# Dimension reduction vs clustering
 
-We can now either try to group the performance variables, this is about correlations between variables. Which variables are related to each other? 
-This produces things like a correlation network graph. This is a poor mans factor analysis.
-Alternatively, we can try to group the races: which races are close by? This is cluster analysis.
+So how can we compare the teams on all stats simultaneously? We can try to reduce the number of variables by look at correlations between variables, such as the correlation between blocks and passes. Variables that strongly correlate can be reduced to a single "dimension" (axis) along which the variation occurs. For this a commonly used technique is PCA ("principal component analysis"). The disadvantage is that the new dimensions are difficult to interpret, and the original data is transformed and no longer recognizable.
 
-How can this be different whereas we simply can flip the dataset and have races as columns and performance stats as rows?
+An alternative is performing a cluster analysis. For example we can ask the computer to cluster the 28 teams into e.g. 5 clusters using the K-means algorithm. This assigns each team to one of 5 clusters, with the cluster centers chosen such that teams within a cluster are close by the cluster center and far away from the other cluster centers. However, this forces us to pick the number of clusters, AND it does not provide information on team similarity WITHIN a cluster. 
 
-# Mutual information vs Pearson correlation
-
-```{r}
-library(infotheo)
-
-data(USArrests)
-dat <- infotheo::discretize(USArrests)
-#computes the MIM (mutual information matrix)
-I <- infotheo::mutinformation(dat, method = "emp")
-#I2<- mutinformation(dat[,1],dat[,2])
-
-I
-#I2
-
-cor(USArrests)
-```
-
-
-```{r}
-library(qgraph)
-cor_mat <- cor(data_tables$Competitive %>% 
-                 select(-c(race_name, race_type)))
-
-cor_mat
-
-
-```
-```{r}
-qgraph(cor_mat, cut=0, layout="spring", 
-       title="Correlation matrix", nodeNames = colnames(cor_mat))
-```
-```{r}
-I <- mutinformation(data_tables$Competitive %>% 
-                 select(-c(race_name, race_type)), method = "emp")
-diag(I)
-# mutinformation returns the mutual information I(X;Y) in nats.
-
-qgraph(sqrt(I), cut=0, layout="spring", 
-       title="Correlation matrix using MI", nodeNames = colnames(cor_mat), graph = "cor")
-```
-Variables that show strong relations:
-
-* Home passes and home completions (you have to pass to make a completion)
-* Away passes and away completions (you have to pass to make a completion)
-
-* Home score and home rushing (movement with the ball)
-* Away score and away rushing (movement with the ball)
-
-* Home score and away score (if one team is scoring, the other team is not scoring)
-* Blocks generates casualties (removals), and teams that block a lot have higher AV, leading to lower removals on their side
-
-* Fouling
-
-So the variables that hold independent information on the team are:
-
-* Fouling (access to stunty, bribes etc)
-* Blocking (vulnerability)
-* Rushing (mobility, average movement of ball carriers)
-* Passing (passing)
-
-Individual variables: home fouls, away fouls, home cas, away cas, home blocks, away blocks.
-
-Agile is a combination of running with the ball and passing. I.e. high elf more passing, skaven more running.
-
-We can explain this if these variables are team properties, that do not depend on the opposing team, and on playing skill.
-I.e. some teams are just teams that can foul more.
+Another approach is to use hierarchical clustering.
+PM advantage over k-means
 
 # Hierarchical clustering
 
@@ -365,17 +302,13 @@ df_long <- hclust_order(df_long,
                         value_var = "value",
                    clust_method = "complete",
                    dist_method = "euclidean")
-df_long
+#df_long
 ```
 
-```{r}\
-
+```{r}
 p1 <- ggplot(df_long, aes(x = reorder(race_name, cluster_order), y = 1, fill = race_type)) +
-  geom_tile() + coord_flip() + labs(x = "", y = NULL) + scale_y_discrete(labels = NULL, breaks = NULL) +
-  facet_wrap(~race_type)
-
+  geom_tile() + coord_flip() + labs(x = "", y = NULL) + scale_y_discrete(labels = NULL, breaks = NULL) 
 #p1
-p1
 ```
 From the cluster analysis, Shambling Undead clearly is more similar to hybrid teams than to bash teams.
 Khorne is a hybrid team (because of the lack of skills and frenzy reduces base contact and thus blocks).
@@ -393,25 +326,36 @@ p2 <- ggorder_heatmap(df_long,
                 label_var = "value", round.digits = 1) + coord_flip() +
   scale_y_discrete(position = "right")
 ```
-
-```{r fig.width= 15}
+```{r}
 library(patchwork)
+```
 
+```{r, fig.width = 12}
 p <- p1 + p2 + plot_layout(widths = c(1, 6))
-
-
 
 gp <- p + plot_annotation(title = 'BB2020 team typology')
 
 ggsave(filename = "team_typology.png", plot = gp, width = 15, height = 8)
+
+gp
 ```
-Based on this plot, we conclude that both Black orcs and Khorne are hybrid teams, and that Undead and Underworld can be recategorized to Hybrid and Agile respectively.
+
+```{r fig.width = 12}
+source("heatmap_post/make_heatmap.R")
+
+for(i in 1:length(divisions)){
+  print(make_heatmap(data_tables[[divisions[i]]], division_name = divisions[i]))
+}
+
+```
+Slann is agile.
+
+Chaos Chosen twijfelgeval. hebben ook die beastmen.
 
 # Related work 
 
 This post at its heart is basically an update from [this 2018 nufflytics blog post](https://www.nufflytics.com/post/bash-dash-hybrid-by-the-numbers/).
 In that blog post, the author used cluster analysis as well as his own domain knowledge to categorize (classify) the different teams in six clusters, depending on their play style as well as performance (chance of winning the game). Since then, there have been changes to the rules, and new teams have been created, such as Imperial Nobility, Khorne, Black Orcs etc. It will be interesting to reproduce the analysis, and see where the new teams end up.
-
 
 Compare with master thesis 
 
@@ -422,9 +366,6 @@ https://www.diva-portal.org/smash/get/diva2:1541669/FULLTEXT02.pdf
 SCHLICE, “Bash/dash/hybrid by the numbers.” https:
 //www.nufflytics.com/post/bash-dash-hybrid-by-the-numbers/,
 Feb 2018. Accessed on April 2020.
-
-The nufflytics blog post has a somewhat surprising selection of match statistics.
-For example, the number of inflicted touchdowns is selected, but not the number of sustained touchdowns.
 
 # References
 
