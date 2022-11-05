@@ -2,6 +2,7 @@
 title: 'Classifying Blood Bowl teams using clustered heatmaps'
 author: "Gertjan Verhoeven"
 date: '2022-11-01'
+bibliography: heatmap_post/2022_clusterheatmap_blog_post.json
 summary: This blog post compares two unsupervised learning methods to learn which Blood Bowl teams are similar. Similarity is quantified by looking atvarious match related metrics from such as scoring, injuries, passes and blocks.
 slug: blood-bowl-cluster-analysis
 draft: yes
@@ -34,14 +35,13 @@ library(ggrepel)
 
 # Introduction
 
-"If you graph the numbers of any natural system, patterns emerge" is one of my favorite movie quotes (from Darren Aronofsky's cult movie $\pi$ ("pi")).
-In this plot we'll graph the numbers from the Blood Bowl Fantasy football game, and see what patterns emerge. Blood Bowl is a board game that can be summarized as "chess-with-dice" , but this would hardly do the game justice. For example, in chess both players play with the same pieces, but in Blood Bowl, almost 30 different teams (e.g. orcs, elves, etc) are available to choose from, each team with different skills that require different playing styles. In addition, Blood Bowl coaches must assemble and paint their playing pieces themselves, making it a creative hobby as well.
+"If you graph the numbers of any natural system, patterns emerge" (slightly paraphrased) is one of my favorite movie quotes (from Darren Aronofsky's cult movie $\pi$ ("pi")).In this plot we'll graph the numbers from the Blood Bowl Fantasy football game, and see what patterns emerge. Blood Bowl is a board game that can be summarized as "fantasy-chess-with-dice" , but this would hardly do the game justice. For example, in chess both players play with the same pieces, but in Blood Bowl, almost 30 different teams (e.g. orcs, elves, etc) are available to choose from, each team with different skills that require different playing styles. In addition, Blood Bowl coaches must assemble and paint their playing pieces themselves, making it a creative hobby as well.
 
-Using data analysis, we can cluster teams that have similar (average) match performance statistics and graph the data using heatmaps. Heatmaps are a graphical representation of the data, with for example darker colors representing higher numbers. This allows patterns to emerge visually, and deviations on the patterns are also easy to spot. Note that a hundred years ago, people already "shaded matrices" but did not call it a heatmap (Wilkinson L, Friendly M (May 2009). "The History of the Cluster Heat Map". The American Statistician. 63 (2): 179–184. )
+Using data analysis, we can cluster teams that have similar (average) match performance statistics and graph the data using heatmaps. Heatmaps are a graphical representation of the data, with for example darker colors representing higher numbers. This allows patterns to emerge visually, and deviations on the patterns are also easy to spot. Note that a hundred years ago, people already "shaded matrices" but did not call it a heatmap [@wilkinson_friendly09].
 
 Teams with similar stats can still be different on some aspect not captured in the data, but let's just have a look at what we get! 
 
-First we need data. Blood Bowl can also be played online at FUMBBL.com, from which I scraped the match data (detailed in a [previous blog plost](https://gsverhoeven.github.io/post/blood-bowl-fumbbl-dataset/)). I made the match data (currently from August 2020 up to June 2022) publicly available in a [Github repository](https://github.com/gsverhoeven/fumbbl_datasets).
+First we need data. Blood Bowl can also be played online at FUMBBL.com, from which I scraped the match data (detailed in a [previous blog post](https://gsverhoeven.github.io/post/blood-bowl-fumbbl-dataset/)). I made the match data (currently from August 2020 up to June 2022) publicly available in a [Github repository](https://github.com/gsverhoeven/fumbbl_datasets).
 
 # Team play style categories
 
@@ -172,7 +172,7 @@ data_tables$Competitive %>% colnames()
 ```
 # The FUMMBL match statistics
 
-The match statistics that are made available by FUMBBL are all related to important events during gameplay. 
+The match statistics that are made available by FUMBBL are all related to important events during Blood Bowl gameplay. 
 
 The most obvious one is **scoring Touchdowns** (`team_score` and `away_team_score`). As this involves getting the ball in the end zone of the opposing player, stats for actions that contribute to scoring such as **passing the ball** are also present. There is the number of **completed passes** (c`home_comp` and `away_comp`) as well as the **net passing distance** (with distance towards the opposing endzone counted positive and counted negative for passes in the opposite direction) (`home_pass` and `away_pass`). As passing is risky, running the ball into the endzone is the most common way to score. For running with the ball FUMBBL has the **rushing** statistic. This name was chosen some 20 years ago, and now may lead to confusion as under the BB2020 rules moving extra squares is called "rushing" (previously called "Going-for-it" or GFI).
 
@@ -186,16 +186,16 @@ Only movement made during the players move who has the ball counts.
 So, you can end up with negative rushing/passing. 
 ```
 
-The rushing statistic therefore captures both ball possession as well as mobility / speed of typical ball handlers in each team. For example, in a Skaven team, the ball is typically handled by Gutter Runners, that have a maximum movement of 9. Compare this to the Dwarf team, where the Dwarf runner only has movement 6. 
+The rushing statistic therefore captures both **ball possession** as well as **the maximum movement of typical ball handlers in each team**. For example, in a Skaven team, the ball is typically handled by Gutter Runners, that have a maximum movement of 9. Compare this to the Dwarf team, where the Dwarf runner only has movement 6. 
 
-Finally, we have the statistics related towards **taking out opposing players**. This involves **blocking**,leading to blocking **casualties**, as well as **fouling** (illegally hitting players that are already down). For blocking, the total number of blocks thrown is tracked (`home_block` and `away_block`), for casualties we have the number of players who suffer a casualty (`home_cas` , `away_cas` ) and for fouling we have the number of fouls performed by each team (`home_foul`, `away_foul`). For casualties, we use both the number of casualties **inflicted** as well as casualties **suffered**. This last part is related to the average armour value of a team, that determines the vulnerability of a team against opposing blocks.
+Finally, we have the statistics related towards **taking out opposing players**. This involves **blocking**,leading to blocking **casualties**, as well as **fouling** (illegally hitting players that are already down). For blocking, the total number of blocks thrown is tracked (`home_block` and `away_block`), for casualties we have the number of players who suffer a casualty (`home_cas` , `away_cas`) and for fouling we have the number of fouls performed by each team (`home_foul`, `away_foul`). For casualties, we use both the number of casualties **inflicted** as well as casualties **suffered**. This last part is related to the average armour value of a team, that determines the vulnerability of a team against opposing blocks.
 
 As we are interested in statistics at the team level (not for individual matches), we take the average of all the statistics by team:
 
 ```{r}
 divisions <- c("Competitive", "Blackbox", "Ranked", "Regular_league")
 
-df_agg <- data_tables$Regular_league %>% 
+df_agg <- data_tables$Competitive %>% 
   group_by(race_name, race_type) %>% 
   summarise(Blocks = mean(home_block), 
             Completions = mean(home_comp),
@@ -226,7 +226,10 @@ ggplot(df_agg, aes(x = Blocks, y = 0, size = size, col = race_type)) +
          geom_point() +
 scale_size_area()
 ```
-But races can be similar if we look at **blocks**, but dissimilar if we look at e.g. **passing**. So lets make a few plots comparing two different metrics in each plot and see what patterns we got:
+The different colors visualize the Team classification that I added previously based on classifications found online in blog posts, on reddit etc.
+We can see that the average number of blocks is already pretty predictive of team type.
+
+But races can be similar if we look at **blocks**, but dissimilar if we look at e.g. **passing**. So lets make a few plots with each plot comparing two different metrics:
 
 ```{r}
 p1 <- ggplot(df_agg, aes(x = Blocks, y = Completions, size = size, col = race_type)) +
@@ -245,42 +248,52 @@ p3 <- ggplot(df_agg, aes(x = Running_w_ball, y = Touchdowns, size = size, col = 
          geom_point() +
   scale_size_area() +
   expand_limits(y=-0.5) +
-  geom_label_repel(aes(label = race_name), size  = 2)   + theme(legend.position="none")
+  geom_label_repel(aes(label = race_name), size  = 2, force = 5, max.overlaps = 20)   + theme(legend.position="none")
  
 p4 <- ggplot(df_agg, aes(x = Distance_passed, y = Fouls, size = size, col = race_type)) +
          geom_point() +
   scale_size_area() +
   expand_limits(y=-0.5) +
-  geom_label_repel(aes(label = race_name), size  = 2) + theme(legend.position="none")
+  geom_label_repel(aes(label = race_name), size  = 2, max.overlaps = 15) + theme(legend.position="none")
 
 p5 <- ggplot(df_agg, aes(x = Blocks, y = Fouls, size = size, col = race_type)) +
-         geom_point() +
   scale_size_area() +
   expand_limits(y=-0.5) +
-  geom_label_repel(aes(label = race_name), size  = 2)  + theme(legend.position="none")
+  geom_label_repel(aes(label = race_name), size  = 2)  + 
+  geom_point() +
+  guides(size = "none")
 ```
 
 ```{r warning = F, fig.width = 12}
 library(patchwork)
 
-(p1 | p2 | p3)/(p4 |  p5 | plot_spacer())
+(p1 | p2 | p3)/(p4 |  p5 | plot_spacer()) +   plot_layout(guides = 'collect')
 ```
 Looking at all these plots, we can see that there are clear patterns here. Some are inherently related: Teams that make more passes during a match also cover more passing distance, that is only logical. But there are also patterns that are related to what makes teams different: teams that make more blocks tend to pass less (because they are less good at it). 
 
-Given these patterns, we also see teams that do not conform to the pattern: For example, in the top left plot, the Goblin and Snotling teams tend to make less blocks, but also less passes compared to other teams. And for the top middle plot we see that halflings are an exception: Given how much they pass, we would expect a higher passing distance. (A quick look at their roster explains this: Halflings have dedicated Catchers (making passing more attractive), but also the Stunty trait, making long distance passes more risky, decreasing the average passing distance).
+Given these patterns, we also see teams that do not conform to the pattern: For example, in the top left plot, the Goblin and Snotling teams tend to make less blocks, but also less passes compared to other teams. And for the top middle plot we see that Halflings are an exception: Given how much they pass, we would expect a higher passing distance. (A quick look at their roster explains this: Halflings have dedicated Catchers (making passing  attractive), but also the Stunty trait, making long distance passes more risky, decreasing the average passing distance).
 
-Finally, which teams are similar depends on which plot we look at! Take for example the Black Orc team: Based on fouling and distance passed (Bottom left plot), it is very similar to the four Stunty teams. However, In the plot that combines Fouls and Blocks, it suddenly becomes unique!
+Finally, which teams are similar depends on which plot we look at! Take for example the Black Orc team: Based on fouling and distance passed (Bottom left plot), it is very similar to the four Stunty teams. However, In the plot that combines Fouls and Blocks (lower right), it suddenly becomes unique!
 
-# Dimension reduction vs clustering
+# PCA versus clustered heatmaps
 
-So how can we compare the teams on all stats simultaneously? We can try to reduce the number of variables by look at correlations between variables, such as the correlation between blocks and passes. Variables that strongly correlate can be reduced to a single "dimension" (axis) along which the variation occurs. For this a commonly used technique is PCA ("principal component analysis"). The disadvantage is that the new dimensions are difficult to interpret, and the original data is transformed and no longer recognizable.
+So how can we compare the teams on all stats simultaneously? We can try to reduce the number of variables by looking at correlations between variables. For example, we observed a strong (negative) correlation between the number of blocks and the number of passes. We could take these two variables together and map ("project") each team on a single new "axis" (the straight line in the top left plot). For this a commonly used technique is PCA ("principal component analysis").  The original variables are combined into "principle components" along which the most variation occurs. [This 2018 nufflytics blog post] (https://www.nufflytics.com/post/bash-dash-hybrid-by-the-numbers/) by **Schlice** applies this technique to classify the Blood Bowl teams of the online **Blood Bowl 2** variant of the game. Another example of this approach is [the master thesis project of Tadas Ivanauskas](https://www.diva-portal.org/smash/get/diva2:1541669/FULLTEXT02.pdf).
 
-An alternative is performing a cluster analysis. For example we can ask the computer to cluster the 28 teams into e.g. 5 clusters using the K-means algorithm. This assigns each team to one of 5 clusters, with the cluster centers chosen such that teams within a cluster are close by the cluster center and far away from the other cluster centers. However, this forces us to pick the number of clusters, AND it does not provide information on team similarity WITHIN a cluster. 
+With PCA, a common approach is to focus on the first two principal components, as these can be visualized on a 2D coordinate system (i.e. a scatter plot). However, a big disadvantage of PCA is that the new dimensions are difficult to interpret, because the original data is transformed and combined, and therefore no longer recognizable. In the above mentioned blog post, this becomes apparent when the author puts in serious effort to understand the first four principal components, see [his "diving deeper" follow up post](https://www.nufflytics.com/post/bash-dash-hybrid-diving-deeper/). Because each component is a (different) linear combination of ALL 17 variables (!), interpreting the principal components becomes very difficult. To do so requires a high cognitive load, and it is unclear where the signal ends and noise starts.  
 
-Another approach is to use hierarchical clustering.
-PM advantage over k-means
+An attractive alternative is performing a cluster analysis on the original data, and using the cluster order to directly visualize the data as a heatmap. This technique is called **clustered heatmaps**, and is widely used in bioinformatics to display patterns in data.
 
-# Hierarchical clustering
+Two of the most popular clustering algorithms are **Hierarchical clustering** and **k-means clustering**. For example we can ask the computer to cluster the 28 teams into e.g. 5 clusters using the K-means algorithm. This assigns each team to one of $k = 5$ clusters, with the cluster centers chosen such that teams within a cluster are close by the cluster center and far away from the other cluster centers. However, this forces us to pick the number of clusters, AND it does not provide information on team similarity WITHIN a cluster. 
+
+# Clustered heatmaps for the win
+
+Hierarchical clustering circumvents both drawbacks as it clusters ALL the observations in such a way that the most similar observations end up next to each other, and thus provide a complete ordering of all observations. All that remains is to plot the data in this order on a colored grid, and BAM the patterns hit us right between the eyes!
+
+The basic functionality to make a heatmap is provided in the R package `ggplot2` by the `geom_tile()` geometric object.
+There are many wrapper functions around `geom_tile()` to make clustered heatmaps, however they all combine the clustering step with the plotting step.
+I am currently experimenting with my own wrapper function `ggorder_heatmap()`, which I turned into an R package called `ggoheatmap`. See for details the GitHub repository for [the ggoheatmap R package](https://github.com/gsverhoeven/ggoheatmap).
+Note that it is unstable, under development, and possible not even a good idea, so do not use it yourself.
+Instead use `pheatmap` by Raivo Kolde, available from CRAN, with the official repo [here](https://github.com/raivokolde/pheatmap).
 
 ```{r}
 library(ggoheatmap)
@@ -352,12 +365,11 @@ Slann is agile.
 
 Chaos Chosen twijfelgeval. hebben ook die beastmen.
 
-# Related work 
+# Conclusions
 
-This post at its heart is basically an update from [this 2018 nufflytics blog post](https://www.nufflytics.com/post/bash-dash-hybrid-by-the-numbers/).
-In that blog post, the author used cluster analysis as well as his own domain knowledge to categorize (classify) the different teams in six clusters, depending on their play style as well as performance (chance of winning the game). Since then, there have been changes to the rules, and new teams have been created, such as Imperial Nobility, Khorne, Black Orcs etc. It will be interesting to reproduce the analysis, and see where the new teams end up.
 
-Compare with master thesis 
+
+# References
 
 http://www.diva-portal.org/smash/get/diva2:1480241/FULLTEXT01.pdf
 
@@ -366,8 +378,5 @@ https://www.diva-portal.org/smash/get/diva2:1541669/FULLTEXT02.pdf
 SCHLICE, “Bash/dash/hybrid by the numbers.” https:
 //www.nufflytics.com/post/bash-dash-hybrid-by-the-numbers/,
 Feb 2018. Accessed on April 2020.
-
-# References
-
 
 
