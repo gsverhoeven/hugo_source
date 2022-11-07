@@ -1,6 +1,6 @@
 # Choose background image
 
-TODO: create category R for r-bloggers and a link to R-bloggers on the blog roll.
+TODO: create category R for r-bloggers (for now we have tag R RSS feed)
 AND category Python for Python-bloggers
 
 # choose categories (more like a blog post taxonomy, high level)
@@ -56,6 +56,7 @@ AND category Python for Python-bloggers
 # ranger
 
 # Move from Jupyter notebook to Rmarkdown blogpost
+# do next python post in Quarto
 
 # do run all on python notebook in VS Code
 # source venv in terminal with nbconvert installed
@@ -68,7 +69,7 @@ AND category Python for Python-bloggers
 # en uitzoeken hoe ik losse pngs automatisch in post/*-files/x.png krijg
 # dit geldt alleen voor figuren die niet door Rmarkdown chunks worden gemaakt
 
-# do blogdown:::build_rmds
+# do blogdown:::build_rmds: onlye for new blog post
 
 # empty the public folder
 
@@ -82,7 +83,8 @@ AND category Python for Python-bloggers
 #blogdown:::build_rmds("content/post/2021_12_30_fumbbl_dataset.Rmd")
 #blogdown:::build_rmds("content/post/2022-01-04_java_webstart_forensics_ubuntu.Rmd")
 #blogdown:::build_rmds("content/post/2022-03-20_nufflytics_blog_post.Rmd")
-blogdown:::build_rmds("content/post/2022-07-09-random_forest_rfe_vs_tuning.Rmd")
+#blogdown:::build_rmds("content/post/2022-07-09-random_forest_rfe_vs_tuning.Rmd")
+blogdown:::build_rmds("content/post/2022-11-01_clustered_heatmaps_blood_bowl.Rmd")
 
 # rebuild site
 
@@ -117,6 +119,8 @@ options(blogdown.knit.on_save = FALSE) # voorkom dat alle RMds gemonitord worden
 blogdown::serve_site()
 
 # http://localhost:4321
+
+# after changes press shift-and click refresh to circumvent the caching mechanism
 
 blogdown::stop_server()
 
