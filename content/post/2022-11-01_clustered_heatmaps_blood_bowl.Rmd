@@ -3,8 +3,8 @@ title: 'Classifying Blood Bowl teams using clustered heatmaps'
 author: "Gertjan Verhoeven"
 date: '2022-11-01'
 bibliography: heatmap_post/2022_clusterheatmap_blog_post.json
-summary: If you graph the numbers of any natural system, patterns emerge. In this plot we'll use clustered heatmaps to graph the numbers from the Blood Bowl Fantasy football game, and see what patterns emerge!
-slug: blood-bowl-cluster-analysis
+summary: "Restate my assumptions: If you graph the numbers of any system, patterns emerge. In this plot we'll use clustered heatmaps to graph the numbers from the Blood Bowl Fantasy football game, and see what patterns emerge!"
+slug: blood-bowl-cluster-heatmap
 draft: yes
 categories:
 - Blood Bowl
@@ -12,43 +12,34 @@ categories:
 - Clustering
 - Unsupervised learning
 tags:
-- t-sne
-- pca
+- R
+- hclust
+- heatmap
 baseurl: https://gsverhoeven.github.io
 header:
   image: headers/bb_heatmap_banner.png
   preview: no
-editor_options: 
-  chunk_output_type: inline
 ---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
-# Load packages
-library(tidyverse)
-library(ggfortify)
-library(ggrepel)
-```
+*(Photo by [Erik Cats](https://twitter.com/erikcats))*
 
+"If you graph the numbers of any system, patterns emerge" is one of my favorite movie quotes (from Darren Aronofsky's cult movie about mathematics $\pi$ ("pi")). In this post we'll graph the numbers from the Blood Bowl Fantasy football game, and see what patterns emerge. Blood Bowl is a board game that can be summarized as "fantasy-chess-with-dice", but this would hardly do the game justice. For example, in chess both players play with the same pieces, but in Blood Bowl, almost 30 different teams (e.g. orcs, elves, etc) are available to choose from, each team with different skills that require different playing styles. In addition, Blood Bowl coaches must assemble and paint their playing pieces themselves, making it a creative hobby as well.
 
-# Introduction
+For this blog post, we have a look at similarities and differences between the different Blood Bowl 2020 teams, and see where the newly introduced **Black Orc** and **Khorne** teams fit in. Using data analysis, we can cluster teams that have similar (average) match performance statistics and graph the data using **heatmaps**. Heatmaps are a graphical representation of the data, with for example darker colors representing higher numbers. This allows patterns to emerge visually, and deviations on the patterns are also easy to spot. (Fun fact: a hundred years ago, people already "shaded matrices" but did not call it a heatmap yet [@wilkinson_friendly09].)
 
-"If you graph the numbers of any natural system, patterns emerge" (slightly paraphrased) is one of my favorite movie quotes (from Darren Aronofsky's cult movie $\pi$ ("pi")). In this plot we'll graph the numbers from the Blood Bowl Fantasy football game, and see what patterns emerge. Blood Bowl is a board game that can be summarized as "fantasy-chess-with-dice" , but this would hardly do the game justice. For example, in chess both players play with the same pieces, but in Blood Bowl, almost 30 different teams (e.g. orcs, elves, etc) are available to choose from, each team with different skills that require different playing styles. In addition, Blood Bowl coaches must assemble and paint their playing pieces themselves, making it a creative hobby as well.
-
-For this blog post, I want to look at similarities and differences between the different Blood Bowl 2020 teams, and see where the newly introduced **Black Orc** and **Khorne** teams fit in. Using data analysis, we can cluster teams that have similar (average) match performance statistics and graph the data using heatmaps. Heatmaps are a graphical representation of the data, with for example darker colors representing higher numbers. This allows patterns to emerge visually, and deviations on the patterns are also easy to spot. Fun fact: a hundred years ago, people already "shaded matrices" but did not call it a heatmap yet [@wilkinson_friendly09].
-
-We use match performance data from FUMBBL.com where Blood Bowl 2020 can be played online. For a previous blog post that describes the process of scraping the data [see here](https://gsverhoeven.github.io/post/blood-bowl-fumbbl-dataset/)). I made the match data (currently from August 2020 up to June 2022) publicly available in a [Github repository](https://github.com/gsverhoeven/fumbbl_datasets).
+We use match performance data from [FUMBBL.com](https://fumbbl.com) where Blood Bowl 2020 can be played online. For a previous blog post that describes the process of scraping the data [see here](https://gsverhoeven.github.io/post/blood-bowl-fumbbl-dataset/). I made the match data (currently from August 2020 up to June 2022) publicly available in a [Github repository](https://github.com/gsverhoeven/fumbbl_datasets).
 
 # Team play style categories
 
 The most common way to classify the 25-30 different Blood Bowl teams is to distinguish four categories:
 
-* Bash (Orcs, Dwarves, Chaos Chosen, Chaos Dwarves, Khemri (Tomb Kings), Nurgle)
-* Agile (or Dash) ( Wood Elfs, High Elfs, Elven Union, Dark Elfs and Skaven)
-* Hybrid (Humans, Amazons, Shambling Undead, Necromantic Horror and several more)
-* Stunty 
+* Bash (e.g. Orcs)
+* Agile (or Dash) (e.g. Wood Elf)
+* Hybrid (e.g. Humans)
+* Stunty (e.g. Halflings)
 
 To formally classify a team we can use the follow decision tree, taking as input the most common roster choices for a team:
 
@@ -71,6 +62,12 @@ We'll return to this later, first we need to prep the data.
 
 We start with reading in the scraped FUMBBL match data, see my previous blog posts mentioned above for details.
 
+```{r warning=FALSE, message=FALSE}
+# Load packages
+library(tidyverse)
+library(ggfortify)
+library(ggrepel)
+```
 
 ```{r}
 df_mbt <- read.csv(file = "../../../fumbbl_datasets/datasets/current/df_mbt.csv")
@@ -96,7 +93,7 @@ df_mbt <- df_mbt %>%
 This blog post focusses on the Blood Bowl 2020 ruleset, for this we need the "Competitive" division from FUMBBL. 
 (I performed the analysis for the older divisions using the 2016 ruleset as well, the plots can be found [here](link_to_all_four_plots). )
 
-The blog post from Schlice makes heavy use of functional programming using R's `purrr` package. This allows us to write a function and have this function work in parallel on a list of objects, and have it return the results also in list form. 
+The blog post from Schlice [@schlice18a] makes heavy use of functional programming using R's `purrr` package. This allows us to write a function and have this function work in parallel on a list of objects, and have it return the results also in list form. 
 
 As this was new to me, I decided to adapt his code to process the four divisions simultaneously. To do so, I wrote a function `filter_division()` that takes the source data and selects only matches from a particular division:
 
@@ -140,11 +137,12 @@ data_tables$Competitive %>% colnames()
 The match statistics that are made available by FUMBBL are all related to important events during Blood Bowl gameplay. 
 Of course, teams with similar stats can still be different on some aspect not captured in the data, so we keep that in mind.
 
-The most obvious one is **scoring Touchdowns** (`team_score` and `away_team_score`). As this involves getting the ball in the end zone of the opposing player, stats for actions that contribute to scoring such as **passing the ball** are also present. There is the number of **completed passes** (c`home_comp` and `away_comp`) as well as the **net passing distance** (with distance towards the opposing endzone counted positive and counted negative for passes in the opposite direction) (`home_pass` and `away_pass`). As passing is risky, running the ball into the endzone is the most common way to score. For running with the ball FUMBBL has the **rushing** statistic. This name was chosen some 20 years ago, and now may lead to confusion as under the BB2020 rules moving extra squares is called "rushing" (previously called "Going-for-it" or GFI).
+The most obvious one is **scoring Touchdowns** (`team_score` and `away_team_score`). As this involves getting the ball in the end zone of the opposing player, stats for actions that contribute to scoring such as **passing the ball** are also present. There is the number of **completed passes** (`home_comp` and `away_comp`) as well as the **net passing distance** (with distance towards the opposing endzone counted positive and counted negative for passes in the opposite direction) (`home_pass` and `away_pass`). As passing is risky, running the ball into the endzone is the most common way to score. For running with the ball FUMBBL has the **rushing** statistic. This name was chosen some 20 years ago, and now may lead to confusion as under the BB2020 rules moving extra squares is called "rushing" (previously called "Going-for-it" or GFI).
 
 The **rushing** statistic is described in a [2004 (!) FUMBBL forum post by SkiJunkie (the author of the predecessor of FUMBBL)](https://www.fumbbl.com/index.php?name=PNphpBB2&file=viewtopic&t=1344&postdays=0&postorder=asc&start=15):
 ```
-running/passing in the wrong direction counts negative. So if you run one step forward then one step back, your net rushing is 0.
+running/passing in the wrong direction counts negative. 
+So if you run one step forward then one step back, your net rushing is 0.
 
 Running/passing up and down neither adds nor subtracts. Getting pushed/thrown does not count. 
 Only movement made during the players move who has the ball counts.
@@ -152,9 +150,9 @@ Only movement made during the players move who has the ball counts.
 So, you can end up with negative rushing/passing. 
 ```
 
-This is great! The rushing statistic therefore captures both **ball possession** as well as **the maximum movement of typical ball handlers in each team**. For example, in a Skaven team, the ball is typically handled by Gutter Runners, that have a maximum movement of 9. Compare this to the Dwarf team, where the Dwarf runner only has movement 6. 
+This is great! The rushing statistic captures both **ball possession** as well as **the maximum movement of typical ball handlers in each team**. For example, in a Skaven team, the ball is typically handled by Gutter Runners, that have a maximum movement of 9. Compare this to the Dwarf team, where the Dwarf runner only has movement 6. 
 
-Finally, we have the statistics related towards **taking out opposing players**. This involves **blocking**,leading to blocking **casualties**, as well as **fouling** (illegally hitting players that are already down). For blocking, the total number of blocks thrown is tracked (`home_block` and `away_block`), for casualties we have the number of players who suffer a casualty (`home_cas` , `away_cas`) and for fouling we have the number of fouls performed by each team (`home_foul`, `away_foul`). For casualties, we use both the number of casualties **inflicted** as well as casualties **suffered** (`home_cas` and `away_cas`). The average amount of casualties suffered quantifies the vulnerability of a team, and will likely be related to the average armour value (AV) of a team.
+Finally, we have the statistics related towards **taking out opposing players**. This involves **blocking**, leading to blocking **casualties**, as well as **fouling** (illegally hitting players that are already down). For blocking, the total number of blocks thrown is tracked (`home_block` and `away_block`), for casualties we have the number of players who suffer a casualty (`home_cas` , `away_cas`) and for fouling we have the number of fouls performed by each team (`home_foul`, `away_foul`). For casualties, we use both the number of casualties **inflicted** as well as casualties **suffered** (`home_cas` and `away_cas`). The average amount of casualties suffered quantifies the vulnerability of a team, and will likely be related to the average armour value (AV) of a team.
 
 As we are interested in statistics at the team level (not for individual matches), we take the average of all the statistics by team:
 
@@ -180,9 +178,9 @@ This gives us 11 numbers for 28 different BB2020 teams.
 
 # So which teams have similar stats?
 
-Now we want to compare the different Blood Bowl teams on their match statistics with each other, and see which races have comparable stats.
+Next, we want to compare the different Blood Bowl teams on their match statistics with each other, and see which races have comparable stats.
 
-If we have only one statistic, it is easy: we can just plot the races on a horizontal line and see which races are closest by.
+If we have only one statistic, it is easy: we can just plot the different teams on one axis, the value of the statistic on the other axis, sort them and see which races are closest by.
 
 Lets do that for the **number of blocks made**:
 
@@ -199,7 +197,7 @@ But races can be similar if we look at **blocks**, but dissimilar if we look at 
 
 ```{r include = FALSE}
 p1 <- ggplot(df_agg, aes(x = Blocks, y = Completions, size = size, col = race_type)) +
-         geom_point() +
+         geom_point() + geom_smooth(method = 'lm', aes(col = "1"), se = FALSE) +
   scale_size_area() +
   expand_limits(y=-0.5) +
   geom_label_repel(aes(label = race_name), size  = 2) + theme(legend.position="none")
@@ -230,10 +228,10 @@ p5 <- ggplot(df_agg, aes(x = Blocks, y = Fouls, size = size, col = race_type)) +
   guides(size = "none")
 ```
 
-```{r warning = F, fig.width = 12}
+```{r warning = F, fig.width = 8, fig.height = 8}
 library(patchwork)
 
-(p1 | p2 | p3)/(p4 |  p5 | plot_spacer()) +   plot_layout(guides = 'collect')
+(p1 | p2)/(p3 | p4) / (p5 | plot_spacer()) +   plot_layout(guides = 'collect')
 ```
 
 Looking at the plots, we can see that there are clear patterns here. Some metrics are inherently related: Teams that make more passes during a match also cover more passing distance, that is only logical. But there are also patterns that are related to what makes teams different: teams that make more blocks tend to pass less (because they are less good at it). 
@@ -244,7 +242,7 @@ Finally, which teams are similar depends on which plot we look at! Take for exam
 
 # PCA versus clustered heatmaps
 
-So how can we compare the teams on all stats simultaneously? We can try to reduce the number of variables by looking at correlations between variables. For example, we observed a strong (negative) correlation between the number of blocks and the number of passes. We could take these two variables together and map ("project") each team on a single new "axis" (the straight line in the top left plot). For this a commonly used technique is PCA ("principal component analysis").  The original variables are combined into "principle components" along which the most variation occurs. [This 2018 nufflytics blog post] (https://www.nufflytics.com/post/bash-dash-hybrid-by-the-numbers/) by **Schlice** applies this technique to classify the Blood Bowl teams of the online **Blood Bowl 2** variant of the game. Another example of this approach is [the master thesis project of Tadas Ivanauskas](https://www.diva-portal.org/smash/get/diva2:1541669/FULLTEXT02.pdf).
+So how can we compare the teams on all stats simultaneously? We can try to reduce the number of variables by looking at correlations between variables. For example, we observed a strong (negative) correlation between the number of blocks and the number of passes. We could take these two variables together and map ("project") each team on a single new "axis" (the straight line in the top left plot). For this a commonly used technique is PCA ("principal component analysis").  The original variables are combined into "principle components" along which the most variation occurs. A nufflytics blog post by **Schlice** [@schlice18a] applies this technique to classify the Blood Bowl teams of the online **Blood Bowl 2** variant of the game. Another example of this approach is [the master thesis project of Tadas Ivanauskas](https://www.diva-portal.org/smash/get/diva2:1541669/FULLTEXT02.pdf) [@ivanauskas20].
 
 With PCA, a common approach is to focus on the first two principal components, as these can be visualized on a 2D coordinate system (i.e. a scatter plot). However, a big disadvantage of PCA is that the new dimensions are difficult to interpret, because the original data is transformed and combined, and therefore no longer recognizable. In the above mentioned blog post, this becomes apparent when the author puts in serious effort to understand the first four principal components, see [his "diving deeper" follow up post](https://www.nufflytics.com/post/bash-dash-hybrid-diving-deeper/). Because each component is a (different) linear combination of ALL 17 variables (!), interpreting the principal components becomes very difficult. To do so requires a high cognitive load, and it is unclear where the signal ends and noise starts.  
 
@@ -257,7 +255,7 @@ Two of the most popular clustering algorithms are **Hierarchical clustering** an
 Hierarchical clustering circumvents both drawbacks as it clusters ALL the observations in such a way that the most similar observations end up next to each other, and thus provide a complete ordering of all observations. All that remains is to plot the data in this order on a colored grid, and BAM the patterns hit us right between the eyes!
 
 The basic functionality to make a heatmap is provided in the R package `ggplot2` by the `geom_tile()` geometric object.
-There are many wrapper functions around `geom_tile()` to make clustered heatmaps, however they all combine the clustering step with the plotting step.
+Many wrapper functions around `geom_tile()`  exist to make clustered heatmaps, however they all combine the clustering step with the plotting step.
 
 I am currently experimenting with my own wrapper function `ggorder_heatmap()`, which I turned into an R package called `ggoheatmap`. See for details the GitHub repository for [the ggoheatmap R package](https://github.com/gsverhoeven/ggoheatmap).
 Note that it is unstable, under development, and possible not even a good idea, so do not use it yourself.
@@ -290,8 +288,10 @@ df_long <- ggoheatmap::hclust_order(df_long,
 library(patchwork)
 
 p1 <- ggplot(df_long, aes(x = reorder(race_name, cluster_order), y = 1, fill = race_type)) +
-  geom_tile() + coord_flip() + labs(x = "", y = NULL) + scale_y_discrete(labels = NULL, breaks = NULL) 
-
+  geom_tile() + 
+  coord_flip() + 
+  labs(x = "", y = NULL) + 
+  scale_y_discrete(labels = NULL, breaks = NULL) 
 
 p2 <- ggorder_heatmap(df_long, 
                 xvar = "race_name", 
@@ -303,12 +303,21 @@ p2 <- ggorder_heatmap(df_long,
                 label_var = "value", round.digits = 1) + coord_flip() +
   scale_y_discrete(position = "right")
 
-p1 + p2 + plot_layout(widths = c(1, 6)) + plot_annotation(title = 'BB2020 team typology')
+p1 + p2 + 
+  plot_layout(widths = c(1, 6), guides = "collect") + 
+  plot_annotation(title = 'BB2020 team typology')
 ```
+And there we have it, our main result.
 
 First, we see that the existing team categorization does a good job, with the different categories showing different patterns in the match statistics.
-The difference between Bash and Hybrid appears not so clear cut: Are Norse and Chaos Chosen bash or hybrid?
-Agile and Stunty teams are very distinct. Underworld in the BB2020 rules cluster right in between Goblin and Skaven teams, I ended up classifying them as Agile.
+Note that I did not pre-specify the sort order here, it emerged naturally from the match statistics by the hierarchical clustering algorithm. So the quote from the Pi movie was correct (at least for Blood Bowl): we graphed the numbers, and patterns emerged! 
+
+What else can we learn from this plot?
+The difference between Bash and Hybrid appears not so clear cut: for example: Are Norse (the old BB2020 roster, not the new one) and Chaos Chosen bash or hybrid?
+Agile and Stunty teams on the other hand are very distinct. 
+Underworld Denizens are an interesting edge case: 
+In BB2020, they cluster right in between Goblin and Skaven teams, I ended up classifying them as Agile.
+Finally, it is apparent that Vampires indeed are a category of their own.
 
 # Conclusions
 

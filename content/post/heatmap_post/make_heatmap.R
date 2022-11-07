@@ -47,7 +47,5 @@ make_heatmap <- function(df, division_name){
   
   gp <- p + plot_annotation(title = paste0('FUMBBL ' , division_name, ' division: team typology'))
   
-  ggsave(filename = "team_typology.png", plot = gp, width = 15, height = 8)
-  
   gp
 }
