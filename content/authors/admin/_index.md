@@ -18,7 +18,7 @@ organizations:
   url: "https://www.nza.nl"
 
 # Short bio (displayed in user profile at end of posts)
-bio: Gertjan Verhoeven is a research scientist currently at the Dutch Healthcare Authority, working on health policy and statistical methods. Follow me on [Twitter](https://twitter.com/GertjanVerhoev1) to receive updates on new blog posts. Statistics posts using R are featured on [R-Bloggers](https://www.r-bloggers.com).
+bio: Gertjan Verhoeven is a research scientist currently at the Dutch Healthcare Authority, working on health policy and statistical methods. Follow me on [Twitter](https://twitter.com/GertjanVerhoev1) or [Mastodon](https://bayes.club/@gsverhoeven) to receive updates on new blog posts. Statistics posts using R are featured on [R-Bloggers](https://www.r-bloggers.com).
 
 interests:
 - Bayesian Statistics
@@ -44,6 +44,9 @@ social:
 - icon: twitter
   icon_pack: fab
   link: https://twitter.com/GertjanVerhoev1
+- icon: mastodon
+  icon_pack: fab
+  link: https://bayes.club/@gsverhoeven
 - icon: google-scholar
   icon_pack: ai
   link: https://scholar.google.nl/citations?user=B-tEtToAAAAJ&hl=nl
