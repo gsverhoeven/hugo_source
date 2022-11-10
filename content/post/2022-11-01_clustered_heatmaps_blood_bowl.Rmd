@@ -3,14 +3,14 @@ title: 'Classifying Blood Bowl teams using clustered heatmaps'
 author: "Gertjan Verhoeven"
 date: '2022-11-01'
 bibliography: heatmap_post/2022_clusterheatmap_blog_post.json
-summary: "Restate my assumptions: If you graph the numbers of any system, patterns emerge. In this plot we'll use clustered heatmaps to graph the numbers from the Blood Bowl Fantasy football game, and see what patterns emerge!"
+summary: "Restate my assumptions: If you graph the numbers of any system, patterns emerge. In this post we'll use clustered heatmaps to graph the numbers from the Blood Bowl Fantasy football game, and see what patterns emerge!"
 slug: blood-bowl-cluster-heatmap
-draft: yes
+draft: no
 categories:
 - Blood Bowl
 - Machine Learning
 - Clustering
-- Unsupervised learning
+- Statistics
 tags:
 - R
 - hclust
