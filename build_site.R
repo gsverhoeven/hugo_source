@@ -1,6 +1,6 @@
 # Choose background image
 
-TODO: create category R for r-bloggers (for now we have tag R RSS feed)
+TODO: create category R for r-bloggers (for now we have category Statistics for the R-bloggers RSS feed)
 AND category Python for Python-bloggers
 
 # choose categories (more like a blog post taxonomy, high level)
