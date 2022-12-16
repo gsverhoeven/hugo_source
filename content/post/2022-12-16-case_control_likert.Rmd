@@ -1,0 +1,71 @@
+---
+title: "Case control with observed confounding and likert type data"
+output: pdf_document
+---
+
+```{r}
+library(tidyverse)
+library(mvtnorm)
+```
+
+# Simulate self perceived health score with Likert scale
+
+```{r}
+n_obs <- 1000
+cut_points <- c(-1.5, -0.5, 0.5, 1.5)
+
+df <- tibble(latent_health = rnorm(n_obs, mean = 0, sd = 1)) %>%
+  mutate(likert_score = findInterval(latent_health, cut_points) + 1)
+
+head(df)
+```
+
+
+```{r}
+ggplot(df, aes(x = latent_health)) +
+  geom_histogram() +
+  facet_wrap(~ likert_score)
+```
+
+
+# Now we want a 2D correlated normal 
+
+```{r}
+sigma <- matrix(c(1, 0.4, 
+                  0.4, 1), ncol = 2)
+
+df <- as.data.frame(rmvnorm(n = n_obs, 
+                           mean = c(0, 0), 
+                           sigma = sigma))
+
+ggplot(df, aes(x = V1, y = V2)) +
+  geom_point()
+```
+# Now bring them together
+
+```{r}
+n_obs <- 1000
+cut_points_health <- c(-1.5, -0.5, 0.5, 1.5)
+cut_point_treatment <- c(1)
+
+df <-as_tibble(rmvnorm(n = n_obs, 
+                           mean = c(0, 0), 
+                           sigma = sigma)) %>%
+  rename(c(latent_health = V1, latent_treatment = V2)) %>%
+  mutate(likert_score = findInterval(latent_health, cut_points_health) + 1) %>%
+  mutate(treatment = findInterval(latent_treatment, cut_point_treatment))
+
+head(df)
+```
+```{r}
+ggplot(df, aes(x = latent_health, y = latent_treatment, col = factor(likert_score), shape = factor(treatment))) +
+  geom_point() +
+  geom_hline(yintercept = cut_point_treatment, linetype = "dashed") +
+  geom_vline(xintercept = cut_points_health, linetype = "dashed")
+```
+```{r}
+df %>%
+  group_by(likert_score) %>%
+  summarise(perc_treatment = mean(treatment))
+```
+
