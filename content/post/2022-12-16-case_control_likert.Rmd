@@ -1,7 +1,63 @@
 ---
 title: "Case control with observed confounding and likert type data"
-output: pdf_document
+author: "Gertjan Verhoeven"
+date: '2022-11-01'
+summary: "A short blog post on how to simulate Likert type data that is correlated with a treatment variable"
+slug: likert_treatment_correlation
+draft: no
+categories:
+- Statistics
+tags:
+- R
+baseurl: https://gsverhoeven.github.io
+header:
+  image: headers/bb_heatmap_banner.png
+  preview: no
 ---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+One of the most significant triumphs of the case–control study was the demonstration of the link between tobacco smoking and lung cancer, by Richard Doll and Bradford Hill. They showed a statistically significant association in a large case–control study.[10] Opponents argued for many years that this type of study cannot prove causation, but the eventual results of cohort studies confirmed the causal link which the case–control studies suggested,[11][12] and it is now accepted that tobacco smoking is the cause of about 87% of all lung cancer mortality in the US. 
+
+# Case-control vs cohort design
+
+https://stats.stackexchange.com/questions/353283/nested-case-control-vs-propensity-score-matching-vs-inverse-probability-when-com
+
+In a case-control study, you perform selection on the outcome, which in your case is vascular events and mortality, and see how they differ with respect to the exposure, which in your case is whether they have the condition or not
+
+What you described is a cohort study, in which you examine those with and without the exposure and see how they differ with respect to the outcome. A cohort study is more straightforward to analyze; you need to eliminate confounding and approximate a randomized control trial (or similar randomized design). To this end, matching, weighting, or regression-based methods work well.
+
+# Original intro (Rewrite!!)
+A basic research design is when we 
+
+* have a treatment group and a control group. 
+* The outcome is from a questionnaire, say self-reported mood on a five point Likert scale.
+* there are Likert type covariates that are confounders i.e. they cause treatment, and they cause the outcome
+* we want to perform Case control analysis, i.e. we want to match for 
+
+A simple example is where we have a single covariate, e.g. self-perceived health.
+
+
+# Causal model
+
+```{r echo = FALSE, fig.width=8, fig.height = 3}
+library(dagitty)
+
+g <- dagitty('dag {
+bb="0,0,1,1"
+"treatment" [pos="0,0"]
+mood [exposure,pos="1,0"]
+health [pos="0.5, -0.5"]
+health -> mood
+treatment -> mood
+health -> treatment
+}
+
+')
+
+plot(g)
+```
 
 ```{r}
 library(tidyverse)
