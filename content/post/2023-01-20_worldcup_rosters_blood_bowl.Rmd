@@ -1,0 +1,118 @@
+---
+title: 'Analyzing world cup rosters using clustered heatmaps'
+author: "Gertjan Verhoeven"
+date: '2023-01-20'
+bibliography: heatmap_post/2022_clusterheatmap_blog_post.json
+summary: ""
+slug: blood-bowl-world-cup
+draft: no
+categories:
+- Blood Bowl
+- Clustering
+- Statistics
+tags:
+- R
+- hclust
+- heatmap
+baseurl: https://gsverhoeven.github.io
+header:
+  image: headers/bb_heatmap_banner.png
+  preview: no
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Read and prep the data
+
+We start with reading in the scraped FUMBBL match data, see my previous blog posts mentioned above for details.
+
+```{r warning=FALSE, message=FALSE}
+# Load packages
+library(tidyverse)
+library(ggfortify)
+library(ggrepel)
+```
+
+```{r}
+df_matches <- read.csv(file = "../../../fumbbl_datasets/datasets/current/df_matches.csv")
+
+df_matches$match_date <- as.Date(df_matches$match_date)
+df_matches$week_date <- as.Date(df_matches$week_date)
+
+
+df_mbt <- read.csv(file = "../../../fumbbl_datasets/datasets/current/df_mbt.csv")
+
+df_mbt$match_date <- as.Date(df_mbt$match_date)
+df_mbt$week_date <- as.Date(df_mbt$week_date)
+
+```
+
+```{r}
+df_mbt %>%
+  filter(division_name == "Competitive") %>%
+ group_by(race_name, race_type) %>%
+ summarise(n_mbt = n()) %>%
+  arrange(-n_mbt)
+```
+
+```{r}
+res <- df_matches %>%
+  #filter(division_name == "Competitive") %>%
+  group_by(week_date, division_name, tournament_id) %>%
+  summarise(cnt = n())
+
+ggplot(res , aes(x = week_date, y = cnt, col = division_name)) +
+  geom_point() +
+  geom_line() +
+    theme(legend.position = "none") 
+```
+```{r}
+# tournament id under competitive??
+# Royal Rookie Rumble 491, onder groep 2294
+
+# All New (meaning 0 Games) [Competitive] teams are eligible to apply. Your team will be accepted when there are 16 teams ready to rumble.
+# Teams will be chosen on a "first come first serve" basis.
+# Applied Teams which were not drawn in the last Tourney stay applied and need not to be reapplied. Your team will eventually be drawn in a RRR as long as it has 0 games played and has applied.
+
+
+df_matches %>% filter(tournament_id == 56069)
+```
+```{r}
+res <- df_matches %>%
+  filter(league == 9298) %>%
+  group_by(division_name, tournament_id, division_id, league, ruleset) %>%
+  summarise(cnt = n(), start_date = min(match_date), end_date = max(match_date)) %>%
+  arrange(-tournament_id)
+
+res
+```
+
+# Teams selection: identify 1150K tournaments
+
+```{r}
+df_matches$tv_1150 <- 0
+
+df_matches[df_matches$tv_match == 1150, ]$tv_1150 <- 1
+```
+
+```{r}
+df_matches %>%
+  group_by(division_name, tournament_id, division_id, league, ruleset, tournament_name) %>%
+  summarise(cnt = n(), 
+            perc = mean(tv_1150),
+            start_date = min(match_date), 
+            end_date = max(match_date)) %>%
+  filter(perc > 0.7) %>%
+  mutate(full_name = paste(division_name, " --", tournament_name)) %>%
+  ungroup() %>%
+  select(full_name, league, perc, cnt, start_date, end_date) %>%
+  arrange(-cnt)
+```
+
+This looks good. "German Eurobowl team" has become "World cup training".
+
+# References
+
+
+
