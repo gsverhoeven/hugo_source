@@ -177,6 +177,8 @@ df_rosters <- df_rosters %>%
   select(-c(X, rerolls, assistantCoaches, cheerleaders, apothecary))
 
 df_rosters <- rbind(df_rosters, extra_stuff)
+
+# PM wrangle bribes into cnt 0-3 bribes
 ```
 
 
@@ -218,7 +220,8 @@ for(i in 1:length(races)){
     group_by(team_id, coach_name, position, number) %>% # skill stacking
     summarise(cnt = max(cnt)) %>%
     group_by(team_id, coach_name, position) %>%
-    summarise(n = sum(cnt))
+    summarise(n = sum(cnt)) %>%
+    filter(!(position %in% c("assistantCoaches", "cheerleaders")))
   
   gp <- ggplot(df, aes(x = factor(coach_name), y = position)) +
     geom_tile(aes(fill = n), color = "black") +
