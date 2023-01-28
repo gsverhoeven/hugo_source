@@ -106,11 +106,136 @@ df_matches %>%
   filter(perc > 0.7) %>%
   mutate(full_name = paste(division_name, " --", tournament_name)) %>%
   ungroup() %>%
-  select(full_name, league, perc, cnt, start_date, end_date) %>%
+  select(full_name, tournament_id, league, perc, cnt, start_date, end_date) %>%
   arrange(-cnt)
 ```
 
 This looks good. "German Eurobowl team" has become "World cup training".
+
+
+# Teams selection: identify 1100K tournaments
+
+```{r}
+df_matches$tv_1100 <- 0
+
+df_matches[df_matches$tv_match == 1100, ]$tv_1100 <- 1
+```
+
+```{r}
+df_matches %>%
+  group_by(division_name, tournament_id, division_id, league, ruleset, tournament_name, year) %>%
+  summarise(cnt = n(), 
+            perc = mean(tv_1100),
+            start_date = min(match_date), 
+            end_date = max(match_date)) %>%
+  filter(perc > 0.7) %>%
+  mutate(full_name = paste(division_name, " --", tournament_name)) %>%
+  ungroup() %>%
+  select(full_name, tournament_id, league, perc, cnt, start_date, end_date) %>%
+  arrange(-cnt)
+```
+
+# Check Alicante world cup training teams
+
+```{r}
+res <- df_matches %>% filter(league == 9941 & year > 2021) %>% group_by(week_date, year) %>% summarise(n(), avg_team = mean(team1_id), var_team = sd(team1_id))
+
+ggplot(res, aes(x = week_date, y = avg_team)) +
+  geom_point() +
+  geom_point(aes(y = var_team*100), col = "red")
+```
+```{r}
+max(unique(c(df_matches %>% filter(league == 9941 & week_date == as.Date("2022-11-21")) %>%
+  pull(team1_id), df_matches %>% filter(league == 9941 & week_date == as.Date("2022-11-21")) %>%
+  pull(team2_id))))
+```
+Conclusion not enough WC teams to analyse, we analyse EB instead.
+
+# Create heatmap plots for Road to Malta
+
+```{r}
+df_rosters <- read.csv(file = "../../../fumbbl_datasets/datasets/current/df_rosters_road_to_malta.csv")
+
+df_rosters <- df_rosters %>%
+  filter(position != "") %>%
+  mutate(cnt = 1)
+
+# add xtra stuff
+extra_stuff <- unique(df_rosters %>% 
+                    mutate(apothecary = ifelse(apothecary == "Yes", 1, 0)) %>%
+  select(team_id, roster.name, coach_name, rerolls, assistantCoaches, cheerleaders, apothecary) %>%
+    pivot_longer(cols = -c(team_id, roster.name, coach_name), values_to = "cnt") %>%
+    filter(cnt > 0) %>%
+    mutate(position = name) %>%
+    select(team_id, roster.name, coach_name, position, cnt) %>%
+    mutate(player_id = 99999999) %>%
+    mutate(number = 99) %>%
+    mutate(skill_id = NA) %>%
+    mutate(name = NA))
+
+df_rosters <- df_rosters %>%
+  select(-c(X, rerolls, assistantCoaches, cheerleaders, apothecary))
+
+df_rosters <- rbind(df_rosters, extra_stuff)
+```
+
+
+```{r message = F}
+race_name <- "Skaven"
+race_name <- "Shambling Undead"
+df <- df_rosters %>% 
+  filter(roster.name == race_name) %>%
+  group_by(team_id, coach_name, position, number) %>% # skill stacking
+  summarise(cnt = max(cnt)) %>%
+  group_by(team_id, coach_name, position) %>%
+  summarise(n = sum(cnt))
+
+```
+
+```{r message = F}
+gp <- ggplot(df, aes(x = factor(coach_name), y = position)) +
+  geom_tile(aes(fill = n), color = "black") +
+  geom_text(aes(label = n), color = "white") +
+  scale_fill_gradient(low = "light blue", high = "blue", na.value = "white") +
+  coord_fixed() +
+  theme(legend.position = "none") +
+  ggtitle(paste0("FUMBBL Road to Malta 2022 ", race_name, " rosters")) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  theme(panel.background = element_rect(fill = "white")) +
+  labs(x = "Coach_name")
+  
+  gp
+```
+
+
+```{r message = F}
+races <- unique(df_rosters$roster.name)
+
+for(i in 1:length(races)){
+  race_name <- races[i]
+  df <- df_rosters %>% 
+    filter(roster.name == race_name) %>%
+    group_by(team_id, coach_name, position, number) %>% # skill stacking
+    summarise(cnt = max(cnt)) %>%
+    group_by(team_id, coach_name, position) %>%
+    summarise(n = sum(cnt))
+  
+  gp <- ggplot(df, aes(x = factor(coach_name), y = position)) +
+    geom_tile(aes(fill = n), color = "black") +
+    geom_text(aes(label = n), color = "white") +
+    scale_fill_gradient(low = "light blue", high = "blue", na.value = "white") +
+    coord_fixed() +
+    theme(legend.position = "none") +
+    ggtitle(paste0("FUMBBL Road to Malta 2022 ", race_name, " rosters")) + 
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+    theme(panel.background = element_rect(fill = "white")) +
+    labs(x = "Coach_name")
+  
+  plotname <- paste0("fumbbl_rosters_post/eb2022_position_plot_", races[i], ".png")
+  print(plotname)
+  ggsave(plotname, gp)
+}
+```
 
 # References
 
