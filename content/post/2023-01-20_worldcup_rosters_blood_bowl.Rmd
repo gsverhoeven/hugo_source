@@ -34,6 +34,220 @@ library(ggfortify)
 library(ggrepel)
 ```
 
+
+# Create heatmap plots for Road to Malta
+
+```{r}
+df_rosters <- read.csv(file = "../../../fumbbl_datasets/datasets/current/df_rosters_road_to_malta.csv")
+
+df_rosters <- df_rosters %>%
+  filter(position != "") %>%
+  mutate(cnt = 1) %>%
+  rename(skill_name = name)
+```
+
+```{r}
+# add xtra stuff
+extra_stuff <- unique(df_rosters %>% 
+                    mutate(apothecary = ifelse(apothecary == "Yes", 1, 0)) %>%
+  select(team_id, roster.name, coach_name, rerolls, assistantCoaches, cheerleaders, apothecary) %>%
+    pivot_longer(cols = -c(team_id, roster.name, coach_name), values_to = "cnt") %>%
+    filter(cnt > 0) %>%
+    mutate(position = name) %>%
+    select(team_id, roster.name, coach_name, position, cnt) %>%
+    mutate(player_id = 99999999) %>%
+    mutate(number = 99) %>%
+    mutate(skill_id = NA) %>%
+    mutate(name = NA)) %>%
+    rename(skill_name = name)
+
+df_rosters <- df_rosters %>%
+  select(-c(X, rerolls, assistantCoaches, cheerleaders, apothecary))
+
+df_rosters <- rbind(df_rosters, extra_stuff)
+
+# PM wrangle bribes into cnt 0-3 bribes
+```
+
+```{r}
+# PM remove 15073041 extra row without extra skill
+```
+
+# Cleanup the skill names
+
+```{r}
+df_rosters <- df_rosters %>%
+  mutate(skill_name = str_replace_all(skill_name, 
+            pattern = "^_", replacement = "")) %>%
+  mutate(skill_name = replace_na(skill_name, ""))
+```
+
+
+# condense skill stacking rows
+
+```{r}
+df_rosters <- df_rosters %>%
+  arrange(player_id, -skill_id) %>%
+  group_by(across(c(-skill_id, -skill_name))) %>%
+  summarise(skill_name = paste(skill_name, collapse = ""))
+
+skill_colors <- df_rosters %>%
+  group_by(skill_name) %>%
+  summarise(n = n())
+```
+
+# create color table
+
+```{r}
+library(readODS)
+write_ods(skill_colors, "fumbbl_rosters_post/skill_colors.ods")
+
+skill_colors <- read_ods("fumbbl_rosters_post/bb_skill_colors.ods")
+
+skill_colors <- skill_colors %>%
+  mutate(skill_name = replace_na(skill_name, "")) %>%
+  select(-n)
+```
+
+
+# create code list with cost info
+
+```{r}
+
+out <- df_rosters %>%
+  group_by(position, roster.name) %>%
+  summarise(n = n())
+
+write_ods(out, "fumbbl_rosters_post/bb_rosters.ods")
+```
+# add codelist
+
+```{r}
+cost <- read_ods("fumbbl_rosters_post/bb_rosters_cost.ods")
+
+cost <- cost %>%
+  select(-n)
+```
+
+```{r}
+df_rosters <- df_rosters %>%
+  left_join(cost, by = c("position", "roster.name"))
+```
+
+# Check team cost
+
+```{r}
+
+
+res <- df_rosters %>%
+  mutate(tot_cost = cnt * cost) %>%
+  group_by(player_id, team_id, coach_name, roster.name, tot_cost) %>% # remove two rows per player (skill stacking)
+  summarise() %>%
+  group_by(team_id, coach_name, roster.name) %>%
+  summarise(team_cost = sum(tot_cost)) %>%
+  filter(!is.na(team_cost ))
+
+res
+
+```
+
+all teams with 50 or 100 extra, remove 1 bribe (get the ref ends up on the match page)
+
+```{r}
+teams_get_the_ref <- res %>%
+  filter(team_cost > 1150) %>%
+  ungroup() %>%
+  distinct(team_id) %>%
+  pull()
+```
+
+```{r}
+# remove the get the ref bribes
+
+df_rosters <- df_rosters %>%
+  filter(!(team_id %in% teams_get_the_ref & grepl("bribe", position)))
+```
+
+```{r}
+df_rosters <- df_rosters %>%
+  left_join(skill_colors, by = "skill_name")
+```
+
+
+# prep data for heatmap
+
+```{r message = F}
+race_name <- "Skaven"
+race_name <- "Shambling Undead"
+race_name <- "Chaos Dwarf"
+race_name <- "Human"
+#race_name <- "Lizardmen"
+
+df <- df_rosters %>% 
+  filter(roster.name == race_name) %>%
+  filter(!(position %in% c("cheerleaders", "assistantCoaches"))) %>%
+  group_by(team_id, coach_name, player_id, position, sort_order, number, skill_name, color) %>% # skill stacking
+  summarise(cnt = max(cnt)) %>%
+  group_by(team_id, coach_name, player_id, position, sort_order, skill_name, color) %>%
+  summarise(n = sum(cnt)) %>%
+  group_by(team_id, coach_name, position, sort_order, n) %>%
+  summarise(nr = row_number(), skill_name = skill_name, color = color)
+
+```
+
+```{r message = F}
+gp <- ggplot(df, aes(x = factor(coach_name), y = reorder(paste(position, nr), -sort_order))) +
+  geom_tile(aes(fill = color), color = "black") +
+  geom_text(aes(label = n), color = "white") +
+  scale_fill_identity(name = "Skills",
+                      breaks = c(skill_colors$color),
+                      labels = c(skill_colors$skill_name),
+                      guide = "legend") +
+  #scale_fill_gradient(low = "light blue", high = "blue", na.value = "white") +
+  coord_fixed() +
+  #theme(legend.position = "none") +
+  ggtitle(paste0("FUMBBL Road to Malta 2022 ", race_name, " rosters")) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  theme(panel.background = element_rect(fill = "white")) +
+  labs(x = "Coach_name", y = "")
+  
+  gp
+```
+PM create roster structure with sort order, and player cost. Daar kunnen we clustering op doen.
+En lege posities mee creeren, en positions kleuren cf skill bands.
+PM standings er aan koppelen.
+
+```{r message = F}
+races <- unique(df_rosters$roster.name)
+
+for(i in 1:length(races)){
+  race_name <- races[i]
+  df <- df_rosters %>% 
+    filter(roster.name == race_name) %>%
+    group_by(team_id, coach_name, position, number) %>% # skill stacking
+    summarise(cnt = max(cnt)) %>%
+    group_by(team_id, coach_name, position) %>%
+    summarise(n = sum(cnt)) %>%
+    filter(!(position %in% c("assistantCoaches", "cheerleaders")))
+  
+  gp <- ggplot(df, aes(x = factor(coach_name), y = position)) +
+    geom_tile(aes(fill = n), color = "black") +
+    geom_text(aes(label = n), color = "white") +
+    scale_fill_gradient(low = "light blue", high = "blue", na.value = "white") +
+    coord_fixed() +
+    theme(legend.position = "none") +
+    ggtitle(paste0("FUMBBL Road to Malta 2022 ", race_name, " rosters")) + 
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+    theme(panel.background = element_rect(fill = "white")) +
+    labs(x = "Coach_name")
+  
+  plotname <- paste0("fumbbl_rosters_post/eb2022_position_plot_", races[i], ".png")
+  print(plotname)
+  ggsave(plotname, gp)
+}
+```
+
+
 ```{r}
 df_matches <- read.csv(file = "../../../fumbbl_datasets/datasets/current/df_matches.csv")
 
@@ -151,94 +365,6 @@ max(unique(c(df_matches %>% filter(league == 9941 & week_date == as.Date("2022-1
 ```
 Conclusion not enough WC teams to analyse, we analyse EB instead.
 
-# Create heatmap plots for Road to Malta
-
-```{r}
-df_rosters <- read.csv(file = "../../../fumbbl_datasets/datasets/current/df_rosters_road_to_malta.csv")
-
-df_rosters <- df_rosters %>%
-  filter(position != "") %>%
-  mutate(cnt = 1)
-
-# add xtra stuff
-extra_stuff <- unique(df_rosters %>% 
-                    mutate(apothecary = ifelse(apothecary == "Yes", 1, 0)) %>%
-  select(team_id, roster.name, coach_name, rerolls, assistantCoaches, cheerleaders, apothecary) %>%
-    pivot_longer(cols = -c(team_id, roster.name, coach_name), values_to = "cnt") %>%
-    filter(cnt > 0) %>%
-    mutate(position = name) %>%
-    select(team_id, roster.name, coach_name, position, cnt) %>%
-    mutate(player_id = 99999999) %>%
-    mutate(number = 99) %>%
-    mutate(skill_id = NA) %>%
-    mutate(name = NA))
-
-df_rosters <- df_rosters %>%
-  select(-c(X, rerolls, assistantCoaches, cheerleaders, apothecary))
-
-df_rosters <- rbind(df_rosters, extra_stuff)
-
-# PM wrangle bribes into cnt 0-3 bribes
-```
-
-
-```{r message = F}
-race_name <- "Skaven"
-race_name <- "Shambling Undead"
-df <- df_rosters %>% 
-  filter(roster.name == race_name) %>%
-  group_by(team_id, coach_name, position, number) %>% # skill stacking
-  summarise(cnt = max(cnt)) %>%
-  group_by(team_id, coach_name, position) %>%
-  summarise(n = sum(cnt))
-
-```
-
-```{r message = F}
-gp <- ggplot(df, aes(x = factor(coach_name), y = position)) +
-  geom_tile(aes(fill = n), color = "black") +
-  geom_text(aes(label = n), color = "white") +
-  scale_fill_gradient(low = "light blue", high = "blue", na.value = "white") +
-  coord_fixed() +
-  theme(legend.position = "none") +
-  ggtitle(paste0("FUMBBL Road to Malta 2022 ", race_name, " rosters")) + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-  theme(panel.background = element_rect(fill = "white")) +
-  labs(x = "Coach_name")
-  
-  gp
-```
-
-
-```{r message = F}
-races <- unique(df_rosters$roster.name)
-
-for(i in 1:length(races)){
-  race_name <- races[i]
-  df <- df_rosters %>% 
-    filter(roster.name == race_name) %>%
-    group_by(team_id, coach_name, position, number) %>% # skill stacking
-    summarise(cnt = max(cnt)) %>%
-    group_by(team_id, coach_name, position) %>%
-    summarise(n = sum(cnt)) %>%
-    filter(!(position %in% c("assistantCoaches", "cheerleaders")))
-  
-  gp <- ggplot(df, aes(x = factor(coach_name), y = position)) +
-    geom_tile(aes(fill = n), color = "black") +
-    geom_text(aes(label = n), color = "white") +
-    scale_fill_gradient(low = "light blue", high = "blue", na.value = "white") +
-    coord_fixed() +
-    theme(legend.position = "none") +
-    ggtitle(paste0("FUMBBL Road to Malta 2022 ", race_name, " rosters")) + 
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-    theme(panel.background = element_rect(fill = "white")) +
-    labs(x = "Coach_name")
-  
-  plotname <- paste0("fumbbl_rosters_post/eb2022_position_plot_", races[i], ".png")
-  print(plotname)
-  ggsave(plotname, gp)
-}
-```
 
 # References
 
