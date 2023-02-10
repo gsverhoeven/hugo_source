@@ -112,14 +112,17 @@ skill_colors <- skill_colors %>%
 
 # create code list with cost info
 
+create empty list with all roster positions for each race
 ```{r}
 
 out <- df_rosters %>%
   group_by(position, roster.name) %>%
   summarise(n = n())
 
-write_ods(out, "fumbbl_rosters_post/bb_rosters.ods")
+#write_ods(out, "fumbbl_rosters_post/bb_rosters.ods")
 ```
+manually fill in cost and sort order
+
 # add codelist
 
 ```{r}
@@ -141,13 +144,13 @@ df_rosters <- df_rosters %>%
 
 res <- df_rosters %>%
   mutate(tot_cost = cnt * cost) %>%
-  group_by(player_id, team_id, coach_name, roster.name, tot_cost) %>% # remove two rows per player (skill stacking)
+  group_by(player_id, team_id, position, coach_name, roster.name, tot_cost) %>% # remove two rows per player (skill stacking)
   summarise() %>%
   group_by(team_id, coach_name, roster.name) %>%
   summarise(team_cost = sum(tot_cost)) %>%
   filter(!is.na(team_cost ))
 
-res
+res %>% filter(team_cost > 1150)
 
 ```
 
@@ -168,6 +171,28 @@ df_rosters <- df_rosters %>%
   filter(!(team_id %in% teams_get_the_ref & grepl("bribe", position)))
 ```
 
+# Check nog een keer de cost
+
+```{r}
+
+
+res <- df_rosters %>%
+  mutate(tot_cost = cnt * cost) %>%
+  group_by(player_id, team_id, position, coach_name, roster.name, tot_cost) %>% # remove two rows per player (skill stacking)
+  summarise() %>%
+  group_by(team_id, coach_name, roster.name) %>%
+  summarise(team_cost = sum(tot_cost)) %>%
+  filter(!is.na(team_cost ))
+
+summary(res$team_cost)
+
+```
+
+```{r}
+res %>% filter(team_cost < 1135)
+```
+
+
 ```{r}
 df_rosters <- df_rosters %>%
   left_join(skill_colors, by = "skill_name")
@@ -181,6 +206,14 @@ race_name <- "Skaven"
 race_name <- "Shambling Undead"
 race_name <- "Chaos Dwarf"
 race_name <- "Human"
+race_name <- "Chaos Renegade"
+race_name <- "Dark Elf"
+race_name <- "Dwarf"
+race_name <- "Elven Union"
+race_name <- "Goblin"
+race_name <- "Halfling"
+race_name <- "Vampire"
+race_name <- "Underworld Denizens"
 #race_name <- "Lizardmen"
 
 df <- df_rosters %>% 
@@ -195,7 +228,7 @@ df <- df_rosters %>%
 
 ```
 
-```{r message = F}
+```{r message = F, fig.width=10}
 gp <- ggplot(df, aes(x = factor(coach_name), y = reorder(paste(position, nr), -sort_order))) +
   geom_tile(aes(fill = color), color = "black") +
   geom_text(aes(label = n), color = "white") +
@@ -213,8 +246,8 @@ gp <- ggplot(df, aes(x = factor(coach_name), y = reorder(paste(position, nr), -s
   
   gp
 ```
-PM create roster structure with sort order, and player cost. Daar kunnen we clustering op doen.
-En lege posities mee creeren, en positions kleuren cf skill bands.
+PM Daar kunnen we clustering op doen.
+
 PM standings er aan koppelen.
 
 ```{r message = F}
