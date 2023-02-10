@@ -100,7 +100,7 @@ skill_colors <- df_rosters %>%
 
 ```{r}
 library(readODS)
-write_ods(skill_colors, "fumbbl_rosters_post/skill_colors.ods")
+#write_ods(skill_colors, "fumbbl_rosters_post/skill_colors.ods")
 
 skill_colors <- read_ods("fumbbl_rosters_post/bb_skill_colors.ods")
 
