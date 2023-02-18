@@ -26,14 +26,21 @@ library(ggrepel)
 
 # Create heatmap plots for Road to Malta
 
+PM combine in one dataset
+PM add new roster and missing roster positions (OWA)
+
 ```{r}
-#df_rosters <- read.csv(file = "../../../../fumbbl_datasets/datasets/current/df_rosters_road_to_malta.csv")
-#df_rosters <- read.csv(file = "../../../../fumbbl_datasets/datasets/current/df_rosters_super_league.csv")
-df_rosters <- read.csv(file = "../../../../fumbbl_datasets/datasets/current/df_rosters_wc_training.csv")
+df_rosters1 <- read.csv(file = "../../../../fumbbl_datasets/datasets/current/df_rosters_road_to_malta.csv")
+df_rosters2 <- read.csv(file = "../../../../fumbbl_datasets/datasets/current/df_rosters_super_league.csv")
+df_rosters3 <- read.csv(file = "../../../../fumbbl_datasets/datasets/current/df_rosters_wc_training.csv")
 
-group_name <- "WC training"
+df_rosters1$group_name <- "Road to Malta"
+df_rosters2$group_name <- "super_league"
+df_rosters3$group_name <- "WC training"
 
-df_rosters <- df_rosters %>%
+group_name <- "1150K"
+
+df_rosters <- rbind(df_rosters1, df_rosters2, df_rosters3) %>%
   filter(position != "") %>%
   mutate(cnt = 1) %>%
   rename(skill_name = name)
@@ -43,11 +50,11 @@ df_rosters <- df_rosters %>%
 # add xtra stuff
 extra_stuff <- unique(df_rosters %>% 
                     mutate(apothecary = ifelse(apothecary == "Yes", 1, 0)) %>%
-  select(team_id, roster.name, coach_name, rerolls, assistantCoaches, cheerleaders, apothecary) %>%
-    pivot_longer(cols = -c(team_id, roster.name, coach_name), values_to = "cnt") %>%
+  select(group_name, team_id, roster.name, coach_name, rerolls, assistantCoaches, cheerleaders, apothecary) %>%
+    pivot_longer(cols = -c(group_name, team_id, roster.name, coach_name), values_to = "cnt") %>%
     filter(cnt > 0) %>%
     mutate(position = name) %>%
-    select(team_id, roster.name, coach_name, position, cnt) %>%
+    select(group_name, team_id, roster.name, coach_name, position, cnt) %>%
     mutate(player_id = 99999999) %>%
     mutate(number = 99) %>%
     mutate(skill_id = NA) %>%
@@ -59,8 +66,52 @@ df_rosters <- df_rosters %>%
 
 df_rosters <- rbind(df_rosters, extra_stuff)
 
-# PM wrangle bribes into cnt 0-3 bribes
+
 ```
+
+# filter out BB2016 teams (Bretonnian)
+
+
+```{r}
+df_rosters <- df_rosters %>%
+  filter(roster.name != "Bretonnian")
+```
+
+# PM Label old and new amazon (use Koka Kalim Blitzer as marker for old amazon), and old and new norse rosters
+
+# Check rosters without skills
+
+```{r}
+df_rosters %>%
+  mutate(w_skill = ifelse(skill_name %in% c("", NA), 0, 1)) %>%
+  group_by(group_name, team_id) %>%
+  summarise(n_skills = sum(w_skill)) %>%
+  mutate(has_skills = ifelse(n_skills == 0, 0, 1)) %>%
+  group_by(group_name) %>%
+  summarise(perc = mean(has_skills))
+```
+So the superleague has missing skills.
+Hypothesis : teams that only played in round 0 Q2 2022 have missing skills.
+
+Drop teams without skills.
+
+```{r}
+teams_to_drop <- df_rosters %>%
+  mutate(w_skill = ifelse(skill_name %in% c("", NA), 0, 1)) %>%
+  group_by(group_name, team_id) %>%
+  summarise(n_skills = sum(w_skill)) %>%
+  filter(n_skills == 0) %>%
+  pull(team_id)
+
+```
+```{r}
+df_rosters <- df_rosters %>%
+  filter(!(team_id %in% teams_to_drop))
+```
+
+# PM wrangle bribes into cnt 0-3 bribes
+
+Cannot easily seperate out the GEt the ref bribes from the  roster bribes
 
 ```{r}
 # PM remove 15073041 extra row without extra skill
@@ -78,23 +129,32 @@ df_rosters <- df_rosters %>%
 
 # condense skill stacking rows
 
+A player with two skills has two rows, collapse into one, concatenating the two skills.
+We sort by skill_id to avoid mirror combinations.
+
 ```{r}
 df_rosters <- df_rosters %>%
   arrange(player_id, -skill_id) %>%
   group_by(across(c(-skill_id, -skill_name))) %>%
   summarise(skill_name = paste(skill_name, collapse = ""))
 
-skill_colors <- df_rosters %>%
-  group_by(skill_name) %>%
-  summarise(n = n())
 ```
 
 # create color table
 
 ```{r}
 library(readODS)
-#write_ods(skill_colors, "fumbbl_rosters_post/skill_colors.ods")
 
+skill_colors <- df_rosters %>%
+  group_by(skill_name) %>%
+  summarise(n = n())
+
+write_ods(skill_colors, "skill_colors.ods")
+```
+
+
+
+```{r}
 skill_colors <- read_ods("bb_skill_colors.ods")
 
 skill_colors <- skill_colors %>%
@@ -112,18 +172,27 @@ out <- df_rosters %>%
   group_by(position, roster.name) %>%
   summarise(n = n())
 
-#write_ods(out, "fumbbl_rosters_post/bb_rosters.ods")
 ```
 manually fill in cost and sort order
 
 # add codelist
 
 ```{r}
-cost <- read_ods("bb_rosters_cost.ods")
+cost <- read_ods("230217_bb_rosters_cost.ods")
 
 cost <- cost %>%
   select(-n)
 ```
+
+# check for missings
+
+```{r}
+out <- out %>% 
+  left_join(cost, by = c("position", "roster.name"))
+
+write_ods(out, "bb_rosters.ods")
+```
+
 
 ```{r}
 df_rosters <- df_rosters %>%
@@ -156,6 +225,8 @@ teams_get_the_ref <- res %>%
   distinct(team_id) %>%
   pull()
 ```
+
+PM this drops ALL bribes
 
 ```{r}
 # remove the get the ref bribes
@@ -191,6 +262,8 @@ df_rosters <- df_rosters %>%
   left_join(skill_colors, by = "skill_name")
 ```
 
+
+<!-- TEST CODE FOR CLUSTERING -->
 # determine x axis ordering based on clustering
 
 ```{r}
@@ -240,7 +313,7 @@ df_order <- df %>%
   right_join(df, by = "team_id")
 ```
 
-
+<!-- TEST CODE FOR CLUSTERING -->
 
 # prep data for heatmap
 
@@ -261,7 +334,7 @@ for(i in 1:length(races)){
     summarise(nr = row_number(), skill_name = skill_name, color = color, cost = cost)
 
   # check on at least 2 teams
-  if(n_distinct(df$team_id) > 1){ # do clustering
+  if(n_distinct(df$team_id) > 1 & n_distinct(df$cost) > 1){ # do clustering
     df <- df %>%
       mutate(position_unique = paste0(position, "_", nr)) %>%
       mutate(team_id_char = as.character(team_id)) %>%
@@ -276,8 +349,9 @@ for(i in 1:length(races)){
     df <- df %>%
       mutate(cluster_order = as.integer(as.factor(coach_name)))
   }
+  df$coach_team_id <- paste0(df$coach_name, "_", str_sub(as.character(df$team_id), start = -3))
   
-  gp <- ggplot(df, aes(x = reorder(factor(team_id), cluster_order), y = reorder(paste(position, nr), -sort_order))) +
+  gp <- ggplot(df, aes(x = reorder(factor(coach_team_id), cluster_order), y = reorder(paste(position, nr), -sort_order))) +
     geom_tile(aes(fill = color), color = "black") +
     geom_text(aes(label = n), color = "white") +
     scale_fill_identity(name = "Skills",
