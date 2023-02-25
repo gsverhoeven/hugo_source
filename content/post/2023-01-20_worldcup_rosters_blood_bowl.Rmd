@@ -31,164 +31,56 @@ So the cool thing of Blood Bowl is that it has a highly competitive Tournament s
 
 Blood Bowl tournaments typically come with a "Rule pack". This describes which teams (see [this post](cluster_post)) are allowed, how much gold coaches have to buy players, and how much skills can be allotted to players to improve their ball handling, or ability to knock other players down.
 
-Bad choices in this phase will put you at a disadvantage even before the actual game has started.
-Just as in other popular games with pre-game deck building, like Magic The Gathering, this automatically leads to a Meta game, where one has to prepare for choices that other coaches make. 
+Bad roster choices will put you at a disadvantage even before the actual game has started. So let's check out what the pro's are using!
 
 # Online Blood Bowl Tournaments on FUMBBL
 
-As described in [this post](fumbbl scraping), Blood Bowl can also be played online. Here we focus on FUMBBL, a Java app linked to a website that performs match making, calculates rankings, provides a forum for discussions etc. There are many things great with respect to FUMBBL. Here I like to mention the fact that it has an API where we can fetch data, AND it stores full replays of all FUMBBL matches. 
-This allows us to spectate particular matches and learn how a particular roster works out in practice.
+As described in [this post](fumbbl scraping), Blood Bowl can also be played online. Here we focus on FUMBBL, a Java app that contains the actual Blood Bowl game, linked to a website that performs match making, calculates rankings, provides a forum for discussions etc. 
 
+There are many things great with respect to FUMBBL. Here I like to mention three key elements that allow for this post:
 
-# Tournament selection
+* Online Blood Bowl tournaments are organized on FUMBBL that use exactly the same rules as mayor tabletop tournaments such as Eurobowl,
+* FUMBBL has an API where we can fetch data on rosters, 
+* FUMBBL stores full replays of all FUMBBL matches, so we can observe how successful rosters can be played
 
-I found two FUMBBL resurrection tournaments using BB2020 rules that have sufficient volume AND have the chosen skills available (the first NAF online tournament GBFU using BB2020 rules somehow does not have this).
+# The 2022 Road to Malta Online NAF tournament
 
-* Road to Malta
-* Superleague
+The [Nuffle Amorical Football (NAF)](thenaf.net) is an international association of players dedicated to Blood Bowl, the Games Workshop game of fantasy football. In 2022, the NAF organized an online Tournament "Road to Malta" a few months before the Eurobowl, the European Blood Bowl championship, which took place 4-6 November 2022 in Malta (For a nice impression check [this vid on Youtube](https://www.youtube.com/watch?v=G2JCLe7nikM). The Online Tournament used the exact same ruleset as the Eurobowl itself, and the Rulepack for the 2023 World cup is highly similar.
 
-For preparation for the WC, the Road to Malta is the best, as its ruleset is almost identical to the WC (Except for tiering changes and PM). The superleague does not allow stars, making a big difference for e.g. Halfing, Underworld and OWA that competitively are typically played with Star players.
+The **NAF Online Tournaments** FUMBBL group contains the Road To Malta tournaments.
+
+# Fetching the FUMBBL roster data using Python
+
+As this blog post main goal is to share the analysis results, I'll keep the gruelling data collection and preparation part short. We build on previous work where I used web scraping to build a database of matches played on FUMBBL. This dataset allows us to identify the teams that participated in the online NAF tournament. Given these `team_ids`, I wrote a custom Python script `get_team_roster.py` called from a Jupyter notebook (part of the `fumbbl_datasets` Github repository) that 
+
 
 ```{r}
 # Load packages
 library(tidyverse)
-#library(ggfortify)
-library(ggrepel)
 ```
 
 ```{r}
 df_matches <- read.csv(file = "../../../fumbbl_datasets/datasets/current/df_matches.csv")
-
 df_matches$match_date <- as.Date(df_matches$match_date)
 df_matches$week_date <- as.Date(df_matches$week_date)
-
-
-df_mbt <- read.csv(file = "../../../fumbbl_datasets/datasets/current/df_mbt.csv")
-
-df_mbt$match_date <- as.Date(df_mbt$match_date)
-df_mbt$week_date <- as.Date(df_mbt$week_date)
-
 ```
 
-```{r}
-df_mbt %>%
-  filter(division_name == "Competitive") %>%
- group_by(race_name, race_type) %>%
- summarise(n_mbt = n()) %>%
-  arrange(-n_mbt)
-```
-
-```{r}
-res <- df_matches %>%
-  filter(year >= 2022) %>%
-  group_by(division_name, league, division_id, tournament_id) %>%
-  summarise(cnt = n()) %>%
-  arrange(-cnt)
-
-res
-```
-```{r}
-# tournament id under competitive??
-# Royal Rookie Rumble 491, onder groep 2294
-
-# All New (meaning 0 Games) [Competitive] teams are eligible to apply. Your team will be accepted when there are 16 teams ready to rumble.
-# Teams will be chosen on a "first come first serve" basis.
-# Applied Teams which were not drawn in the last Tourney stay applied and need not to be reapplied. Your team will eventually be drawn in a RRR as long as it has 0 games played and has applied.
-
-
-df_matches %>% filter(tournament_id == 56069)
-```
 ```{r}
 res <- df_matches %>%
   filter(league == 9298) %>%
   group_by(division_name, tournament_id, division_id, league, ruleset) %>%
   summarise(cnt = n(), start_date = min(match_date), end_date = max(match_date)) %>%
+  filter(start_date > as.Date("2022-08-01")) %>%
   arrange(-tournament_id)
 
 res
 ```
 
-# Teams selection: identify 1150K tournaments
 
-```{r}
-df_matches$tv_1150 <- 0
+# Final remarks
 
-df_matches[df_matches$tv_match == 1150, ]$tv_1150 <- 1
-```
+Just as in other popular games with pre-game deck building, like Magic The Gathering, this automatically leads to a Meta game, where one has to prepare for choices that other coaches make. 
 
-```{r}
-df_matches %>%
-  group_by(division_name, tournament_id, division_id, league, ruleset, tournament_name) %>%
-  summarise(cnt = n(), 
-            perc = mean(tv_1150),
-            start_date = min(match_date), 
-            end_date = max(match_date)) %>%
-  filter(perc > 0.7) %>%
-  mutate(full_name = paste(division_name, " --", tournament_name)) %>%
-  ungroup() %>%
-  select(full_name, tournament_id, league, perc, cnt, start_date, end_date) %>%
-  arrange(-cnt)
-```
-
-This looks good. "German Eurobowl team" has become "World cup training".
-
-
-# Teams selection: identify 1100K tournaments
-
-```{r}
-df_matches$tv_1100 <- 0
-
-df_matches[df_matches$tv_match == 1100, ]$tv_1100 <- 1
-```
-
-```{r}
-df_matches %>%
-  group_by(division_name, tournament_id, division_id, league, ruleset, tournament_name, year) %>%
-  summarise(cnt = n(), 
-            perc = mean(tv_1100),
-            start_date = min(match_date), 
-            end_date = max(match_date)) %>%
-  filter(perc > 0.7) %>%
-  mutate(full_name = paste(division_name, " --", tournament_name)) %>%
-  ungroup() %>%
-  select(full_name, tournament_id, league, perc, cnt, start_date, end_date) %>%
-  arrange(-cnt)
-```
-
-# Check Alicante world cup training teams
-
-```{r}
-res <- df_matches %>% filter(league == 9941 & year > 2021) %>% group_by(week_date, year) %>% summarise(n(), avg_team = mean(team1_id), var_team = sd(team1_id))
-
-ggplot(res, aes(x = week_date, y = avg_team)) +
-  geom_point() +
-  geom_point(aes(y = var_team*100), col = "red")
-```
-```{r}
-max(unique(c(df_matches %>% filter(league == 9941 & week_date == as.Date("2022-11-21")) %>%
-  pull(team1_id), df_matches %>% filter(league == 9941 & week_date == as.Date("2022-11-21")) %>%
-  pull(team2_id))))
-```
-Conclusion not enough WC teams to analyse, we analyse EB instead.
-
-Super league has 400+ matches, try that one
-league is 15615
-
-
-
-```{r}
-res <- df_matches %>%
-  filter(league == 15615 & year > 2021) %>%
-  group_by(division_name, league, division_id, tournament_id) %>%
-  summarise(cnt = n()) %>%
-  arrange(-cnt)
-
-res
-```
-
-
-Of world cup training (bevat vooral EB teams, kunnen filteren op team value) of op datum oid.
-Is ergens in november geswitched. Heel 2022 was het EB training. Moeten even kijken naar # skills.
 
 # References
 
