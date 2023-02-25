@@ -25,10 +25,29 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # outline
 
-Introduce competitive blood bowl.
-Make comparison with MtG deck building, and the "meta".
+Blood Bowl as fantasy chess with dice. 
+Describe Blood Bowl Tournament scene. 
+The Previous World Cup in Dornbirn attracted 1400 coaches.
+Estimate for coming WC is some 1500 coaches from Europe, US and Australia /New Zealand.
+
+Unlike Chess, there is also a "Deck-building" phase were coaches have to form their team.
+Bad choices in this phase will put you at a disadvantage even before the actual game has started.
+
+Just as in other popular games with pre-game deck building, like Magic The Gathering, this automatically leads to a Meta game, where one has to prepare for choices that other coaches make. 
+
+# Online Blood Bowl Tournaments on FUMBBL
+
+Since all matches played online are recorded and available for replay, we can not only see which rosters tend to do well, we can even spectate particular matches and try and understand why they perform well.
+The API exposes 
 
 # Tournament selection
+
+I found two FUMBBL resurrection tournaments using BB2020 rules that have sufficient volume AND have the chosen skills available (the first NAF online tournament GBFU using BB2020 rules somehow does not have this).
+
+* Road to Malta
+* Superleague
+
+For preparation for the WC, the Road to Malta is the best, as its ruleset is almost identical to the WC (Except for tiering changes and PM). The superleague does not allow stars, making a big difference for e.g. Halfing, Underworld and OWA that competitively are typically played with Star players.
 
 ```{r}
 # Load packages
