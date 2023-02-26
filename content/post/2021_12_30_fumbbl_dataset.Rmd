@@ -10,6 +10,7 @@ slug: blood-bowl-fumbbl-dataset
 draft: no
 categories: 
 - Data paper
+- Blood Bowl
 tags:
 - Python
 - Pandas
