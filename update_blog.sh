@@ -9,6 +9,8 @@
 echo 'cleanup: remove rds files'
 rm --force public/post/bart_vs_grf/*.rds
 rm -R --force public/post/fumbbl_blogpost_src
+rm -R --force public/post/fumbbl_rosters_post/old
+rm -R --force public/post/fumbbl_rosters_post/road_to_malta
 rm -Rf ../gsverhoeven.github.io2
 
 echo 'create new site locally'
