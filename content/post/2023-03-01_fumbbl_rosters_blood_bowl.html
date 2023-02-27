@@ -2,7 +2,7 @@
 title: 'Visualizing Blood Bowl Tournament rosters'
 author: "Gertjan Verhoeven"
 date: '2023-03-01'
-summary: "Yet another Blood Bowl post! This one is to warm up to the upcoming World Cup, analyzing variation in Roster choices by top coaches"
+summary: "Yet another Blood Bowl post! This one is to warm up to the upcoming World Cup, analyzing variation in Tournament Roster choices."
 slug: blood-bowl-eurobowl-rosters
 draft: no
 categories:
@@ -43,8 +43,8 @@ So let’s check out what the pro’s are using!</p>
 <div id="the-2022-road-to-malta-online-naf-tournament" class="section level1">
 <h1>The 2022 Road to Malta Online NAF tournament</h1>
 <p>Last November, Eurobowl took place in Malta. To get an impression check <a href="https://www.youtube.com/watch?v=G2JCLe7nikM">this vid on Youtube</a>. A few months before Eurobowl 2022, the <a href="thenaf.net">Nuffle Amorical Football (NAF)</a> organized an online Tournament “Road to Malta” on FUMBBL to warm up to this event. The Online Tournament used the exact same ruleset as the Eurobowl itself, and the Rulepack for the 2023 World cup is highly similar.</p>
-<p>The rulepack for the Road to Malta can be found <a href="https://member.thenaf.net/index.php?module=NAF&amp;type=tournaments&amp;func=view&amp;id=7005">here</a></p>
-<p>Tthis blog post main goal is to share the analysis results. <a href="https://github.com/gsverhoeven/hugo_source/tree/master/content/post/fumbbl_rosters_post">Check my Github</a> for the technical stuff (R/Python web scraping and visualization of FUMBBL data).</p>
+<p>The rulepack for the Road to Malta can be found <a href="https://member.thenaf.net/index.php?module=NAF&amp;type=tournaments&amp;func=view&amp;id=7005">here</a>.</p>
+<p>This blog post’s main goal is to share the analysis results. <a href="https://github.com/gsverhoeven/hugo_source/tree/master/content/post/fumbbl_rosters_post">Check my Github</a> for the technical stuff (R/Python web scraping and visualization of FUMBBL data).</p>
 <p>I’ll discuss the most popular races, and leave the rest for the interested reader. I created <a href="link/to/pdf">a PDF rosterbook</a> containing all 29 different races that participated in the tournament. For each race I made a plot (a clustered heatmap) displaying the roster as a colorcoded matrix, where teams that are similar (based on a cost weighted similarity score) are put side by side. To give some information about the performance of the various builds, I added the tournament points scored behind the coach name.</p>
 <p>Of course, roster build is only one factor influencing tournament results, with skill being much more important, so we have to keep that in mind. Occasionaly, I’ll compare with the Eurobowl rosters and their performance, for this I use the great <a href="https://public.tableau.com/app/profile/mike.sann0638.davies/viz/Eurobowl22/Introduction">Tableau resource</a> compiled by Mike Davies.</p>
 </div>
@@ -133,7 +133,7 @@ For Skaven I highlighted three variants:</p>
 <div id="lizardmen-tier-1" class="section level2">
 <h2>Lizardmen (Tier 1)</h2>
 <p>For lizardmen coaches life is simple. 6 saurusses, 5 skinks, krox and an apo. Put block on all saurusses, done.
-That leaves time to bicker on about bigger questions in life, such a whether to take a single <strong>Chameleon skink</strong> :)
+That leaves time to bicker on about bigger questions in life, such a whether or not to swap one regular skink for a <strong>Chameleon skink</strong> :)
 Just as with all the previous roster variants, performance wise there is no clear winner.
 Some coaches swap one to three blocks for other skills such as guard, tackle or wrestle.</p>
 <p><img src="fumbbl_rosters_post/lz_roster_malta.png" style="width:200.0%" /></p>

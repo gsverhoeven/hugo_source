@@ -21,3 +21,4 @@ content/post/fumbbl_rosters_post/*
 !content/post/fumbbl_rosters_post/*.Rmd
 content/post/fumbbl_rosters_post/bb_rosters.ods
 content/post/fumbbl_rosters_post/skill_colors.ods
+!content/post/fumbbl_rosters_post/roster_book.pdf

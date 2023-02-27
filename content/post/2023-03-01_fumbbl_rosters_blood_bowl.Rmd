@@ -2,7 +2,7 @@
 title: 'Visualizing Blood Bowl Tournament rosters'
 author: "Gertjan Verhoeven"
 date: '2023-03-01'
-summary: "Yet another Blood Bowl post! This one is to warm up to the upcoming World Cup, analyzing variation in Roster choices by top coaches"
+summary: "Yet another Blood Bowl post! This one is to warm up to the upcoming World Cup, analyzing variation in Tournament Roster choices."
 slug: blood-bowl-eurobowl-rosters
 draft: no
 categories:
@@ -55,11 +55,11 @@ There are many things great with respect to FUMBBL. Here I like to mention three
 
 Last November, Eurobowl took place in Malta. To get an impression check [this vid on Youtube](https://www.youtube.com/watch?v=G2JCLe7nikM). A few months before Eurobowl 2022, the [Nuffle Amorical Football (NAF)](thenaf.net) organized an online Tournament "Road to Malta" on FUMBBL to warm up to this event.  The Online Tournament used the exact same ruleset as the Eurobowl itself, and the Rulepack for the 2023 World cup is highly similar.
 
-The rulepack for the Road to Malta can be found [here](https://member.thenaf.net/index.php?module=NAF&type=tournaments&func=view&id=7005)
+The rulepack for the Road to Malta can be found [here](https://member.thenaf.net/index.php?module=NAF&type=tournaments&func=view&id=7005).
 
-Tthis blog post main goal is to share the analysis results. [Check my Github](https://github.com/gsverhoeven/hugo_source/tree/master/content/post/fumbbl_rosters_post) for the technical stuff (R/Python web scraping and visualization of FUMBBL data). 
+This blog post's main goal is to share the analysis results. [Check my Github](https://github.com/gsverhoeven/hugo_source/tree/master/content/post/fumbbl_rosters_post) for the technical stuff (R/Python web scraping and visualization of FUMBBL data). 
 
-I'll discuss the most popular races, and leave the rest for the interested reader. I created [a PDF rosterbook](link/to/pdf) containing all 29 different races that participated in the tournament. For each race I made a plot (a clustered heatmap) displaying the roster as a colorcoded matrix, where teams that are similar (based on a cost weighted similarity score) are put side by side. To give some information about the performance of the various builds, I added the tournament points scored behind the coach name. 
+I'll discuss the most popular races, and leave the rest for the interested reader. I created [a PDF rosterbook](https://github.com/gsverhoeven/hugo_source/tree/master/content/post/fumbbl_rosters_post/roster_book.pdf) containing all 29 different races that participated in the tournament. For each race I made a plot (a clustered heatmap) displaying the roster as a colorcoded matrix, where teams that are similar (based on a cost weighted similarity score) are put side by side. To give some information about the performance of the various builds, I added the tournament points scored behind the coach name. 
 
 Of course, roster build is only one factor influencing tournament results, with skill being much more important, so we have to keep that in mind. Occasionaly, I'll compare with the Eurobowl rosters and their performance, for this I use the great [Tableau resource](https://public.tableau.com/app/profile/mike.sann0638.davies/viz/Eurobowl22/Introduction) compiled by Mike Davies.
 
@@ -95,7 +95,7 @@ And 10 out of 16 rosters include a star player! All rosters pick the full allowa
 
 Surprisingly, there are no Hakflem builds ! This might be due to the additional skill cost, although Morg too had an additional skill cost, leaving only a single skill left, that was unanimously used to gain an extra re-roll by putting the `leader` skill on the thrower.
 
-![](fumbbl_rosters_post/uw_roster_malta.png){width=100%}
+![](/post/2023-03-01_fumbbl_rosters_blood_bowl_files/uw_roster_malta.png){width=100%}
 The roster with the best performance (by Sandune) was the Varag plus Troll build.
 
 ## High elf (Tier 4)
@@ -107,7 +107,7 @@ Coaches either choose three rerolls without an apo, or two rerolls with apo. The
 The best performing roster here was by Hartl78, who fielded a Sneaky Git/ Dirty player lineman, a most unelvish thing to do :) For the World cup, High elves moved from Tier 4 to Tier 2, so performance of the team will likely suffer.
 
 
-![](fumbbl_rosters_post/he_roster.png){width=100%}
+![](/post/2023-03-01_fumbbl_rosters_blood_bowl_files/he_roster.png){width=100%}
 
 ## Necromantic Horror (Tier 2)
 
@@ -121,7 +121,7 @@ For Necro, there where three variants popular:
 
 Performance-wise, no clear differences to be seen.
 
-![](fumbbl_rosters_post/nh_roster_malta.png){width=200%}
+![](/post/2023-03-01_fumbbl_rosters_blood_bowl_files/nh_roster_malta.png){width=200%}
 
 ## Shambling Undead (Tier 1)
 
@@ -134,7 +134,7 @@ The Shambling Undead rosters are all surprisingly similar:
 
 The only noticable variation is whether to complement that lineup with 5 zombies, 4 zombies plus 1 skeleton, or 3 zombies plus 2 skeletons. Performance wise there is little to guide that last judgement, as all three variants performed similar.
 
-![](fumbbl_rosters_post/su_roster_malta.png){width=200%}
+![](/post/2023-03-01_fumbbl_rosters_blood_bowl_files/su_roster_malta.png){width=200%}
 
 ## Dark Elf (Tier 1)
 
@@ -149,7 +149,7 @@ There is **some** variation in the positional choices, we can distinguish three 
 
 No clear performance differences between the three builds.
 
-![](fumbbl_rosters_post/de_roster_malta.png){width=200%}
+![](/post/2023-03-01_fumbbl_rosters_blood_bowl_files/de_roster_malta.png){width=200%}
 
 ## Chaos Dwarf (Tier 1)
 
@@ -160,7 +160,7 @@ We can see that the most common skill allocation is to put block on the bull cen
 
 Interestingly, the highest scoring build by Liam has an uncommon skill choice, with guard on the bull centaurs and two blockers with Mighty Blow.
 
-![](fumbbl_rosters_post/cd_roster_malta.png){width=200%}
+![](/post/2023-03-01_fumbbl_rosters_blood_bowl_files/cd_roster_malta.png){width=200%}
 
 ## Skaven (Tier 2)
 
@@ -174,23 +174,23 @@ For Skaven I highlighted three variants:
 * 3 reroll builds without Thrower
 * 2 reroll build with thrower (+ leader)
 
-![](fumbbl_rosters_post/sk_roster_malta.png){width=200%}
+![](/post/2023-03-01_fumbbl_rosters_blood_bowl_files/sk_roster_malta.png){width=200%}
 
 ## Lizardmen (Tier 1)
 
 For lizardmen coaches life is simple. 6 saurusses, 5 skinks, krox and an apo. Put block on all saurusses, done.
-That leaves time to bicker on about bigger questions in life, such a whether to take a single **Chameleon skink** :)
+That leaves time to bicker on about bigger questions in life, such a whether or not to swap one regular skink for a **Chameleon skink** :)
 Just as with all the previous roster variants, performance wise there is no clear winner.
 Some coaches swap one to three blocks for other skills such as guard, tackle or wrestle.
 
-![](fumbbl_rosters_post/lz_roster_malta.png){width=200%}
+![](/post/2023-03-01_fumbbl_rosters_blood_bowl_files/lz_roster_malta.png){width=200%}
 
 ## Orc (Tier 1)
 
 Orcs also did very well in Malta, with three teams in the top 10.
 The orcs show some serious roster variation! Agreed, all rosters take four blitzers with mighty blow and tackle, and four big uns with block and guard, but apart from that we see rosters with and without the Troll, with and without an apo, with and without a Thrower, and with varying amounts of goblins. Interestingly, the most exotic roster, with three goblins, and no thrower, performed best here. 
 
-![](fumbbl_rosters_post/orc_roster_malta.png){width=200%}
+![](/post/2023-03-01_fumbbl_rosters_blood_bowl_files/orc_roster_malta.png){width=200%}
 
 ## Wood Elf (Tier 1)
 
@@ -203,7 +203,7 @@ On one end, we see rosters that take all four catchers and a thrower, with only 
 At the other end, we see rosters that take only two catchers and a thrower, or three catchers, and take five linemen.
 This allows for three rerolls or two rerolls and an apothecary.
 
-![](fumbbl_rosters_post/we_roster_malta.png){width=200%}
+![](/post/2023-03-01_fumbbl_rosters_blood_bowl_files/we_roster_malta.png){width=200%}
 
 # Final remarks
 
