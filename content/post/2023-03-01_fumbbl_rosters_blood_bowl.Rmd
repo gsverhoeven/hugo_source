@@ -95,12 +95,12 @@ And 10 out of 16 rosters include a star player! All rosters pick the full allowa
 
 Surprisingly, there are no Hakflem builds ! This might be due to the additional skill cost, although Morg too had an additional skill cost, leaving only a single skill left, that was unanimously used to gain an extra re-roll by putting the `leader` skill on the thrower.
 
-![](/post/2023-03-01_fumbbl_rosters_blood_bowl_files/uw_roster_malta.png){width=100%}
+![](/post/2023-03-01_fumbbl_rosters_blood_bowl_files/uw_roster_malta.png){width=150%}
 The roster with the best performance (by Sandune) was the Varag plus Troll build.
 
 ## High elf (Tier 4)
 
-UW shared the top spot for most popular team with High Elves. High Elf's recent popularity is often attributed to their low tier placement, for this tournament it was Tier 4. This allowed for 8 primary skills and 1 secondary skill (or 6 primary skills and 2 secondary skills), on a 12 player line up.
+UW shared the top spot for most popular team with High Elves. High Elf's recent popularity is likely related to their low tier placement, for this tournament it was Tier 4. This allowed for 8 primary skills and 1 secondary skill (or 6 primary skills and 2 secondary skills), on a 12 player line up.
 From the rosters, it appears that there are two roster variants popular. Both variants have the same lineup wrt players (2 blitzers, 3 catcher, 1 thrower).
 Coaches either choose three rerolls without an apo, or two rerolls with apo. The two-reroll builds all use leader to compensate for the "missing" reroll.
 
