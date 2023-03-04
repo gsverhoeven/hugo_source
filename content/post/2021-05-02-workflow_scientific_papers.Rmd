@@ -116,7 +116,13 @@ In Rstudio, we add to following line to our YAML header:
 bibliography: references.json
 ```
 
-`rbbt` has the functionality to automatically create a bib/json file that ONLY contains the references that are cited in the Rmd document. I haven't tested this yet, but this would be the icing on the cake. Instructions for this are on the [rbbt Github page](https://github.com/paleolimbot/rbbt).
+`rbbt` has the functionality to automatically create a bib/json file that ONLY contains the references that are cited in the Rmd document. I haven't tested this yet, but this would be the icing on the cake. Instructions for this are on the [rbbt Github page](https://github.com/paleolimbot/rbbt). 
+
+**Update 03/2023** You can try adding the following entry to your YAML header:
+
+```{r eval = FALSE}
+bibliography: "`r rbbt::bbt_write_bib('bibliography.json', overwrite = TRUE)`" 
+```
 
 ## Step 8: Getting the references in the proper format
 

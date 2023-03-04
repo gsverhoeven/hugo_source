@@ -84,7 +84,8 @@ AND category Python for Python-bloggers
 #blogdown:::build_rmds("content/post/2022-01-04_java_webstart_forensics_ubuntu.Rmd")
 #blogdown:::build_rmds("content/post/2022-03-20_nufflytics_blog_post.Rmd")
 #blogdown:::build_rmds("content/post/2022-07-09-random_forest_rfe_vs_tuning.Rmd")
-blogdown:::build_rmds("content/post/2022-11-01_clustered_heatmaps_blood_bowl.Rmd")
+#blogdown:::build_rmds("content/post/2022-11-01_clustered_heatmaps_blood_bowl.Rmd")
+#blogdown:::build_rmds("content/post/2023-03-01_fumbbl_rosters_blood_bowl.Rmd")
 
 # rebuild site
 
