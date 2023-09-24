@@ -35,7 +35,7 @@ Yet another Blood Bowl post! If you don't know about Blood Bowl and/or FUMBBL, S
 This one is to introduce the Super League, where top (and not so top) coaches compete with each other online on FUMBBL. The Super League is a system of interconnected leagues, in a pyramid-like system. This is not uncommon in sports, a well known example is the English Football league system, also called the "football pyramid".
 The creator and tireless promotor of this league, the infamous **Tripleskull** from Denmark, asked me to do some data analysis on the SL, with this blog as a result.
 
-How does it work? Each season coaches play a match against all the other coaches in their division / tier ("single round-robin"). At the end of the season coaches are promoted to a higher division, remain, or are relegated to a lower division, based on how well they did. New coaches have to start in the lowest division and work their way to the top. The highest division is called the "Premier League", where some of the world's best Blood Bowl coaches compete for the crown (well ring in fact, 3D printed in the workshop of **Flashman1234**).
+How does it work? Each season coaches play a match against all the other coaches in their division / tier ("single round-robin"). At the end of the season coaches are promoted to a higher division, remain, or are relegated to a lower division, based on how well they did. New coaches have to start in the lowest division and work their way to the top. The highest division is called the "Premier League", where some of the world's best Blood Bowl coaches compete for the crown (well ring in fact, designed and 3D printed by **Flashman1234**).
 
 ![](fumbbl_super_league/figures/Strider.jpeg)
 
