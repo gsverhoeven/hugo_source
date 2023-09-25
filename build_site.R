@@ -86,7 +86,7 @@ AND category Python for Python-bloggers
 #blogdown:::build_rmds("content/post/2022-07-09-random_forest_rfe_vs_tuning.Rmd")
 #blogdown:::build_rmds("content/post/2022-11-01_clustered_heatmaps_blood_bowl.Rmd")
 #blogdown:::build_rmds("content/post/2023-03-01_fumbbl_rosters_blood_bowl.Rmd")
-
+blogdown:::build_rmds("content/post/2023-09-21_fumbbl_super_league.Rmd")
 # rebuild site
 
 #The function blogdown::build_site() has an argument local that defaults to FALSE, which means building the website for publishing instead of local previewing
@@ -139,6 +139,9 @@ blogdown::stop_server()
 
 #deleten public folder voordat we hugo_build doen
 unlink("public/*", recursive = TRUE)
+
+# MANUAL STEP: COPY IMAGES TO STATIC/POST AND FIND/REPLACE LINKS IN RMD
+# re render blog post to HTML
 
 #Always run blogdown::hugo_build() before you upload this directory to a web server.
 
