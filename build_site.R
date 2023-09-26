@@ -150,3 +150,4 @@ print("site build")
 
 # zet public folder online
 
+# then go to update_blog.sh
