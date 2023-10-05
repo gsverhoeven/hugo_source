@@ -1,0 +1,220 @@
+---
+title: Infrastructure as Code with Terraform on Azure
+author: Gertjan Verhoeven
+date: '2021-01-27'
+draft: TRUE
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Time to explore what the cloud is all about.
+
+Our goal is to use an open-source script language to automatically set up cloud infrastructure.
+The grand idea here is that scripting the compute resources that made an analysis possible is the next level in reproducibility.
+In addition, we hope to avoid cloud vendor lock-in if we automate the cloud infrastructure using open source tooling.
+The reasoning is, since both the hardware and software are just a bunch of open source scripts, we can pick up our bags and leave as soon as things stagnate or we can get a better deal elsewhere.
+
+# Cloud components
+
+So what components do we need for our project?
+
+# Design of our cloud infrastructure
+
+It would be nice to have a VM running that scrapes online gaming match results, and runs a Python pipeline that processes the data and hosts them as downloadable datasets on a small static website.
+
+# Hashicorp Terraform
+
+# Ansible
+
+We can use Ansible to script the configuration of our Azure infrastructure.
+
+Ansible is an open-source tool that automates cloud provisioning, configuration management, and application deployments. Using Ansible you can provision virtual machines, containers, network, and complete cloud infrastructures. In addition, Ansible allows you to automate the deployment and configuration of resources in your environment.
+
+Ansible includes a suite of Ansible modules that can be executed directly on remote hosts or via playbooks. Users can also create their own modules. Modules can be used to control system resources - such as services, packages, or files - or execute system commands.
+
+For interacting with Azure services, Ansible includes a suite of Ansible cloud modules that provides the tools to easily create and orchestrate your infrastructure on Azure.
+
+
+# Azure cloud
+
+We start with creating a free account on Azure. This comes with 200 Euro free credit to spent within a month.
+We start with the manual process, later on we try and automate the process.
+
+Azure works with resources. We create three resources. There is a hierarchical structure.
+First is the Subscription. Within this subscription, we create a *Resource Group*, `myRG`.
+Within the Resource Group, we create a *Virtual Machine*. I chose Ubuntu Server 20.04 LTS, to keep cost low (PM check if this is actually cheaper than WinOS)
+The VM needs an IP address, so we can access it through the internet.
+It also needs a disk to store data on.
+
+```
+{
+    "name": "StanDEV",
+    "id": "/subscriptions/a61954d3-c5e4-486b-a6b4-5adce7816139/resourceGroups/myRG/providers/Microsoft.Compute/virtualMachines/StanDEV",
+    "type": "Microsoft.Compute/virtualMachines",
+    "location": "northeurope",
+    "identity": {
+        "type": "SystemAssigned",
+        "principalId": "b1947bf9-2bde-467e-bafa-fa59d60b2ab2",
+        "tenantId": "3bb069a9-8d2a-4448-84e1-af28d97f945b"
+    },
+    "properties": {
+        "hardwareProfile": {
+            "vmSize": "Standard_D2s_v3"
+        },
+        "provisioningState": "Succeeded",
+        "vmId": "f01c52fd-ebcf-461c-8029-cc3729a50821",
+        "storageProfile": {
+            "imageReference": {
+                "publisher": "canonical",
+                "offer": "0001-com-ubuntu-server-focal",
+                "sku": "20_04-lts-gen2",
+                "version": "latest",
+                "exactVersion": "20.04.202308310"
+            },
+            "osDisk": {
+                "osType": "Linux",
+                "name": "StanDEV_OsDisk_1_7bafa5019829421bab4f1a90bb337169",
+                "createOption": "FromImage",
+                "caching": "ReadWrite",
+                "managedDisk": {
+                    "id": "/subscriptions/a61954d3-c5e4-486b-a6b4-5adce7816139/resourceGroups/MYRG/providers/Microsoft.Compute/disks/StanDEV_OsDisk_1_7bafa5019829421bab4f1a90bb337169"
+                },
+                "deleteOption": "Delete"
+            },
+            "dataDisks": []
+        },
+        "osProfile": {
+            "computerName": "StanDEV",
+            "adminUsername": "azureuser",
+            "linuxConfiguration": {
+                "disablePasswordAuthentication": true,
+                "ssh": {
+                    "publicKeys": [
+                        {
+                            "path": "/home/azureuser/.ssh/authorized_keys",
+                            "keyData": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC5R5pgveI6RFG/g/7HdZFW+Jlq8aa2UzoVMMgZ9SEUBUiMncZRjpzx6F1Zxyg8MKDov0hEAly3S1T5cCiu/DuMuJRvjV1bAPUMzdEpilEp44x4W8QLO8N2Ywv1JKbW7SZbjM+wZ7r+XdffKYOJlm3vgNAvYrzH9YS5i16zcbpqKMvCDKP9FW5GTMP3b5kTyXZkivW/5gNQHRMVwq/f8rngXQW+FsqO4u1khOIq9+t76Kt0ekag4FkQcP1IcN/NrL2EWbhHFAfNxzNA/X9xHYTGb78qE72BU89JaeIzYaUnIyjjnoME3iXtdrDaOLVk42K06iHylaadYGGhIuhYqYAmG4h2FuyzjA8R4DBjDE1ryE9pu9jBdpTxOK55qGksCBeanV6QQ6nxJ6kl03TxxEewwHQdSle1BRgNf0tv4zMK3BfytJJGAO20JZLCz9KgjuwqYhigp7lYbfpZGS7/BranQwzj3vFT1OoBrIrOQc4DK22RPhlQ/qnsLhMz0FBu9ak= generated-by-azure"
+                        }
+                    ]
+                },
+                "provisionVMAgent": true,
+                "patchSettings": {
+                    "patchMode": "ImageDefault",
+                    "assessmentMode": "ImageDefault"
+                }
+            },
+            "secrets": [],
+            "allowExtensionOperations": true,
+            "requireGuestProvisionSignal": true
+        },
+        "securityProfile": {
+            "uefiSettings": {
+                "secureBootEnabled": true,
+                "vTpmEnabled": true
+            },
+            "securityType": "TrustedLaunch"
+        },
+        "networkProfile": {
+            "networkInterfaces": [
+                {
+                    "id": "/subscriptions/a61954d3-c5e4-486b-a6b4-5adce7816139/resourceGroups/myRG/providers/Microsoft.Network/networkInterfaces/standev363_z1",
+                    "properties": {
+                        "deleteOption": "Detach"
+                    }
+                }
+            ]
+        },
+        "diagnosticsProfile": {
+            "bootDiagnostics": {
+                "enabled": true
+            }
+        }
+    },
+    "zones": [
+        "1"
+    ],
+    "resources": [
+        {
+            "name": "AzurePolicyforLinux",
+            "id": "/subscriptions/a61954d3-c5e4-486b-a6b4-5adce7816139/resourceGroups/myRG/providers/Microsoft.Compute/virtualMachines/StanDEV/extensions/AzurePolicyforLinux",
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "location": "northeurope",
+            "properties": {
+                "autoUpgradeMinorVersion": true,
+                "provisioningState": "Succeeded",
+                "publisher": "Microsoft.GuestConfiguration",
+                "type": "ConfigurationforLinux",
+                "typeHandlerVersion": "1.26",
+                "settings": {}
+            }
+        },
+        {
+            "name": "OmsAgentForLinux",
+            "id": "/subscriptions/a61954d3-c5e4-486b-a6b4-5adce7816139/resourceGroups/myRG/providers/Microsoft.Compute/virtualMachines/StanDEV/extensions/OmsAgentForLinux",
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "location": "northeurope",
+            "properties": {
+                "autoUpgradeMinorVersion": true,
+                "provisioningState": "Succeeded",
+                "publisher": "Microsoft.EnterpriseCloud.Monitoring",
+                "type": "OmsAgentForLinux",
+                "typeHandlerVersion": "1.0",
+                "settings": {
+                    "workspaceId": "c8879515-0861-4bc1-af86-feb9d5c48f56"
+                }
+            }
+        }
+    ]
+}
+```
+
+
+# How to use Remote Desktop with Linux?
+
+https://learn.microsoft.com/en-us/azure/virtual-machines/linux/use-remote-desktop?tabs=azure-cli
+
+Set permission on private key in .ssh folder.
+We start with ssh-ing into the VM. 
+
+Most Linux VMs in Azure don't have a desktop environment installed by default. Linux VMs are commonly managed using SSH connections rather than a desktop environment, however there are several desktop environments that you can choose to install. Depending on your choice of desktop environment, it consumes up to 2 GB of disk space and take up to ten minutes to both install and configure all the required packages.
+
+install xfce4 lightweight desktop.
+
+Now that you have a desktop environment installed, configure a remote desktop service to listen for incoming remote access connections. xrdp is an open source Remote Desktop Protocol (RDP) server that is available on most Linux distributions and works well with xfce. Install xrdp on your Ubuntu VM as follows
+
+Access will be through RDP (Remote Desktop Protocol).  Ubuntu provides the `Remmina` software for this.
+
+To allow Remote Desktop traffic to reach your Linux VM, a network security group rule needs to be created that allows TCP on port 3389 to reach your VM. 
+
+Here we need to use Azure CLI. 
+
+The following example creates a network security group rule with az vm open-port on port 3389. From the Azure CLI, not the SSH session to your VM, open the following network security group rule:
+
+```
+az vm open-port --resource-group myRG --name StanDEV --port 3389
+```
+
+# Setting up a Stan development environment on Azure Cloud
+
+install firefox
+install inxi
+follow instructions on CRAN to install r-base. This gives me R 4.3.1
+
+install Rstudio. Download deb for ubuntu. gdebi.
+
+# Stan
+do `remotes::install_github(standev/cmdstanr)`
+
+do `cmdstanr::install_stan()`
+
+install tidyverse. this needs a lot of extra deb packages.
+https://medium.com/@jamie84mclaughlin/installing-r-and-the-tidyverse-on-ubuntu-20-04-60170020649b
+
+```
+sudo apt install libssl-dev libcurl4-openssl-dev unixodbc-dev libxml2-dev libmariadb-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev
+```
+
+inxi -v7
+
