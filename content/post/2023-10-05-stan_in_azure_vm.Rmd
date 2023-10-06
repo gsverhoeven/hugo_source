@@ -1,14 +1,28 @@
 ---
-title: Infrastructure as Code with Terraform on Azure
-author: Gertjan Verhoeven
-date: '2021-01-27'
-draft: TRUE
-output: html_document
+title: 'Infrastructure as Code with Terraform on Azure'
+author: "Gertjan Verhoeven"
+date: '2023-09-21'
+summary: Setting up A Linux Stan development environment on Azure.
+slug: azure-stan-linux
+draft: no
+categories:
+- Linux
+- Statistics
+tags:
+- R
+- cmdstanr
+baseurl: https://gsverhoeven.github.io
+header:
+  image: headers/bb_heatmap_banner.png
+  preview: no
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+PM find out a way to automate the installation of software on the image
+
 
 Time to explore what the cloud is all about.
 
@@ -23,15 +37,39 @@ So what components do we need for our project?
 
 # Design of our cloud infrastructure
 
-It would be nice to have a VM running that scrapes online gaming match results, and runs a Python pipeline that processes the data and hosts them as downloadable datasets on a small static website.
+It would be nice to have a VM running that we can use for Stan Modelling.
 
 # Hashicorp Terraform
 
+One of the advantages of Terraform is that it creates a single source of truth (that HCL file) that can be deployed over and over again without having to understand how it gets to the end-state. Another advantage of the Terraform approach is that it is just as easy to tear down (de-provision) your cloud resources. This allows developers to quickly spin up resources, test something, then tear them down.
+
+https://cloudinfrastructureservices.co.uk/how-to-install-terraform-on-ubuntu-server-20-04/
+
+```
+sudo apt-add-repository "deb [arch=$(dpkg --print-architecture)] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+sudo apt-get install terraform -y
+terraform -v
+```
+
+next we need azure-cli for ubuntu 18.04LTS:
+
+```
+#downloads the signing key from Microsoft
+curl -sL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/microsoft.gpg > /dev/null 
+## creates a file called microsoft.gpg in the folder where keys are stored
+
+AZ_REPO=$(lsb_release -cs) ## outputs the codename for the linux distribution i.e. Ubuntu 18.04 = bionic
+echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $AZ_REPO main" | sudo tee /etc/apt/sources.list.d/azure-cli.list 
+## writes that URL to the package resource list
+sudo apt-get update
+sudo apt-get install azure-cli
+```
+
 # Ansible
 
-We can use Ansible to script the configuration of our Azure infrastructure.
-
 Ansible is an open-source tool that automates cloud provisioning, configuration management, and application deployments. Using Ansible you can provision virtual machines, containers, network, and complete cloud infrastructures. In addition, Ansible allows you to automate the deployment and configuration of resources in your environment.
+
+Ansible, by design, takes an imperative approach to automation.  You simply have a task list that iterates through each resource.  You would tell it to provision this VPC, this subnet, then this VM.  The advantage of this approach is it is very simple to understand, there is no hidden magic, which helps it become easy to troubleshoot.  The disadvantage is usually it is more cumbersome to do teardowns and de-provision without knowing the correct order.  I have to delete the instance, then the security group, and so on and so forth.
 
 Ansible includes a suite of Ansible modules that can be executed directly on remote hosts or via playbooks. Users can also create their own modules. Modules can be used to control system resources - such as services, packages, or files - or execute system commands.
 
@@ -175,46 +213,114 @@ It also needs a disk to store data on.
 
 https://learn.microsoft.com/en-us/azure/virtual-machines/linux/use-remote-desktop?tabs=azure-cli
 
-Set permission on private key in .ssh folder.
+Most Linux VMs in Azure don't have a desktop environment installed by default. Linux VMs are commonly managed using SSH connections rather than a desktop environment, however there are several desktop environments that you can choose to install. Depending on your choice of desktop environment, it consumes up to 2 GB of disk space and take up to ten minutes to both install and configure all the required packages.
+
 We start with ssh-ing into the VM. 
 
-Most Linux VMs in Azure don't have a desktop environment installed by default. Linux VMs are commonly managed using SSH connections rather than a desktop environment, however there are several desktop environments that you can choose to install. Depending on your choice of desktop environment, it consumes up to 2 GB of disk space and take up to ten minutes to both install and configure all the required packages.
+```
+mv StanDEV_key.pem .ssh/
+chmod 600 .ssh/StanDEV_key.pem
+ssh -i ~/.ssh/StanDEV_key.pem azureuser@68.219.248.112
+```
+
+```
+sudo apt-get update
+sudo apt install inxi
+```
 
 install xfce4 lightweight desktop.
 
-Now that you have a desktop environment installed, configure a remote desktop service to listen for incoming remote access connections. xrdp is an open source Remote Desktop Protocol (RDP) server that is available on most Linux distributions and works well with xfce. Install xrdp on your Ubuntu VM as follows
+```
+sudo DEBIAN_FRONTEND=noninteractive apt-get -y install xfce4
+sudo apt install xfce4-session
+```
+
+Now that you have a desktop environment installed, configure a remote desktop service to listen for incoming remote access connections. xrdp is an open source Remote Desktop Protocol (RDP) server that is available on most Linux distributions and works well with xfce. Install xrdp on your Ubuntu VM as follows:
+
+```
+sudo apt-get -y install xrdp
+sudo systemctl enable xrdp
+sudo adduser xrdp ssl-cert
+echo xfce4-session >~/.xsession
+sudo service xrdp restart
+```
 
 Access will be through RDP (Remote Desktop Protocol).  Ubuntu provides the `Remmina` software for this.
+We need to set a password to log on using RDP.
+
+```
+sudo passwd azureuser
+```
 
 To allow Remote Desktop traffic to reach your Linux VM, a network security group rule needs to be created that allows TCP on port 3389 to reach your VM. 
+Here we need to use Azure CLI. On ubuntu 18.04LTS it is no longer available.
 
-Here we need to use Azure CLI. 
+```
+sudo apt install azure-cli
+E: Unable to locate package azure-cli
+```
 
-The following example creates a network security group rule with az vm open-port on port 3389. From the Azure CLI, not the SSH session to your VM, open the following network security group rule:
+So I used the Azure Shell in the Azure web portal to run the command.
 
 ```
 az vm open-port --resource-group myRG --name StanDEV --port 3389
 ```
 
-# Setting up a Stan development environment on Azure Cloud
+# Setting up a Stan development environment on Ubuntu 20.04
 
-install firefox
-install inxi
-follow instructions on CRAN to install r-base. This gives me R 4.3.1
+Now let's install the software we need.
+We need to browse GitHub so lets install firefox.
 
-install Rstudio. Download deb for ubuntu. gdebi.
+```
+sudo apt install firefox
+```
 
-# Stan
-do `remotes::install_github(standev/cmdstanr)`
+Then we want to be able to compile Stan models.
+```
+git clone https://github.com/stan-dev/cmdstan.git --recursive
+cd cmdstan/
+sudo apt install make
+sudo apt install g++
+make build
+make examples/bernoulli/bernoulli
+examples/bernoulli/bernoulli sample data file=examples/bernoulli/bernoulli.data.json
+```
 
-do `cmdstanr::install_stan()`
+We also want R.
+follow instructions on CRAN to install r-base. 
+```
+sudo apt install --no-install-recommends software-properties-common dirmngr
+wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | sudo tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
+sudo add-apt-repository "deb https://cloud.r-project.org/bin/linux/ubuntu $(lsb_release -cs)-cran40/"
+sudo apt install --no-install-recommends r-base
+```
 
-install tidyverse. this needs a lot of extra deb packages.
-https://medium.com/@jamie84mclaughlin/installing-r-and-the-tidyverse-on-ubuntu-20-04-60170020649b
+Now we have the latest R (4.3.1)!
 
+Next up: install Rstudio. We browse to the website of Rstudio (Now Posit) and download the latest Ubuntu .deb installer.
+```
+cd Downloads/
+sudo apt -y install gdebi-core 
+sudo gdebi rstudio-2023.09.0-463-amd64.deb 
+```
+
+Final step is installing the R packages we need.
+
+Tidyverse needs a lot of extra deb packages. So we install those first.
 ```
 sudo apt install libssl-dev libcurl4-openssl-dev unixodbc-dev libxml2-dev libmariadb-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev
 ```
 
-inxi -v7
+Then we fire up Rstudio. on the R command line we do:
+
+```
+install.packages("tidyverse")
+install.packages("gapminder")
+remotes::install_github(standev/cmdstanr)
+cmdstanr::install_stan()
+```
+
+Installing tidyverse took about 30 min on my VM as all the packages and dependencies had to be compiled from source.
+
+
 
