@@ -21,9 +21,6 @@ header:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-PM find out a way to automate the installation of software on the image
-
-
 Time to explore what the cloud is all about.
 
 Our goal is to use an open-source script language to automatically set up cloud infrastructure.
@@ -31,27 +28,22 @@ The grand idea here is that scripting the compute resources that made an analysi
 In addition, we hope to avoid cloud vendor lock-in if we automate the cloud infrastructure using open source tooling.
 The reasoning is, since both the hardware and software are just a bunch of open source scripts, we can pick up our bags and leave as soon as things stagnate or we can get a better deal elsewhere.
 
-# Cloud components
+It would be nice to we create a VM that we can use for Stan Modelling when we need it, and tear it down when we no longer need it.
+The blog uses Linux throughout, but as it uses Azure-CLI it should work for Windows as well.
 
-So what components do we need for our project?
+# Azure cloud
 
-# Design of our cloud infrastructure
+We start with creating a free account on Azure. This comes with 200 Euro free credit to spent within a month.
+By doing all configuration using **az**, we build a script that automates the creation of our infrastructure.
+hence, **Infrastructure as code**.
 
-It would be nice to have a VM running that we can use for Stan Modelling.
+## Azure cost
 
-# Hashicorp Terraform
+We have three main cost drivers: public IP adress (2 euro), virtual machine (2.5 euro) , disk (2 euro), for a period of three weeks. I chose a cheap simple machine with 2 CPU and 8 GB RAM (Standard D2s v3).
 
-One of the advantages of Terraform is that it creates a single source of truth (that HCL file) that can be deployed over and over again without having to understand how it gets to the end-state. Another advantage of the Terraform approach is that it is just as easy to tear down (de-provision) your cloud resources. This allows developers to quickly spin up resources, test something, then tear them down.
+# Automate with Azure-CLI
 
-https://cloudinfrastructureservices.co.uk/how-to-install-terraform-on-ubuntu-server-20-04/
-
-```
-sudo apt-add-repository "deb [arch=$(dpkg --print-architecture)] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
-sudo apt-get install terraform -y
-terraform -v
-```
-
-next we need azure-cli for ubuntu 18.04LTS:
+First we need to install `azure-cli` on our desktop system (Ubuntu 18.04 LTS):
 
 ```
 #downloads the signing key from Microsoft
@@ -63,153 +55,314 @@ echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $AZ_REPO 
 ## writes that URL to the package resource list
 sudo apt-get update
 sudo apt-get install azure-cli
+az login
 ```
 
-# Ansible
-
-Ansible is an open-source tool that automates cloud provisioning, configuration management, and application deployments. Using Ansible you can provision virtual machines, containers, network, and complete cloud infrastructures. In addition, Ansible allows you to automate the deployment and configuration of resources in your environment.
-
-Ansible, by design, takes an imperative approach to automation.  You simply have a task list that iterates through each resource.  You would tell it to provision this VPC, this subnet, then this VM.  The advantage of this approach is it is very simple to understand, there is no hidden magic, which helps it become easy to troubleshoot.  The disadvantage is usually it is more cumbersome to do teardowns and de-provision without knowing the correct order.  I have to delete the instance, then the security group, and so on and so forth.
-
-Ansible includes a suite of Ansible modules that can be executed directly on remote hosts or via playbooks. Users can also create their own modules. Modules can be used to control system resources - such as services, packages, or files - or execute system commands.
-
-For interacting with Azure services, Ansible includes a suite of Ansible cloud modules that provides the tools to easily create and orchestrate your infrastructure on Azure.
-
-
-# Azure cloud
-
-We start with creating a free account on Azure. This comes with 200 Euro free credit to spent within a month.
-We start with the manual process, later on we try and automate the process.
-
-Azure works with resources. We create three resources. There is a hierarchical structure.
-First is the Subscription. Within this subscription, we create a *Resource Group*, `myRG`.
-Within the Resource Group, we create a *Virtual Machine*. I chose Ubuntu Server 20.04 LTS, to keep cost low (PM check if this is actually cheaper than WinOS)
-The VM needs an IP address, so we can access it through the internet.
-It also needs a disk to store data on.
+Test if it works by listing the contents of one of my resource groups:
 
 ```
-{
-    "name": "StanDEV",
-    "id": "/subscriptions/a61954d3-c5e4-486b-a6b4-5adce7816139/resourceGroups/myRG/providers/Microsoft.Compute/virtualMachines/StanDEV",
-    "type": "Microsoft.Compute/virtualMachines",
-    "location": "northeurope",
-    "identity": {
-        "type": "SystemAssigned",
-        "principalId": "b1947bf9-2bde-467e-bafa-fa59d60b2ab2",
-        "tenantId": "3bb069a9-8d2a-4448-84e1-af28d97f945b"
-    },
-    "properties": {
-        "hardwareProfile": {
-            "vmSize": "Standard_D2s_v3"
-        },
-        "provisioningState": "Succeeded",
-        "vmId": "f01c52fd-ebcf-461c-8029-cc3729a50821",
-        "storageProfile": {
-            "imageReference": {
-                "publisher": "canonical",
-                "offer": "0001-com-ubuntu-server-focal",
-                "sku": "20_04-lts-gen2",
-                "version": "latest",
-                "exactVersion": "20.04.202308310"
-            },
-            "osDisk": {
-                "osType": "Linux",
-                "name": "StanDEV_OsDisk_1_7bafa5019829421bab4f1a90bb337169",
-                "createOption": "FromImage",
-                "caching": "ReadWrite",
-                "managedDisk": {
-                    "id": "/subscriptions/a61954d3-c5e4-486b-a6b4-5adce7816139/resourceGroups/MYRG/providers/Microsoft.Compute/disks/StanDEV_OsDisk_1_7bafa5019829421bab4f1a90bb337169"
-                },
-                "deleteOption": "Delete"
-            },
-            "dataDisks": []
-        },
-        "osProfile": {
-            "computerName": "StanDEV",
-            "adminUsername": "azureuser",
-            "linuxConfiguration": {
-                "disablePasswordAuthentication": true,
-                "ssh": {
-                    "publicKeys": [
-                        {
-                            "path": "/home/azureuser/.ssh/authorized_keys",
-                            "keyData": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC5R5pgveI6RFG/g/7HdZFW+Jlq8aa2UzoVMMgZ9SEUBUiMncZRjpzx6F1Zxyg8MKDov0hEAly3S1T5cCiu/DuMuJRvjV1bAPUMzdEpilEp44x4W8QLO8N2Ywv1JKbW7SZbjM+wZ7r+XdffKYOJlm3vgNAvYrzH9YS5i16zcbpqKMvCDKP9FW5GTMP3b5kTyXZkivW/5gNQHRMVwq/f8rngXQW+FsqO4u1khOIq9+t76Kt0ekag4FkQcP1IcN/NrL2EWbhHFAfNxzNA/X9xHYTGb78qE72BU89JaeIzYaUnIyjjnoME3iXtdrDaOLVk42K06iHylaadYGGhIuhYqYAmG4h2FuyzjA8R4DBjDE1ryE9pu9jBdpTxOK55qGksCBeanV6QQ6nxJ6kl03TxxEewwHQdSle1BRgNf0tv4zMK3BfytJJGAO20JZLCz9KgjuwqYhigp7lYbfpZGS7/BranQwzj3vFT1OoBrIrOQc4DK22RPhlQ/qnsLhMz0FBu9ak= generated-by-azure"
-                        }
-                    ]
-                },
-                "provisionVMAgent": true,
-                "patchSettings": {
-                    "patchMode": "ImageDefault",
-                    "assessmentMode": "ImageDefault"
-                }
-            },
-            "secrets": [],
-            "allowExtensionOperations": true,
-            "requireGuestProvisionSignal": true
-        },
-        "securityProfile": {
-            "uefiSettings": {
-                "secureBootEnabled": true,
-                "vTpmEnabled": true
-            },
-            "securityType": "TrustedLaunch"
-        },
-        "networkProfile": {
-            "networkInterfaces": [
-                {
-                    "id": "/subscriptions/a61954d3-c5e4-486b-a6b4-5adce7816139/resourceGroups/myRG/providers/Microsoft.Network/networkInterfaces/standev363_z1",
-                    "properties": {
-                        "deleteOption": "Detach"
-                    }
-                }
-            ]
-        },
-        "diagnosticsProfile": {
-            "bootDiagnostics": {
-                "enabled": true
-            }
-        }
-    },
-    "zones": [
-        "1"
-    ],
-    "resources": [
-        {
-            "name": "AzurePolicyforLinux",
-            "id": "/subscriptions/a61954d3-c5e4-486b-a6b4-5adce7816139/resourceGroups/myRG/providers/Microsoft.Compute/virtualMachines/StanDEV/extensions/AzurePolicyforLinux",
-            "type": "Microsoft.Compute/virtualMachines/extensions",
-            "location": "northeurope",
-            "properties": {
-                "autoUpgradeMinorVersion": true,
-                "provisioningState": "Succeeded",
-                "publisher": "Microsoft.GuestConfiguration",
-                "type": "ConfigurationforLinux",
-                "typeHandlerVersion": "1.26",
-                "settings": {}
-            }
-        },
-        {
-            "name": "OmsAgentForLinux",
-            "id": "/subscriptions/a61954d3-c5e4-486b-a6b4-5adce7816139/resourceGroups/myRG/providers/Microsoft.Compute/virtualMachines/StanDEV/extensions/OmsAgentForLinux",
-            "type": "Microsoft.Compute/virtualMachines/extensions",
-            "location": "northeurope",
-            "properties": {
-                "autoUpgradeMinorVersion": true,
-                "provisioningState": "Succeeded",
-                "publisher": "Microsoft.EnterpriseCloud.Monitoring",
-                "type": "OmsAgentForLinux",
-                "typeHandlerVersion": "1.0",
-                "settings": {
-                    "workspaceId": "c8879515-0861-4bc1-af86-feb9d5c48f56"
-                }
-            }
-        }
-    ]
-}
+az resource list --resource-group myRG
+```
+
+## Azure cloud management levels
+
+There is a hierarchical structure.
+Azure works with resources. Resources are contained within resource groups.
+Resource groups exist within a subscription.
+Finally, subscriptions exist within management groups.
+
+![](azure_scope-levels.png)
+
+## Subscription
+
+First is the Subscription. This we choose when we login.
+
+```
+az login
+```
+
+## Resource Group
+
+Within this subscription, we create a *Resource Group*, `myRG2`. 
+
+This needs a location, Since I am in West europe, let's choose westeurope.
+
+```
+# create shell variables
+resourceGroup=myRG2
+location=westeurope
+az group create --name $resourceGroup --location $location
+az group show --resource-group myRG2
+```
+https://learn.microsoft.com/en-us/cli/azure/azure-cli-vm-tutorial-2
+
+### Quick vs complete creation of VM
+
+https://github.com/MicrosoftDocs/azure-docs/blob/main/articles/virtual-machines/linux/quick-create-cli.md
+
+https://github.com/MicrosoftDocs/azure-docs/blob/main/articles/virtual-machines/linux/create-cli-complete.md
+
+To quickly create a virtual machine (VM) in Azure, you can use a single Azure CLI command that uses default values to create any required supporting resources. Resources such as a virtual network, public IP address, and network security group rules are automatically created. For more control of your environment in production use, you may create these resources ahead of time and then add your VMs to them. 
+
+## Virtual Network
+
+Next we create a Virtual Network: 
+
+```
+# create shell variables
+vnetName=StanDEV-VNet1
+subnetName=StanDEV-Subnet1
+vnetAddressPrefix=10.0.0.0/16
+subnetAddressPrefix=10.0.0.0/24
+
+az network vnet create \
+  --name $vnetName \
+  --resource-group $resourceGroup \
+  --address-prefixes $vnetAddressPrefix \
+  --subnet-name $subnetName \
+  --subnet-prefixes $subnetAddressPrefix
 ```
 
 
-# How to use Remote Desktop with Linux?
+## Public IP address
+
+Now let's create a public IP address with `az network public-ip create`. 
+
+```
+az network public-ip create \
+    --resource-group myResourceGroup \
+    --name myPublicIP \
+    --dns-name mypublicdns
+```
+
+This public IP address enables you to connect to your VMs from the Internet. 
+
+Because the default address is **dynamic**, create a named DNS entry with the `--domain-name-label` parameter. The following example creates a public IP named `myPublicIP` with the DNS name of `mypublicdns`. Because the DNS name must be unique, provide your own unique DNS name:
+
+```
+az network public-ip update -n StanDEV-ip --dns-name standev -g myRG
+```
+
+This results in a `fqdn` of `standev.northeurope.cloudapp.azure.com`
+
+```
+nslookup  standev.northeurope.cloudapp.azure.com
+Server:		127.0.0.53
+Address:	127.0.0.53#53
+
+Non-authoritative answer:
+Name:	standev.northeurope.cloudapp.azure.com
+Address: 68.219.248.112
+```
+We have a static IP, is more expensive. But more secure.
+SKU is standard. Basic Dynamic is cheapest.
+```
+az network public-ip update -g myRG -n StanDEV-ip --dns-name standev --allocation-method Dynamic
+```
+Standard SKU: Secure by default model and be closed to inbound traffic when used as a frontend. Allow traffic with network security group is required (for example, on the NIC of a virtual machine with a Standard SKU public IP attached).
+
+We'll detach the public IP address from the NIC.
+```
+resourceGroupName=myRG
+nicName=standev363_z1
+publicIp=StanDEV-ip
+publicIpNameOnNic=ipconfig1
+
+# Disassociate the Public IP Address from the NIC first
+az network nic ip-config update \
+  --resource-group $resourceGroupName --nic-name $nicName \
+  --name $publicIpNameOnNic --remove PublicIpAddress
+
+# Delete the Public IP
+az network public-ip delete -g $resourceGroupName -n $publicIp
+```
+
+```
+az network public-ip list -o table
+Name        ResourceGroup    Location     Zones    Address         IdleTimeoutInMinutes    ProvisioningState
+----------  ---------------  -----------  -------  --------------  ----------------------  -------------------
+StanDEV-ip  myRG             northeurope  1        68.219.248.112  4                       Succeeded
+```
+
+## Create network security group & Rules
+
+To control the flow of traffic in and out of your VMs, apply a **network security group** to a virtual NIC or subnet. The following example uses `az network nsg create` to create a network security group named `myNetworkSecurityGroup`:
+
+```
+az network nsg create \
+    --resource-group myResourceGroup \
+    --name myNetworkSecurityGroup
+```
+
+You define rules that allow or deny specific traffic. To allow inbound connections on port 22 (to enable SSH access, create an inbound rule with az network nsg rule create. The following example creates a rule named myNetworkSecurityGroupRuleSSH:
+
+```
+az network nsg rule create \
+    --resource-group myResourceGroup \
+    --nsg-name myNetworkSecurityGroup \
+    --name myNetworkSecurityGroupRuleSSH \
+    --protocol tcp \
+    --priority 1000 \
+    --destination-port-range 22 \
+    --access allow
+```
+
+To allow inbound connections on port 80 (for web traffic), add another network security group rule. The following example creates a rule named myNetworkSecurityGroupRuleHTTP:
+
+```
+az network nsg rule create \
+    --resource-group myResourceGroup \
+    --nsg-name myNetworkSecurityGroup \
+    --name myNetworkSecurityGroupRuleWeb \
+    --protocol tcp \
+    --priority 1001 \
+    --destination-port-range 80 \
+    --access allow
+```
+
+To allow Remote Desktop traffic to reach your Linux VM, a network security group rule needs to be created that allows TCP on port 3389 to reach your VM. 
+
+So I used the Azure Shell in the Azure web portal to run the command.
+
+```
+az vm open-port --resource-group myRG --name StanDEV --port 3389
+```
+
+
+Examine the network security group and rules with az network nsg show:
+
+```
+az network nsg show --resource-group myResourceGroup --name myNetworkSecurityGroup
+```
+
+Specify an SSH key to use for authentication. If you do not have an SSH public key pair, you can create them or use the --generate-ssh-keys parameter to create them for you. If you already have a key pair, this parameter uses existing keys in ~/.ssh.
+
+## NIC & IP configuration
+
+Most tutorials skip a few components (mostly the networking part), as these are automatically created when creating a VM.
+Since we want to know all the resources involved, we'll create them manually here.
+
+```
+az network nic create -g MyResourceGroup --vnet-name MyVnet --subnet MySubnet -n MyNic --ip-forwarding --network-security-group MyNsg
+```
+
+PM Create an association between the network security group and the network interface
+
+## Storage
+
+When an Azure virtual machine is created, two disks are automatically attached to the virtual machine.
+
+Operating system disk - Operating system disks can be sized up to 2 TB, and hosts the VMs operating system. The OS disk is labeled /dev/sda by default. The disk caching configuration of the OS disk is optimized for OS performance. Because of this configuration, the OS disk should not be used for applications or data. For applications and data, use data disks, which are detailed later in this tutorial.
+
+Temporary disk - Temporary disks use a solid-state drive that is located on the same Azure host as the VM. Temp disks are highly performant and may be used for operations such as temporary data processing. However, if the VM is moved to a new host, any data stored on a temporary disk is removed. The size of the temporary disk is determined by the VM size. Temporary disks are labeled /dev/sdb and have a mountpoint of /mnt.
+
+Create a storage account for boot diagnostics using azurerm_storage_account
+
+## Create VM
+
+Within the Resource Group, we create a *Virtual Machine*. 
+There are many choices here in the Azure Marketplace.
+Canonical offers various Ubuntu images here.
+
+Canonical is the publisher of official Ubuntu images on Microsoft Azure. Users can find the latest Ubuntu images in the Azure Marketplace when using the web interface. For a programmatic interface, users can use Microsoft’s Azure CLI 32. All images published by Canonical are discoverable using the following command:
+
+```
+az vm image list-skus \
+--publisher Canonical \
+--offer Ubuntu \
+--location westeurope \
+-o table
+```
+
+I chose Ubuntu Server 20.04 LTS, because Linux, and to keep cost low (PM check if this is actually cheaper than WinOS).
+The VM needs a public IP address, so we can access it through the internet.
+Azure assigns one automatically and returns it as JSON. However, this is a dynamic IP address?
+
+alias / sku ius "20_04-lts"
+
+```
+# create shell variables
+vmName=TutorialVM1
+
+az vm create \
+  --resource-group $resourceGroup \
+  --name $vmName \
+  --image 20_04-lts \
+  --vnet-name $vnetName \
+  --subnet $subnetName \
+  --generate-ssh-keys \
+  --output json \
+  --verbose 
+```
+Create the VM by bringing all the resources and information together with the az vm create command. 
+The following example creates a VM named myVM:
+
+```
+az vm create \
+    --resource-group myResourceGroup \
+    --name myVM \
+    --location eastus \
+    --availability-set myAvailabilitySet \
+    --nics myNic \
+    --image Ubuntu2204 \
+    --admin-username azureuser \
+    --generate-ssh-keys
+```
+
+
+## run-command to install software
+
+We can also use `run-command` to install software.
+
+```
+az vm run-command invoke \
+   --resource-group $RESOURCE_GROUP_NAME \
+   --name $VM_NAME \
+   --command-id RunShellScript \
+   --scripts "sudo apt-get update && sudo apt-get install -y nginx"
+```
+
+
+## Starting, stopping and deallocating a VM
+
+```
+az vm start --resource-group myRG --name StanDEV
+az vm stop --resource-group myRG --name StanDEV
+About to power off the specified VM...
+It will continue to be billed. To deallocate a VM, run: az vm deallocate
+az vm deallocate --resource-group myRG --name StanDEV
+```
+
+
+## Export Azure Resource Manager  Template (ARM) for reuse
+
+```
+az group export --name myRG > myResourceGroup.json
+```
+
+ERROR: Virtual machine extension 'Microsoft:2EGuestConfiguration-ConfigurationforLinux' is not supported for template export.
+ERROR: Virtual machine extension 'Microsoft:2EEnterpriseCloud:2EMonitoring-OmsAgentForLinux' is not supported for template export.
+
+
+# Cloudinit Installing software on the VM
+
+We can install software using cloud init or just use run-command.
+
+https://stackoverflow.com/questions/38333917/running-init-script-on-a-linux-instance-at-launch-on-azure
+https://learn.microsoft.com/en-us/azure/virtual-machines/linux/using-cloud-init
+
+```
+az vm create \
+  --resource-group myResourceGroup \
+  --name centos74 \
+  --image OpenLogic:CentOS-CI:7-CI:latest \
+  --custom-data cloud-init.txt \
+  --generate-ssh-keys 
+```
+
+https://learn.microsoft.com/en-us/azure/virtual-machines/linux/tutorial-automate-vm-deployment
+
+## How to use Remote Desktop with Linux?
 
 https://learn.microsoft.com/en-us/azure/virtual-machines/linux/use-remote-desktop?tabs=azure-cli
 
@@ -248,25 +401,16 @@ sudo service xrdp restart
 Access will be through RDP (Remote Desktop Protocol).  Ubuntu provides the `Remmina` software for this.
 We need to set a password to log on using RDP.
 
+*If you only use SSH key authentication and don't have a local account password set, specify a password before you use xrdp to log in to your VM*. xrdp can't accept SSH keys for authentication. The following example specifies a password for the user account azureuser:
+
 ```
 sudo passwd azureuser
 ```
 
-To allow Remote Desktop traffic to reach your Linux VM, a network security group rule needs to be created that allows TCP on port 3389 to reach your VM. 
-Here we need to use Azure CLI. On ubuntu 18.04LTS it is no longer available.
+Specifying a password does not update your SSHD configuration to permit password logins if it currently does not. 
 
-```
-sudo apt install azure-cli
-E: Unable to locate package azure-cli
-```
 
-So I used the Azure Shell in the Azure web portal to run the command.
-
-```
-az vm open-port --resource-group myRG --name StanDEV --port 3389
-```
-
-# Setting up a Stan development environment on Ubuntu 20.04
+## Setting up a Stan development environment on Ubuntu 20.04
 
 Now let's install the software we need.
 We need to browse GitHub so lets install firefox.
@@ -277,6 +421,8 @@ sudo apt install firefox
 
 Then we want to be able to compile Stan models.
 ```
+mkdir Github
+cd Github
 git clone https://github.com/stan-dev/cmdstan.git --recursive
 cd cmdstan/
 sudo apt install make
@@ -322,5 +468,40 @@ cmdstanr::install_stan()
 
 Installing tidyverse took about 30 min on my VM as all the packages and dependencies had to be compiled from source.
 
+```
+install.packages(c("coda","mvtnorm","devtools","loo","dagitty","shape"))
+devtools::install_github("rmcelreath/rethinking")
+```
 
+# Clean up resources
 
+```
+az group delete --name $RESOURCE_GROUP_NAME --no-wait --yes --verbose
+```
+
+# Now without Azure CLI?
+
+This blog used Azure CLI. However, this is vendor specific.
+Next step would be to accomplish the same thing with vendor independent tooling such as Terraform /openTofu or Ansible.
+
+## Hashicorp Terraform
+
+One of the advantages of Terraform is that it creates a single source of truth (that HCL file) that can be deployed over and over again without having to understand how it gets to the end-state. Another advantage of the Terraform approach is that it is just as easy to tear down (de-provision) your cloud resources. This allows developers to quickly spin up resources, test something, then tear them down.
+
+https://cloudinfrastructureservices.co.uk/how-to-install-terraform-on-ubuntu-server-20-04/
+
+```
+sudo apt-add-repository "deb [arch=$(dpkg --print-architecture)] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+sudo apt-get install terraform -y
+terraform -v
+```
+
+## Ansible
+
+Ansible is an open-source tool that automates cloud provisioning, configuration management, and application deployments. Using Ansible you can provision virtual machines, containers, network, and complete cloud infrastructures. In addition, Ansible allows you to automate the deployment and configuration of resources in your environment.
+
+Ansible, by design, takes an imperative approach to automation.  You simply have a task list that iterates through each resource.  You would tell it to provision this VPC, this subnet, then this VM.  The advantage of this approach is it is very simple to understand, there is no hidden magic, which helps it become easy to troubleshoot.  The disadvantage is usually it is more cumbersome to do teardowns and de-provision without knowing the correct order.  I have to delete the instance, then the security group, and so on and so forth.
+
+Ansible includes a suite of Ansible modules that can be executed directly on remote hosts or via playbooks. Users can also create their own modules. Modules can be used to control system resources - such as services, packages, or files - or execute system commands.
+
+For interacting with Azure services, Ansible includes a suite of Ansible cloud modules that provides the tools to easily create and orchestrate your infrastructure on Azure.
