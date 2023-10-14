@@ -224,33 +224,53 @@ In the following `az network nic create` command, you create a NIC named `myNic`
 
 ```
 az network nic create \
-    --resource-group myResourceGroup \
-    --name myNic \
-    --vnet-name myVnet \
-    --subnet mySubnet \
-    --public-ip-address myPublicIP \
-    --network-security-group myNetworkSecurityGroup
+    --resource-group $resourceGroup \
+    --name $NICName \
+    --vnet-name $vnetName \
+    --subnet $subnetName \
+    --public-ip-address $publicIP \
+    --network-security-group $NetworkSecurityGroup
 ```
 
 ## Storage
 
 When an Azure virtual machine is created, two disks are automatically attached to the virtual machine.
 
-* Operating system disk - Operating system disks can be sized up to 2 TB, and hosts the VMs operating system. The OS disk is labeled /dev/sda by default. The disk caching configuration of the OS disk is optimized for OS performance. Because of this configuration, the OS disk should not be used for applications or data. For applications and data, use data disks, which are detailed later in this tutorial.
+* Operating system disk - Operating system disks can be sized up to 2 TB, and hosts the VMs operating system. The OS disk is labeled `/dev/sda` by default. The disk caching configuration of the OS disk is optimized for OS performance. Because of this configuration, the OS disk should not be used for applications or data. 
 
-* Temporary disk - Temporary disks use a solid-state drive that is located on the same Azure host as the VM. Temp disks are highly performant and may be used for operations such as temporary data processing. However, if the VM is moved to a new host, any data stored on a temporary disk is removed. The size of the temporary disk is determined by the VM size. Temporary disks are labeled /dev/sdb and have a mountpoint of /mnt.
+(For applications and data, use data disks, which are detailed later in this tutorial.)
 
-Create a storage account for boot diagnostics using azurerm_storage_account
+* Temporary disk - Temporary disks use a solid-state drive that is located on the same Azure host as the VM. Temp disks are highly performant and may be used for operations such as temporary data processing. However, if the VM is moved to a new host, any data stored on a temporary disk is removed. The size of the temporary disk is determined by the VM size. Temporary disks are labeled `/dev/sdb` and have a mountpoint of `/mnt`.
 
+The Disk types are controlled by the `-storage-sku` option:
 
+```
 --storage-sku
+```
 
 The SKU of the storage account with which to persist VM. Use a singular sku that would be applied across all disks, or specify individual disks. Usage: [--storage-sku SKU | --storage-sku ID=SKU ID=SKU ID=SKU...], where each ID is "os" or a 0-indexed lun. Allowed values: Standard_LRS, Premium_LRS, StandardSSD_LRS, UltraSSD_LRS, Premium_ZRS, StandardSSD_ZRS, PremiumV2_LRS.
 
+https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types
+
+For now we only want OS disk, and we want it  fast so SSD. But we choose `StandardSSD_LRS` for lower cost.
+We get 30GB OSdisk and 7GB tmp disk.
 
 ## Create VM
 
 Within the Resource Group, we create a *Virtual Machine*. 
+
+### Size choice
+
+Standard is recommended tier
+D – General purpose compute
+2 – VM Size
+s – Premium Storage capable
+v3 – version
+
+PM Did not choose size. want standardds1_v2
+
+### Image choice
+
 There are many choices here in the Azure Marketplace.
 Canonical offers various Ubuntu images here.
 
@@ -272,33 +292,43 @@ Specify an SSH key to use for authentication. If you do not have an SSH public k
 Create the VM by bringing all the resources and information together with the `az vm create` command. 
 The following example creates a VM:
 
+**When specifying an existing NIC, do not specify NSG, public IP, ASGs, VNet or subnet.**
+
 ```
 az vm create \
-    --resource-group myResourceGroup \
-    --name myVM \
-    --location eastus \
-    --nics myNic \
-    --image Ubuntu2204 \
-    --admin-username azureuser \
-    --generate-ssh-keys
+  --resource-group $resourceGroup \
+  --name $vmName \
+  --nics $NICName \
+  --image $vmImage \
+  --storage-sku $storagetype \
+  --admin-username $AdminUsername \
+  --generate-ssh-keys
 ```
 
 ```
 ssh azureuser@gsverhoeven.westeurope.cloudapp.azure.com
 ```
 
-## run-command to install software
+PM check these resources
+StanDEV/AzurePolicyforLinux                                                myRG                            northeurope  Microsoft.Compute/virtualMachines/extensions
+StanDEV/OmsAgentForLinux                                                   myRG                            northeurope  Microsoft.Compute/virtualMachines/extensions
 
-We can also use `run-command` to install software.
+
+
+## run-command to remotely install software
+
+We can use `run-command` to remotely install software.
+Using below command we can execute a specific run command on a vm.
 
 ```
 az vm run-command invoke \
-   --resource-group $RESOURCE_GROUP_NAME \
-   --name $VM_NAME \
+   --resource-group $resourceGroup \
+   --name $vmName \
    --command-id RunShellScript \
-   --scripts "sudo apt-get update && sudo apt-get install -y nginx"
+   --scripts "sudo apt-get update && sudo apt install net-tools"
 ```
 
+sudo apt install net-tools
 
 ## Starting, stopping and deallocating a VM
 
