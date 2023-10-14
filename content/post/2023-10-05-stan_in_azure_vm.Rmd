@@ -127,61 +127,45 @@ az network vnet create \
 ## Public IP address
 
 Now let's create a public IP address with `az network public-ip create`. 
+Public IP addresses come in two different flavours (or "SKU"s , stock keeping units), **Standard** which is better than **Basic**. We use **standard**, as its the default and its better.
+This always results in a static IP address.
+
+
+*Standard SKU: Secure by default model and be closed to inbound traffic when used as a frontend. Allow traffic with network security group is required (for example, on the NIC of a virtual machine with a Standard SKU public IP attached).*
 
 ```
+publicIP=TEST-public-ip
+mypublicdns=gsverhoeven
+
 az network public-ip create \
-    --resource-group myResourceGroup \
-    --name myPublicIP \
-    --dns-name mypublicdns
+    --resource-group $resourceGroup \
+    --name $publicIP \
+    --dns-name $mypublicdns
 ```
 
 This public IP address enables you to connect to your VMs from the Internet. 
 
-Because the default address is **dynamic**, create a named DNS entry with the `--domain-name-label` parameter. The following example creates a public IP named `myPublicIP` with the DNS name of `mypublicdns`. Because the DNS name must be unique, provide your own unique DNS name:
+This results in a `fqdn` of `gsverhoeven.westeurope.cloudapp.azure.com`
 
 ```
-az network public-ip update -n StanDEV-ip --dns-name standev -g myRG
-```
-
-This results in a `fqdn` of `standev.northeurope.cloudapp.azure.com`
-
-```
-nslookup  standev.northeurope.cloudapp.azure.com
+nslookup  gsverhoeven.westeurope.cloudapp.azure.com
 Server:		127.0.0.53
 Address:	127.0.0.53#53
 
 Non-authoritative answer:
-Name:	standev.northeurope.cloudapp.azure.com
+Name:	gsverhoeven.westeurope.cloudapp.azure.com
 Address: 68.219.248.112
-```
-We have a static IP, is more expensive. But more secure.
-SKU is standard. Basic Dynamic is cheapest.
-```
-az network public-ip update -g myRG -n StanDEV-ip --dns-name standev --allocation-method Dynamic
-```
-Standard SKU: Secure by default model and be closed to inbound traffic when used as a frontend. Allow traffic with network security group is required (for example, on the NIC of a virtual machine with a Standard SKU public IP attached).
-
-We'll detach the public IP address from the NIC.
-```
-resourceGroupName=myRG
-nicName=standev363_z1
-publicIp=StanDEV-ip
-publicIpNameOnNic=ipconfig1
-
-# Disassociate the Public IP Address from the NIC first
-az network nic ip-config update \
-  --resource-group $resourceGroupName --nic-name $nicName \
-  --name $publicIpNameOnNic --remove PublicIpAddress
-
-# Delete the Public IP
-az network public-ip delete -g $resourceGroupName -n $publicIp
 ```
 
 ```
 az network public-ip list -o table
-Name        ResourceGroup    Location     Zones    Address         IdleTimeoutInMinutes    ProvisioningState
-----------  ---------------  -----------  -------  --------------  ----------------------  -------------------
-StanDEV-ip  myRG             northeurope  1        68.219.248.112  4                       Succeeded
+```
+
+```
+Name            ResourceGroup    Location    Zones    Address        IdleTimeoutInMinutes    ProvisioningState
+--------------  ---------------  ----------  -------  -------------  ----------------------  -------------------
+TEST-public-ip  myRGtest         westeurope           104.46.41.142  4                       Succeeded
+
 ```
 
 ## Create network security group & Rules
@@ -189,12 +173,16 @@ StanDEV-ip  myRG             northeurope  1        68.219.248.112  4            
 To control the flow of traffic in and out of your VMs, apply a **network security group** to a virtual NIC or subnet. The following example uses `az network nsg create` to create a network security group named `myNetworkSecurityGroup`:
 
 ```
+NetworkSecurityGroup=myNSG
+
 az network nsg create \
-    --resource-group myResourceGroup \
-    --name myNetworkSecurityGroup
+    --resource-group $resourceGroup \
+    --name $NetworkSecurityGroup
 ```
 
-You define rules that allow or deny specific traffic. To allow inbound connections on port 22 (to enable SSH access, create an inbound rule with az network nsg rule create. The following example creates a rule named myNetworkSecurityGroupRuleSSH:
+You define rules that allow or deny specific traffic. 
+
+**To allow inbound connections on port 22 (to enable SSH access)**, create an inbound rule with `az network nsg rule create`. The following example creates a rule named `myNetworkSecurityGroupRuleSSH`:
 
 ```
 az network nsg rule create \
@@ -207,56 +195,58 @@ az network nsg rule create \
     --access allow
 ```
 
-To allow inbound connections on port 80 (for web traffic), add another network security group rule. The following example creates a rule named myNetworkSecurityGroupRuleHTTP:
+To allow **Remote Desktop traffic** to reach your Linux VM, add another network security group rule.
+The following example creates a rule named `myNetworkSecurityGroupRuleRDP`:
 
 ```
 az network nsg rule create \
-    --resource-group myResourceGroup \
-    --nsg-name myNetworkSecurityGroup \
-    --name myNetworkSecurityGroupRuleWeb \
+    --resource-group $resourceGroup \
+    --nsg-name $NetworkSecurityGroup \
+    --name myNetworkSecurityGroupRuleRDP \
+    --description "Allow RDP at port 3389" \
+    --direction Inbound \
     --protocol tcp \
     --priority 1001 \
-    --destination-port-range 80 \
+    --destination-port-range 3389 \
     --access allow
 ```
 
-To allow Remote Desktop traffic to reach your Linux VM, a network security group rule needs to be created that allows TCP on port 3389 to reach your VM. 
-
-So I used the Azure Shell in the Azure web portal to run the command.
+Examine the network security group and rules with `az network nsg rule list`:
 
 ```
-az vm open-port --resource-group myRG --name StanDEV --port 3389
+az network nsg rule list --resource-group myRG --nsg-name StanDEV-nsg --output table
 ```
 
+## Create NIC
 
-Examine the network security group and rules with az network nsg show:
-
-```
-az network nsg show --resource-group myResourceGroup --name myNetworkSecurityGroup
-```
-
-Specify an SSH key to use for authentication. If you do not have an SSH public key pair, you can create them or use the --generate-ssh-keys parameter to create them for you. If you already have a key pair, this parameter uses existing keys in ~/.ssh.
-
-## NIC & IP configuration
-
-Most tutorials skip a few components (mostly the networking part), as these are automatically created when creating a VM.
-Since we want to know all the resources involved, we'll create them manually here.
+Virtual network interface cards (NICs) are programmatically available because you can apply rules to their use. 
+In the following `az network nic create` command, you create a NIC named `myNic` and associate it with your network security group. The public IP address `myPublicIP` is also associated with the virtual NIC.
 
 ```
-az network nic create -g MyResourceGroup --vnet-name MyVnet --subnet MySubnet -n MyNic --ip-forwarding --network-security-group MyNsg
+az network nic create \
+    --resource-group myResourceGroup \
+    --name myNic \
+    --vnet-name myVnet \
+    --subnet mySubnet \
+    --public-ip-address myPublicIP \
+    --network-security-group myNetworkSecurityGroup
 ```
-
-PM Create an association between the network security group and the network interface
 
 ## Storage
 
 When an Azure virtual machine is created, two disks are automatically attached to the virtual machine.
 
-Operating system disk - Operating system disks can be sized up to 2 TB, and hosts the VMs operating system. The OS disk is labeled /dev/sda by default. The disk caching configuration of the OS disk is optimized for OS performance. Because of this configuration, the OS disk should not be used for applications or data. For applications and data, use data disks, which are detailed later in this tutorial.
+* Operating system disk - Operating system disks can be sized up to 2 TB, and hosts the VMs operating system. The OS disk is labeled /dev/sda by default. The disk caching configuration of the OS disk is optimized for OS performance. Because of this configuration, the OS disk should not be used for applications or data. For applications and data, use data disks, which are detailed later in this tutorial.
 
-Temporary disk - Temporary disks use a solid-state drive that is located on the same Azure host as the VM. Temp disks are highly performant and may be used for operations such as temporary data processing. However, if the VM is moved to a new host, any data stored on a temporary disk is removed. The size of the temporary disk is determined by the VM size. Temporary disks are labeled /dev/sdb and have a mountpoint of /mnt.
+* Temporary disk - Temporary disks use a solid-state drive that is located on the same Azure host as the VM. Temp disks are highly performant and may be used for operations such as temporary data processing. However, if the VM is moved to a new host, any data stored on a temporary disk is removed. The size of the temporary disk is determined by the VM size. Temporary disks are labeled /dev/sdb and have a mountpoint of /mnt.
 
 Create a storage account for boot diagnostics using azurerm_storage_account
+
+
+--storage-sku
+
+The SKU of the storage account with which to persist VM. Use a singular sku that would be applied across all disks, or specify individual disks. Usage: [--storage-sku SKU | --storage-sku ID=SKU ID=SKU ID=SKU...], where each ID is "os" or a 0-indexed lun. Allowed values: Standard_LRS, Premium_LRS, StandardSSD_LRS, UltraSSD_LRS, Premium_ZRS, StandardSSD_ZRS, PremiumV2_LRS.
+
 
 ## Create VM
 
@@ -275,40 +265,27 @@ az vm image list-skus \
 ```
 
 I chose Ubuntu Server 20.04 LTS, because Linux, and to keep cost low (PM check if this is actually cheaper than WinOS).
-The VM needs a public IP address, so we can access it through the internet.
-Azure assigns one automatically and returns it as JSON. However, this is a dynamic IP address?
 
-alias / sku ius "20_04-lts"
+Specify an SSH key to use for authentication. If you do not have an SSH public key pair, you can create them or use the --generate-ssh-keys parameter to create them for you. If you already have a key pair, this parameter uses existing keys in ~/.ssh.
 
-```
-# create shell variables
-vmName=TutorialVM1
 
-az vm create \
-  --resource-group $resourceGroup \
-  --name $vmName \
-  --image 20_04-lts \
-  --vnet-name $vnetName \
-  --subnet $subnetName \
-  --generate-ssh-keys \
-  --output json \
-  --verbose 
-```
-Create the VM by bringing all the resources and information together with the az vm create command. 
-The following example creates a VM named myVM:
+Create the VM by bringing all the resources and information together with the `az vm create` command. 
+The following example creates a VM:
 
 ```
 az vm create \
     --resource-group myResourceGroup \
     --name myVM \
     --location eastus \
-    --availability-set myAvailabilitySet \
     --nics myNic \
     --image Ubuntu2204 \
     --admin-username azureuser \
     --generate-ssh-keys
 ```
 
+```
+ssh azureuser@gsverhoeven.westeurope.cloudapp.azure.com
+```
 
 ## run-command to install software
 
@@ -333,6 +310,31 @@ It will continue to be billed. To deallocate a VM, run: az vm deallocate
 az vm deallocate --resource-group myRG --name StanDEV
 ```
 
+How can we get overview of all resources?
+
+```
+az resource list --output table
+```
+
+```
+Name                                                                       ResourceGroup                   Location     Type                                          Status
+-------------------------------------------------------------------------  ------------------------------  -----------  --------------------------------------------  --------
+csb100320010bd52506                                                        cloud-shell-storage-westeurope  westeurope   Microsoft.Storage/storageAccounts
+Automate-a61954d3-c5e4-486b-a6b4-5adce7816139-NE                           DefaultResourceGroup-NEU        northeurope  Microsoft.Automation/automationAccounts
+DefaultWorkspace-a61954d3-c5e4-486b-a6b4-5adce7816139-NEU                  DefaultResourceGroup-NEU        northeurope  Microsoft.OperationalInsights/workspaces
+ChangeTracking(DefaultWorkspace-a61954d3-c5e4-486b-a6b4-5adce7816139-NEU)  DefaultResourceGroup-NEU        northeurope  Microsoft.OperationsManagement/solutions
+Updates(DefaultWorkspace-a61954d3-c5e4-486b-a6b4-5adce7816139-NEU)         DefaultResourceGroup-NEU        northeurope  Microsoft.OperationsManagement/solutions
+StanDEV_OsDisk_1_7bafa5019829421bab4f1a90bb337169                          MYRG                            northeurope  Microsoft.Compute/disks
+StanDEV_key                                                                myRG                            northeurope  Microsoft.Compute/sshPublicKeys
+StanDEV                                                                    myRG                            northeurope  Microsoft.Compute/virtualMachines
+StanDEV/AzurePolicyforLinux                                                myRG                            northeurope  Microsoft.Compute/virtualMachines/extensions
+StanDEV/OmsAgentForLinux                                                   myRG                            northeurope  Microsoft.Compute/virtualMachines/extensions
+standev363_z1                                                              myRG                            northeurope  Microsoft.Network/networkInterfaces
+StanDEV-nsg                                                                myRG                            northeurope  Microsoft.Network/networkSecurityGroups
+StanDEV-vnet                                                               myRG                            northeurope  Microsoft.Network/virtualNetworks
+NetworkWatcher_northeurope                                                 NetworkWatcherRG                northeurope  Microsoft.Network/networkWatchers
+NetworkWatcher_westeurope                                                  NetworkWatcherRG                westeurope   Microsoft.Network/networkWatchers
+```
 
 ## Export Azure Resource Manager  Template (ARM) for reuse
 
