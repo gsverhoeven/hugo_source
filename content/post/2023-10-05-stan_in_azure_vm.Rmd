@@ -1,5 +1,5 @@
 ---
-title: 'Infrastructure as Code with Terraform on Azure'
+title: 'Rstudio & Stan on a shoestring in the cloud using Azure VMs'
 author: "Gertjan Verhoeven"
 date: '2023-09-21'
 summary: Setting up A Linux Stan development environment on Azure.
@@ -286,9 +286,6 @@ az vm image list-skus \
 
 I chose Ubuntu Server 20.04 LTS, because Linux, and to keep cost low (PM check if this is actually cheaper than WinOS).
 
-Specify an SSH key to use for authentication. If you do not have an SSH public key pair, you can create them or use the --generate-ssh-keys parameter to create them for you. If you already have a key pair, this parameter uses existing keys in ~/.ssh.
-
-
 Create the VM by bringing all the resources and information together with the `az vm create` command. 
 The following example creates a VM:
 
@@ -305,30 +302,25 @@ az vm create \
   --generate-ssh-keys
 ```
 
+## SSH
+
+Specify an SSH key to use for authentication. If you do not have an SSH public key pair, you can create them or use the --generate-ssh-keys parameter to create them for you. If you already have a key pair, this parameter uses existing keys in ~/.ssh.
+
+
 ```
 ssh azureuser@gsverhoeven.westeurope.cloudapp.azure.com
 ```
 
-PM check these resources
-StanDEV/AzurePolicyforLinux                                                myRG                            northeurope  Microsoft.Compute/virtualMachines/extensions
-StanDEV/OmsAgentForLinux                                                   myRG                            northeurope  Microsoft.Compute/virtualMachines/extensions
-
-
-
-## run-command to remotely install software
-
-We can use `run-command` to remotely install software.
-Using below command we can execute a specific run command on a vm.
+We start with ssh-ing into the VM. 
 
 ```
-az vm run-command invoke \
-   --resource-group $resourceGroup \
-   --name $vmName \
-   --command-id RunShellScript \
-   --scripts "sudo apt-get update && sudo apt install net-tools"
+mv StanDEV_key.pem .ssh/
+chmod 600 .ssh/StanDEV_key.pem
+ssh -i ~/.ssh/StanDEV_key.pem azureuser@68.219.248.112
 ```
 
-sudo apt install net-tools
+
+ssh-keygen -f "/home/gertjan/.ssh/known_hosts" -R "gsverhoeven.westeurope.cloudapp.azure.com"
 
 ## Starting, stopping and deallocating a VM
 
@@ -338,6 +330,12 @@ az vm stop --resource-group myRG --name StanDEV
 About to power off the specified VM...
 It will continue to be billed. To deallocate a VM, run: az vm deallocate
 az vm deallocate --resource-group myRG --name StanDEV
+```
+
+# Clean up resources
+
+```
+az group delete --name $RESOURCE_GROUP_NAME --no-wait --yes --verbose
 ```
 
 How can we get overview of all resources?
@@ -357,8 +355,6 @@ Updates(DefaultWorkspace-a61954d3-c5e4-486b-a6b4-5adce7816139-NEU)         Defau
 StanDEV_OsDisk_1_7bafa5019829421bab4f1a90bb337169                          MYRG                            northeurope  Microsoft.Compute/disks
 StanDEV_key                                                                myRG                            northeurope  Microsoft.Compute/sshPublicKeys
 StanDEV                                                                    myRG                            northeurope  Microsoft.Compute/virtualMachines
-StanDEV/AzurePolicyforLinux                                                myRG                            northeurope  Microsoft.Compute/virtualMachines/extensions
-StanDEV/OmsAgentForLinux                                                   myRG                            northeurope  Microsoft.Compute/virtualMachines/extensions
 standev363_z1                                                              myRG                            northeurope  Microsoft.Network/networkInterfaces
 StanDEV-nsg                                                                myRG                            northeurope  Microsoft.Network/networkSecurityGroups
 StanDEV-vnet                                                               myRG                            northeurope  Microsoft.Network/virtualNetworks
@@ -366,19 +362,26 @@ NetworkWatcher_northeurope                                                 Netwo
 NetworkWatcher_westeurope                                                  NetworkWatcherRG                westeurope   Microsoft.Network/networkWatchers
 ```
 
-## Export Azure Resource Manager  Template (ARM) for reuse
+## run-command to remotely install software
+
+We can use `run-command` to remotely install software.
+Using below command we can execute a specific run command on a vm.
 
 ```
-az group export --name myRG > myResourceGroup.json
+az vm run-command invoke \
+   --resource-group $resourceGroup \
+   --name $vmName \
+   --command-id RunShellScript \
+   --scripts "sudo apt-get update && sudo apt install net-tools"
 ```
-
-ERROR: Virtual machine extension 'Microsoft:2EGuestConfiguration-ConfigurationforLinux' is not supported for template export.
-ERROR: Virtual machine extension 'Microsoft:2EEnterpriseCloud:2EMonitoring-OmsAgentForLinux' is not supported for template export.
-
 
 # Cloudinit Installing software on the VM
 
-We can install software using cloud init or just use run-command.
+We can install software using cloud init.
+This is called "User data", M$ calls it custom-data.
+If we pass a shell script to Cloud-init it will just execute it on provisioning.
+
+https://help.ubuntu.com/community/CloudInit
 
 https://stackoverflow.com/questions/38333917/running-init-script-on-a-linux-instance-at-launch-on-azure
 https://learn.microsoft.com/en-us/azure/virtual-machines/linux/using-cloud-init
@@ -400,13 +403,7 @@ https://learn.microsoft.com/en-us/azure/virtual-machines/linux/use-remote-deskto
 
 Most Linux VMs in Azure don't have a desktop environment installed by default. Linux VMs are commonly managed using SSH connections rather than a desktop environment, however there are several desktop environments that you can choose to install. Depending on your choice of desktop environment, it consumes up to 2 GB of disk space and take up to ten minutes to both install and configure all the required packages.
 
-We start with ssh-ing into the VM. 
 
-```
-mv StanDEV_key.pem .ssh/
-chmod 600 .ssh/StanDEV_key.pem
-ssh -i ~/.ssh/StanDEV_key.pem azureuser@68.219.248.112
-```
 
 ```
 sudo apt-get update
@@ -505,16 +502,18 @@ install.packages(c("coda","mvtnorm","devtools","loo","dagitty","shape"))
 devtools::install_github("rmcelreath/rethinking")
 ```
 
-# Clean up resources
 
-```
-az group delete --name $RESOURCE_GROUP_NAME --no-wait --yes --verbose
-```
 
 # Now without Azure CLI?
 
 This blog used Azure CLI. However, this is vendor specific.
 Next step would be to accomplish the same thing with vendor independent tooling such as Terraform /openTofu or Ansible.
+
+## Export Azure Resource Manager  Template (ARM) for reuse
+
+```
+az group export --name myRG > myResourceGroup.json
+```
 
 ## Hashicorp Terraform
 
