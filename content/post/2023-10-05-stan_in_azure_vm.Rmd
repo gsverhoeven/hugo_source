@@ -344,36 +344,6 @@ How can we get overview of all resources?
 az resource list --output table
 ```
 
-```
-Name                                                                       ResourceGroup                   Location     Type                                          Status
--------------------------------------------------------------------------  ------------------------------  -----------  --------------------------------------------  --------
-csb100320010bd52506                                                        cloud-shell-storage-westeurope  westeurope   Microsoft.Storage/storageAccounts
-Automate-a61954d3-c5e4-486b-a6b4-5adce7816139-NE                           DefaultResourceGroup-NEU        northeurope  Microsoft.Automation/automationAccounts
-DefaultWorkspace-a61954d3-c5e4-486b-a6b4-5adce7816139-NEU                  DefaultResourceGroup-NEU        northeurope  Microsoft.OperationalInsights/workspaces
-ChangeTracking(DefaultWorkspace-a61954d3-c5e4-486b-a6b4-5adce7816139-NEU)  DefaultResourceGroup-NEU        northeurope  Microsoft.OperationsManagement/solutions
-Updates(DefaultWorkspace-a61954d3-c5e4-486b-a6b4-5adce7816139-NEU)         DefaultResourceGroup-NEU        northeurope  Microsoft.OperationsManagement/solutions
-StanDEV_OsDisk_1_7bafa5019829421bab4f1a90bb337169                          MYRG                            northeurope  Microsoft.Compute/disks
-StanDEV_key                                                                myRG                            northeurope  Microsoft.Compute/sshPublicKeys
-StanDEV                                                                    myRG                            northeurope  Microsoft.Compute/virtualMachines
-standev363_z1                                                              myRG                            northeurope  Microsoft.Network/networkInterfaces
-StanDEV-nsg                                                                myRG                            northeurope  Microsoft.Network/networkSecurityGroups
-StanDEV-vnet                                                               myRG                            northeurope  Microsoft.Network/virtualNetworks
-NetworkWatcher_northeurope                                                 NetworkWatcherRG                northeurope  Microsoft.Network/networkWatchers
-NetworkWatcher_westeurope                                                  NetworkWatcherRG                westeurope   Microsoft.Network/networkWatchers
-```
-
-## run-command to remotely install software
-
-We can use `run-command` to remotely install software.
-Using below command we can execute a specific run command on a vm.
-
-```
-az vm run-command invoke \
-   --resource-group $resourceGroup \
-   --name $vmName \
-   --command-id RunShellScript \
-   --scripts "sudo apt-get update && sudo apt install net-tools"
-```
 
 # Cloudinit Installing software on the VM
 
@@ -383,7 +353,6 @@ If we pass a shell script to Cloud-init it will just execute it on provisioning.
 
 https://help.ubuntu.com/community/CloudInit
 
-https://stackoverflow.com/questions/38333917/running-init-script-on-a-linux-instance-at-launch-on-azure
 https://learn.microsoft.com/en-us/azure/virtual-machines/linux/using-cloud-init
 
 ```
@@ -395,15 +364,11 @@ az vm create \
   --generate-ssh-keys 
 ```
 
-https://learn.microsoft.com/en-us/azure/virtual-machines/linux/tutorial-automate-vm-deployment
-
 ## How to use Remote Desktop with Linux?
 
 https://learn.microsoft.com/en-us/azure/virtual-machines/linux/use-remote-desktop?tabs=azure-cli
 
 Most Linux VMs in Azure don't have a desktop environment installed by default. Linux VMs are commonly managed using SSH connections rather than a desktop environment, however there are several desktop environments that you can choose to install. Depending on your choice of desktop environment, it consumes up to 2 GB of disk space and take up to ten minutes to both install and configure all the required packages.
-
-
 
 ```
 sudo apt-get update
@@ -509,13 +474,8 @@ devtools::install_github("rmcelreath/rethinking")
 This blog used Azure CLI. However, this is vendor specific.
 Next step would be to accomplish the same thing with vendor independent tooling such as Terraform /openTofu or Ansible.
 
-## Export Azure Resource Manager  Template (ARM) for reuse
-
-```
-az group export --name myRG > myResourceGroup.json
-```
-
 ## Hashicorp Terraform
+
 
 One of the advantages of Terraform is that it creates a single source of truth (that HCL file) that can be deployed over and over again without having to understand how it gets to the end-state. Another advantage of the Terraform approach is that it is just as easy to tear down (de-provision) your cloud resources. This allows developers to quickly spin up resources, test something, then tear them down.
 
@@ -531,7 +491,9 @@ terraform -v
 
 Ansible is an open-source tool that automates cloud provisioning, configuration management, and application deployments. Using Ansible you can provision virtual machines, containers, network, and complete cloud infrastructures. In addition, Ansible allows you to automate the deployment and configuration of resources in your environment.
 
-Ansible, by design, takes an imperative approach to automation.  You simply have a task list that iterates through each resource.  You would tell it to provision this VPC, this subnet, then this VM.  The advantage of this approach is it is very simple to understand, there is no hidden magic, which helps it become easy to troubleshoot.  The disadvantage is usually it is more cumbersome to do teardowns and de-provision without knowing the correct order.  I have to delete the instance, then the security group, and so on and so forth.
+Ansible, by design, takes an imperative approach to automation.  You simply have a task list that iterates through each resource.  You would tell it to provision this VPC, this subnet, then this VM.  The advantage of this approach is it is very simple to understand, there is no hidden magic, which helps it become easy to troubleshoot.  
+
+The disadvantage is usually it is more cumbersome to do teardowns and de-provision without knowing the correct order.  I have to delete the instance, then the security group, and so on and so forth.
 
 Ansible includes a suite of Ansible modules that can be executed directly on remote hosts or via playbooks. Users can also create their own modules. Modules can be used to control system resources - such as services, packages, or files - or execute system commands.
 
