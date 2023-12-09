@@ -43,17 +43,14 @@ To summarize and motivate the tech choices I made:
 
 The blog uses Linux throughout, but as it uses Azure-CLI it should work for Windows as well.
 
-# Azure cloud cost
-
-We start with creating a free account on Azure. This comes with 200 Euro free credit to spent within a month.
-We have three main cost drivers: public IP adress (2 euro), virtual machine (2.5 euro) , disk (2 euro), for a period of three weeks. I chose a cheap simple machine with 2 CPU and 8 GB RAM (Standard D2s v3).
-
 # Setting up our local IaaS dev environment
 
-As mentioned above, we use both Azure-CLI and QEMU for local development.
+As mentioned above, we use both **Azure-CLI** and **QEMU virtual emulator** for local VM development.
 My local desktop system is Ubuntu 18.04 LTS.
 
-## Azure CLI
+## Using Azure CLI to interact with our Azure account
+
+We start with creating a free account on Azure. This comes with 200 Euro free credit to spent within a month.
 
 First we need to install `azure-cli`:
 
@@ -69,7 +66,7 @@ sudo apt-get update
 sudo apt-get install azure-cli
 ```
 
-First time we need to login to Azure:
+First time we need to login to Azure and choose a subscription:
 ```
 # Log in interactively.
 az login
@@ -138,18 +135,44 @@ I ended up writing a script `do_qemu.sh` that starts a local VM using the cloud-
 
 # Azure cloud in a nutshell
 
-There is a hierarchical structure.
-Azure works with resources. Resources are contained within resource groups.
-Resource groups exist within a subscription.
-Finally, subscriptions exist within management groups.
+Azure is organized as a hierarchical structure. See the schematic below.
+All the components that make up the infrastructure are called *resources*.
+**Resources** are contained within **resource groups**.
+**Resource groups** exist within a **subscription**.
+Finally, **subscriptions** exist within **management groups**.
 
 ![](azure_scope-levels.png)
 
-## Subscription
+# Our Azure Infrastructure
 
-First is the Subscription. This we choose when we login.
+In this blog post, we will create the infrastructure from scratch.
+Our infrastructure consists of a single virtual network that contains a single VM.
+The VM will be configured to be accessible through the internet using SSH and "Microsoft Remote Desktop"(RDP).
 
-## Resource Group
+To quickly create a virtual machine (VM) in Azure, it is possible to use a single Azure CLI command with default values that automatically creates any required supporting resources.
+This however, does not lead to understanding how all the parts add up and depend on one another.
+I therefore decided to **create each Azure resource separately**.
+In doing so we gradually build up the infrastructure step by step.
+(An official Azure tutorial by Cynthia Nottingham and others that takes a similar approach can be found [here](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/create-cli-complete))
+
+Special attention is given to secure our network and VM, because it is exposed to the public internet.
+Hackers are continuously scanning the Azure network IP address ranges for vulnerable systems, so we need to defend ourselves.
+We use a basic Firewall called "Network Security Group" that works with **Security Rules**.
+More on our security measures below.
+
+I chose not to use an "Availability Set" as this only makes sense for groups of VMs.
+
+We use Linux shell **Environment Variables** to separate the actual resource configuration choices (which image, which VM type etc) from the actual Azure CLI commands that create the resources.
+
+# Step-by-step resource creation
+
+* First we create a new **Resource group**
+* Then we create a **Virtual Network** with a **Subnet**
+* Then we create a **Public IP**
+* Then we create a **Network Security Group** & Rules
+* Then we create a **Network Interface Card (NIC)**
+
+## Create resource Group
 
 Within this subscription, we create a *Resource Group*, `myRG2`. 
 
@@ -162,19 +185,12 @@ location=westeurope
 az group create --name $resourceGroup --location $location
 az group show --resource-group myRG2
 ```
+
+## Create Virtual Network
+
 https://learn.microsoft.com/en-us/cli/azure/azure-cli-vm-tutorial-2
 
-### Quick vs complete creation of VM
-
-https://github.com/MicrosoftDocs/azure-docs/blob/main/articles/virtual-machines/linux/quick-create-cli.md
-
-https://github.com/MicrosoftDocs/azure-docs/blob/main/articles/virtual-machines/linux/create-cli-complete.md
-
-To quickly create a virtual machine (VM) in Azure, you can use a single Azure CLI command that uses default values to create any required supporting resources. Resources such as a virtual network, public IP address, and network security group rules are automatically created. For more control of your environment in production use, you may create these resources ahead of time and then add your VMs to them. 
-
-## Virtual Network
-
-Next we create a Virtual Network: 
+Next we create a Virtual Network and a Subnet: 
 
 ```
 # create shell variables
@@ -191,13 +207,14 @@ az network vnet create \
   --subnet-prefixes $subnetAddressPrefix
 ```
 
-
-## Public IP address
+## Create Public IP address
 
 Now let's create a public IP address with `az network public-ip create`. 
-Public IP addresses come in two different flavours (or "SKU"s , stock keeping units), **Standard** which is better than **Basic**. We use **standard**, as its the default and its better.
-This always results in a static IP address.
+Public IP addresses come in two different flavours (or "SKU"s , stock keeping units).
 
+**Standard** which is better than **Basic**. 
+We use **standard**, as its the default and its better.
+This always results in a static IP address.
 
 *Standard SKU: Secure by default model and be closed to inbound traffic when used as a frontend. Allow traffic with network security group is required (for example, on the NIC of a virtual machine with a Standard SKU public IP attached).*
 
@@ -300,7 +317,7 @@ az network nic create \
     --network-security-group $NetworkSecurityGroup
 ```
 
-## Storage
+## Storage associated with the VM
 
 When an Azure virtual machine is created, two disks are automatically attached to the virtual machine.
 
@@ -353,141 +370,12 @@ az vm image list-skus \
 
 I chose Ubuntu Server 20.04 LTS, because Linux, and to keep cost low (PM check if this is actually cheaper than WinOS).
 
-## Cloudinit script for Installing software on the VM
-
-We can install software using cloud init. It needs a script or cloud config that will be run directly after provisioning the VM.
-This is called "User data" b y most cloud providers, M$ calls it custom-data.
-If we pass a shell script to Cloud-init it will just execute it on provisioning.
-
-https://help.ubuntu.com/community/CloudInit
-
-https://learn.microsoft.com/en-us/azure/virtual-machines/linux/using-cloud-init
-
-```
-cloud-init devel make-mime -a config.yaml:cloud-config -a script.sh:x-shellscript > userdata
-```
-
-```
-mkpasswd test --method=SHA-512 --rounds=4096
-```
-
-## How to use Remote Desktop with Linux?
-
-https://learn.microsoft.com/en-us/azure/virtual-machines/linux/use-remote-desktop?tabs=azure-cli
-
-Most Linux VMs in Azure don't have a desktop environment installed by default. Linux VMs are commonly managed using SSH connections rather than a desktop environment, however there are several desktop environments that you can choose to install. Depending on your choice of desktop environment, it consumes up to 2 GB of disk space and take up to ten minutes to both install and configure all the required packages.
-
-```
-sudo apt-get update
-sudo apt install inxi
-```
-
-install xfce4 lightweight desktop.
-
-```
-sudo DEBIAN_FRONTEND=noninteractive apt-get -y install xfce4
-sudo apt install xfce4-session
-```
-
-Now that you have a desktop environment installed, configure a remote desktop service to listen for incoming remote access connections. xrdp is an open source Remote Desktop Protocol (RDP) server that is available on most Linux distributions and works well with xfce. Install xrdp on your Ubuntu VM as follows:
-
-```
-sudo apt-get -y install xrdp
-sudo systemctl enable xrdp
-sudo adduser xrdp ssl-cert
-echo xfce4-session >~/.xsession
-sudo service xrdp restart
-```
-
-Access will be through RDP (Remote Desktop Protocol).  Ubuntu provides the `Remmina` software for this.
-
-### Setting up a Stan development environment on Ubuntu 20.04
-
-Now let's install the software we need.
-We need to browse GitHub so lets install firefox.
-
-```
-sudo apt install firefox
-```
-
-Then we want to be able to compile Stan models.
-```
-mkdir Github
-cd Github
-git clone https://github.com/stan-dev/cmdstan.git --recursive
-cd cmdstan/
-sudo apt install make
-sudo apt install g++
-make build
-make examples/bernoulli/bernoulli
-examples/bernoulli/bernoulli sample data file=examples/bernoulli/bernoulli.data.json
-```
-
-We also want R.
-follow instructions on CRAN to install r-base. 
-```
-sudo apt install --no-install-recommends software-properties-common dirmngr
-wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | sudo tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
-sudo add-apt-repository "deb https://cloud.r-project.org/bin/linux/ubuntu $(lsb_release -cs)-cran40/"
-sudo apt install --no-install-recommends r-base
-```
-
-Now we have the latest R (4.3.1)!
-
-Next up: install Rstudio. We browse to the website of Rstudio (Now Posit) and download the latest Ubuntu .deb installer.
-To automate this:
-```
-curl -s https://www.posit.co/links/check_for_update?version=1.0.0 | grep -oEi 'update-version=([0-9]+\.[0-9]+\.[0-9]+)' | awk -F= '{print $2}'
-```
-
-```{r}
-https://download1.rstudio.org/electron/jammy/amd64/rstudio-2023.09.1-494-amd64.deb
-```
-
-```
-cd Downloads/
-sudo apt -y install gdebi-core 
-sudo gdebi rstudio-2023.09.0-463-amd64.deb 
-```
-
-Final step is installing the R packages we need.
-
-Tidyverse needs a lot of extra deb packages. So we install those first.
-```
-sudo apt install libssl-dev libcurl4-openssl-dev unixodbc-dev libxml2-dev libmariadb-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev
-```
-
-Then we fire up Rstudio. on the R command line we do:
-using Rscript
-
-```
-Rscript -e 'print("hi there")'
-```
-
-```
-install.packages("tidyverse")
-install.packages("gapminder")
-remotes::install_github(standev/cmdstanr)
-cmdstanr::install_stan()
-```
-
-Installing tidyverse took about 30 min on my VM as all the packages and dependencies had to be compiled from source.
-
-```
-install.packages(c("coda","mvtnorm","devtools","loo","dagitty","shape"))
-devtools::install_github("rmcelreath/rethinking")
-```
-
 ## Create the VM
-
-
 
 Create the VM by bringing all the resources and information together with the `az vm create` command. 
 The following example creates a VM:
 
 **When specifying an existing NIC, do not specify NSG, public IP, ASGs, VNet or subnet.**
-
-
 
 ```
 az vm create \
@@ -500,10 +388,39 @@ az vm create \
   --generate-ssh-keys
 ```
 
+## Starting, stopping and deallocating a VM
+
+```
+az vm start --resource-group myRG --name StanDEV
+az vm stop --resource-group myRG --name StanDEV
+About to power off the specified VM...
+It will continue to be billed. To deallocate a VM, run: az vm deallocate
+az vm deallocate --resource-group myRG --name StanDEV
+```
+
+Clean up resources
+
+```
+az group delete --name $RESOURCE_GROUP_NAME --no-wait --yes --verbose
+```
+
+How can we get overview of all resources?
+
+```
+az resource list --output table
+```
+
 # Security of a VM
 
 For a public VM facing the internet, we need some security measures in place.
-NSG is a basic type of firewall, that is relatively dumb. It does not know about applications, it just filters network packets based on rules.
+NSG is a basic type of firewall, that is relatively dumb. 
+It does not know about applications, it just filters network packets based on rules.
+In addition we take the following steps to secure our VM from outside attacks:
+
+* All ports are closed except SSH and RDP
+* Only RDP connections from a single trusted IP address are allowed
+* SSH password authentication is disabled, access only through SSH keys
+* Use **Fail2ban** to ban IPs that have multiple unsuccessful login attempts
 
 ## Creating a passwd 
 
@@ -567,66 +484,156 @@ https://superuser.com/questions/1112092/hacking-attempts-to-linux-vm-in-azure
 
 ## Fail2ban
 
+fail2ban will dynamically block brute force attacks on the remote system. It is pre-configured for the default ssh port 22/tcp. If the server is internet facing, you probably want to have the router perform port translation so your log files don't get filled with denied attempts. If you don't, expect 100,000 attempts every day.
+
 ```
 sudo apt install fail2ban
 ```
 
-fail2ban will dynamically block brute force attacks on the remote system. It is pre-configured for the default ssh port 22/tcp. If the server is internet facing, you probably want to have the router perform port translation so your log files don't get filled with denied attempts. If you don't, expect 100,000 attempts every day.
+# Adding software to the Ubuntu base image
 
+## A desktop enviroment
 
-## Starting, stopping and deallocating a VM
+https://learn.microsoft.com/en-us/azure/virtual-machines/linux/use-remote-desktop?tabs=azure-cli
 
-```
-az vm start --resource-group myRG --name StanDEV
-az vm stop --resource-group myRG --name StanDEV
-About to power off the specified VM...
-It will continue to be billed. To deallocate a VM, run: az vm deallocate
-az vm deallocate --resource-group myRG --name StanDEV
-```
-
-
-# cloning a private repo from Github
-
-Use GCM
+Most Linux VMs in Azure don't have a desktop environment installed by default. Linux VMs are commonly managed using SSH connections rather than a desktop environment, however there are several desktop environments that you can choose to install. Depending on your choice of desktop environment, it consumes up to 2 GB of disk space and take up to ten minutes to both install and configure all the required packages.
 
 ```
-git config --global credential.credentialStore gpg
-sudo apt-get install pass
-pass init gertjan.verhoeven@gmail.com
-wget https://github.com/git-ecosystem/git-credential-manager/releases/download/v2.3.2/gcm-linux_amd64.2.3.2.deb
-sudo dpkg -i gcm-linux_amd64.2.3.2.deb
-git-credential-manager configure
-git clone github.com/gsverhoeven/statistical_rethinking
-```
-First time I had tro use a github access token to sign into Github
-second time I had to type the GPG passwd and marked store in pwd manager.
-Third time it worked!!!!
-
-better send this over secure rdp
-
-
-
-# Clean up resources
-
-```
-az group delete --name $RESOURCE_GROUP_NAME --no-wait --yes --verbose
+sudo apt-get update
+sudo apt install inxi
 ```
 
-How can we get overview of all resources?
+install xfce4 lightweight desktop.
 
 ```
-az resource list --output table
+sudo DEBIAN_FRONTEND=noninteractive apt-get -y install xfce4
+sudo apt install xfce4-session
 ```
 
-# Now windows 10
-
-https://smsagent.blog/2020/02/03/the-cost-of-running-a-personal-windows-10-vm-in-azure/
+Now that you have a desktop environment installed, configure a remote desktop service to listen for incoming remote access connections. xrdp is an open source Remote Desktop Protocol (RDP) server that is available on most Linux distributions and works well with xfce. Install xrdp on your Ubuntu VM as follows:
 
 ```
-az vm image list --all -f "Windows-10" -p "MicrosoftWindowsDesktop" -o table
+sudo apt-get -y install xrdp
+sudo systemctl enable xrdp
+sudo adduser xrdp ssl-cert
+echo xfce4-session >~/.xsession
+sudo service xrdp restart
+```
+
+Access will be through RDP (Remote Desktop Protocol).  Ubuntu provides the `Remmina` software for this.
+
+## A browser
+
+We need to browse online documentation so let's install `firefox`.
+
+```
+sudo apt install firefox
+```
+
+## R programming language plus tidyverse
+
+We also want R with the tidyverse packages.
+follow instructions on CRAN to install r-base. 
+```
+sudo apt install --no-install-recommends software-properties-common dirmngr
+wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | sudo tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
+sudo add-apt-repository "deb https://cloud.r-project.org/bin/linux/ubuntu $(lsb_release -cs)-cran40/"
+sudo apt install --no-install-recommends r-base
+```
+
+Now we have the latest R (4.3.1)!
+
+Next step is installing the R packages we need.
+Often R packages contain C code that needs to be compiled.
+So we need a C++ compiler.
+
+```
+sudo apt install make
+sudo apt install g++
+```
+
+Tidyverse needs a lot of extra deb packages. So we install those first.
+```
+sudo apt install libssl-dev libcurl4-openssl-dev unixodbc-dev libxml2-dev libmariadb-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev
+```
+
+```
+install.packages("tidyverse")
+install.packages("gapminder")
+remotes::install_github(standev/cmdstanr)
+cmdstanr::install_stan()
+```
+
+Installing tidyverse took about 30 min on my VM as all the packages and dependencies had to be compiled from source.
+
+```
+install.packages(c("coda","mvtnorm","devtools","loo","dagitty","shape"))
+devtools::install_github("rmcelreath/rethinking")
+```
+
+## Posit Rstudio IDE
+
+Next up: install Rstudio. We browse to the website of Rstudio (Now Posit) and download the latest Ubuntu .deb installer.
+To automate this:
+
+```
+curl -s https://www.posit.co/links/check_for_update?version=1.0.0 | grep -oEi 'update-version=([0-9]+\.[0-9]+\.[0-9]+)' | awk -F= '{print $2}'
+```
+
+```
+https://download1.rstudio.org/electron/jammy/amd64/rstudio-2023.09.1-494-amd64.deb
+```
+
+```
+cd Downloads/
+sudo apt -y install gdebi-core 
+sudo gdebi rstudio-2023.09.0-463-amd64.deb 
+```
+
+## Stan statistical software
+
+Then we want to be able to compile Stan models.
+```
+mkdir Github
+cd Github
+git clone https://github.com/stan-dev/cmdstan.git --recursive
+cd cmdstan/
+
+make build
+make examples/bernoulli/bernoulli
+examples/bernoulli/bernoulli sample data file=examples/bernoulli/bernoulli.data.json
+```
+
+# Cloudinit script for Installing software on the VM
+
+We can install software using cloud init. It needs a script or cloud config that will be run directly after provisioning the VM.
+This is called "User data" b y most cloud providers, M$ calls it custom-data.
+If we pass a shell script to Cloud-init it will just execute it on provisioning.
+
+https://help.ubuntu.com/community/CloudInit
+
+https://learn.microsoft.com/en-us/azure/virtual-machines/linux/using-cloud-init
+
+```
+cloud-init devel make-mime -a config.yaml:cloud-config -a script.sh:x-shellscript > userdata
+```
+
+```
+mkpasswd test --method=SHA-512 --rounds=4096
 ```
 
 # Lessons learned
 
 Need a fast dev cycle, so need to work with images, and break down image building in steps that save intermediate results.
 Possibly using a makefile. And develop locally to avoid cloud cost.
+
+# Azure cloud cost
+
+We have three main cost drivers: 
+
+* public IP address (2 euro / day), 
+* virtual machine (2.5 euro / day for a `Standard D2s v3`) , 
+* SSD disk (2 euro / day)
+
+
+
