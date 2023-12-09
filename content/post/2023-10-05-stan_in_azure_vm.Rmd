@@ -1,5 +1,5 @@
 ---
-title: 'Rstudio & Stan on a shoestring in the cloud using Azure VMs'
+title: 'Rstudio & Stan on a shoestring in the cloud using Azure-CLI'
 author: "Gertjan Verhoeven"
 date: '2023-09-21'
 summary: Setting up A Linux Stan development environment on Azure.
@@ -21,29 +21,41 @@ header:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Time to explore what the cloud is all about.
+Time to explore what the cloud is all about, in particular what is called **Infrastructure as code**.
+Our goal is to write code (i.e. scripts) using open-source tools to automatically set up cloud infrastructure.
 
-Our goal is to use an open-source script language to automatically set up cloud infrastructure.
-The grand idea here is that scripting the compute resources that made an analysis possible is the next level in reproducibility.
-In addition, we hope to avoid cloud vendor lock-in if we automate the cloud infrastructure using open source tooling.
-The reasoning is, since both the hardware and software are just a bunch of open source scripts, we can pick up our bags and leave as soon as things stagnate or we can get a better deal elsewhere.
+For this I chose a specific use case, which is **spinning up a data analysis development environment with R, Rstudio and Stan tools** installed and configured. 
 
-It would be nice to we create a VM that we can use for Stan Modelling when we need it, and tear it down when we no longer need it.
+This has two big advantages, **reproducibility** and **lower switching cost**: 
+
+* Scripting the compute resources that made a data analysis possible is the next level in reproducibility. 
+* Ideally, we want our scripts to be independent of a particular cloud provider. This would allow us to easily change from e.g. Azure to Amazon AWS if things stagnate or we can get a better deal elsewhere.
+
+After weighing my options, I chose to write Linux shell scripts that use Azure-CLI to deploy Linux Ubuntu VMs that are configured using Cloud-init. While doing so I discovered that being able to test changes locally first before deploying to the cloud speeds up development significantly. 
+
+To summarize and motivate the tech choices I made:
+
+* I chose **Azure** since my employer recently moved to Azure and me learning it would be beneficial for work.
+* I chose **Azure-CLI** to avoid the additional abstraction layer introduced by more generic tools like **Terraform/OpenTofu** or **Ansible**
+* I chose **Linux Ubuntu OS** to keep cost down, as it is free and needs less resources than **Windows 10/11**
+* I chose **Cloud-init** as it appears to be an emerging standard to configure Linux cloud images
+* I chose the **QEMU emulator** to run VMs locally to speed up development
+
 The blog uses Linux throughout, but as it uses Azure-CLI it should work for Windows as well.
 
-# Azure cloud
+# Azure cloud cost
 
 We start with creating a free account on Azure. This comes with 200 Euro free credit to spent within a month.
-By doing all configuration using **az**, we build a script that automates the creation of our infrastructure.
-hence, **Infrastructure as code**.
-
-## Azure cost
-
 We have three main cost drivers: public IP adress (2 euro), virtual machine (2.5 euro) , disk (2 euro), for a period of three weeks. I chose a cheap simple machine with 2 CPU and 8 GB RAM (Standard D2s v3).
 
-# Automate with Azure-CLI
+# Setting up our local IaaS dev environment
 
-First we need to install `azure-cli` on our desktop system (Ubuntu 18.04 LTS):
+As mentioned above, we use both Azure-CLI and QEMU for local development.
+My local desktop system is Ubuntu 18.04 LTS.
+
+## Azure CLI
+
+First we need to install `azure-cli`:
 
 ```
 #downloads the signing key from Microsoft
@@ -55,16 +67,76 @@ echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $AZ_REPO 
 ## writes that URL to the package resource list
 sudo apt-get update
 sudo apt-get install azure-cli
+```
+
+First time we need to login to Azure:
+```
+# Log in interactively.
 az login
 ```
 
-Test if it works by listing the contents of one of my resource groups:
+Test if it works by creating and deleting a new resource group:
 
 ```
-az resource list --resource-group myRG
+az group create --location westeurope --resource-group MyCoolRG
+
+az group delete --resource-group MyCoolRG
 ```
 
-## Azure cloud management levels
+## QEMU
+
+Next we install **QEMU**. The documentation for Cloud-init contains a [section on how to work with QEMU](https://cloudinit.readthedocs.io/en/23.3.3/tutorial/qemu.html).
+
+QEMU on Linux required KVM. QEMU threw an error 
+https://16shuklarahul.medium.com/how-to-fix-kvm-permission-denied-error-on-ubuntu-18-04-16-04-14-04-f04a6e23c0cd
+
+Install QEMU:
+```
+sudo apt install qemu-kvm
+```
+This installs QEMU 2.11 (2018) that plays well with Ubuntu 18.04.
+```
+qemu-system-x86_64 --version
+
+QEMU emulator version 2.11.1(Debian 1:2.11+dfsg-1ubuntu7.41)
+Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
+```
+
+https://askubuntu.com/questions/213512/buffer-i-o-error-on-device-fd0-logical-block-0-error
+
+
+testing with QEMU first for the cloud-init part.
+
+Here is example code that download a Cloud-init enabled Ubuntu 22.04 image (`jammy`) that we use for local testing.
+The initial disk size of the image is 2.2 GB, which is too small to install all the software we need to run Rstudio.
+So we increase the image size to 30GB.
+
+```
+wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+qemu-img info jammy-server-cloudimg-amd64.img 
+# 2.2 GB
+qemu-img resize jammy-server-cloudimg-amd64.img 30G
+
+qemu-system-x86_64                                            \
+    -net nic                                                    \
+    -net user
+    -machine accel=kvm:tcg                                      \ # use hardware acceleration
+    -cpu host                                                   \ # emulate host processor
+    -m 1024                                                      \ # use 1 GB RAM
+    -nographic                                                  \ # graphic window disabled
+    -hda jammy-server-cloudimg-amd64.img                        \ # Set a virtual hard drive and use the specified image file 
+    -smbios type=1,serial=ds='nocloud;s=http://10.0.2.2:8000/'
+```
+
+```
+ubuntu@jammy:~$ sudo lsblk -d | grep disk
+fd0     2:0    1     4K  0 disk 
+sda     8:0    0    30G  0 disk 
+```
+
+I ended up writing a script `do_qemu.sh` that starts a local VM using the cloud-config YAML file that is also used to configure the Azure VM.
+
+# Azure cloud in a nutshell
 
 There is a hierarchical structure.
 Azure works with resources. Resources are contained within resource groups.
@@ -76,10 +148,6 @@ Finally, subscriptions exist within management groups.
 ## Subscription
 
 First is the Subscription. This we choose when we login.
-
-```
-az login
-```
 
 ## Resource Group
 
@@ -145,7 +213,7 @@ az network public-ip create \
 
 This public IP address enables you to connect to your VMs from the Internet. 
 
-This results in a `fqdn` of `gsverhoeven.westeurope.cloudapp.azure.com`
+This results in a Fully qualified domaine name `fqdn` of `gsverhoeven.westeurope.cloudapp.azure.com`
 
 ```
 nslookup  gsverhoeven.westeurope.cloudapp.azure.com
@@ -255,21 +323,20 @@ https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types
 For now we only want OS disk, and we want it  fast so SSD. But we choose `StandardSSD_LRS` for lower cost.
 We get 30GB OSdisk and 7GB tmp disk.
 
-## Create VM
+## VM Size choice
 
-Within the Resource Group, we create a *Virtual Machine*. 
+`Standard` is recommended tier.
 
-### Size choice
-
-Standard is recommended tier
+```
 D – General purpose compute
 2 – VM Size
 s – Premium Storage capable
 v3 – version
+```
 
 PM Did not choose size. want standardds1_v2
 
-### Image choice
+## VM Image choice
 
 There are many choices here in the Azure Marketplace.
 Canonical offers various Ubuntu images here.
@@ -286,69 +353,10 @@ az vm image list-skus \
 
 I chose Ubuntu Server 20.04 LTS, because Linux, and to keep cost low (PM check if this is actually cheaper than WinOS).
 
-Create the VM by bringing all the resources and information together with the `az vm create` command. 
-The following example creates a VM:
+## Cloudinit script for Installing software on the VM
 
-**When specifying an existing NIC, do not specify NSG, public IP, ASGs, VNet or subnet.**
-
-```
-az vm create \
-  --resource-group $resourceGroup \
-  --name $vmName \
-  --nics $NICName \
-  --image $vmImage \
-  --storage-sku $storagetype \
-  --admin-username $AdminUsername \
-  --generate-ssh-keys
-```
-
-## SSH
-
-Specify an SSH key to use for authentication. If you do not have an SSH public key pair, you can create them or use the --generate-ssh-keys parameter to create them for you. If you already have a key pair, this parameter uses existing keys in ~/.ssh.
-
-
-```
-ssh azureuser@gsverhoeven.westeurope.cloudapp.azure.com
-```
-
-We start with ssh-ing into the VM. 
-
-```
-mv StanDEV_key.pem .ssh/
-chmod 600 .ssh/StanDEV_key.pem
-ssh -i ~/.ssh/StanDEV_key.pem azureuser@68.219.248.112
-```
-
-
-ssh-keygen -f "/home/gertjan/.ssh/known_hosts" -R "gsverhoeven.westeurope.cloudapp.azure.com"
-
-## Starting, stopping and deallocating a VM
-
-```
-az vm start --resource-group myRG --name StanDEV
-az vm stop --resource-group myRG --name StanDEV
-About to power off the specified VM...
-It will continue to be billed. To deallocate a VM, run: az vm deallocate
-az vm deallocate --resource-group myRG --name StanDEV
-```
-
-# Clean up resources
-
-```
-az group delete --name $RESOURCE_GROUP_NAME --no-wait --yes --verbose
-```
-
-How can we get overview of all resources?
-
-```
-az resource list --output table
-```
-
-
-# Cloudinit Installing software on the VM
-
-We can install software using cloud init.
-This is called "User data", M$ calls it custom-data.
+We can install software using cloud init. It needs a script or cloud config that will be run directly after provisioning the VM.
+This is called "User data" b y most cloud providers, M$ calls it custom-data.
 If we pass a shell script to Cloud-init it will just execute it on provisioning.
 
 https://help.ubuntu.com/community/CloudInit
@@ -356,12 +364,11 @@ https://help.ubuntu.com/community/CloudInit
 https://learn.microsoft.com/en-us/azure/virtual-machines/linux/using-cloud-init
 
 ```
-az vm create \
-  --resource-group myResourceGroup \
-  --name centos74 \
-  --image OpenLogic:CentOS-CI:7-CI:latest \
-  --custom-data cloud-init.txt \
-  --generate-ssh-keys 
+cloud-init devel make-mime -a config.yaml:cloud-config -a script.sh:x-shellscript > userdata
+```
+
+```
+mkpasswd test --method=SHA-512 --rounds=4096
 ```
 
 ## How to use Remote Desktop with Linux?
@@ -393,18 +400,8 @@ sudo service xrdp restart
 ```
 
 Access will be through RDP (Remote Desktop Protocol).  Ubuntu provides the `Remmina` software for this.
-We need to set a password to log on using RDP.
 
-*If you only use SSH key authentication and don't have a local account password set, specify a password before you use xrdp to log in to your VM*. xrdp can't accept SSH keys for authentication. The following example specifies a password for the user account azureuser:
-
-```
-sudo passwd azureuser
-```
-
-Specifying a password does not update your SSHD configuration to permit password logins if it currently does not. 
-
-
-## Setting up a Stan development environment on Ubuntu 20.04
+### Setting up a Stan development environment on Ubuntu 20.04
 
 Now let's install the software we need.
 We need to browse GitHub so lets install firefox.
@@ -438,6 +435,15 @@ sudo apt install --no-install-recommends r-base
 Now we have the latest R (4.3.1)!
 
 Next up: install Rstudio. We browse to the website of Rstudio (Now Posit) and download the latest Ubuntu .deb installer.
+To automate this:
+```
+curl -s https://www.posit.co/links/check_for_update?version=1.0.0 | grep -oEi 'update-version=([0-9]+\.[0-9]+\.[0-9]+)' | awk -F= '{print $2}'
+```
+
+```{r}
+https://download1.rstudio.org/electron/jammy/amd64/rstudio-2023.09.1-494-amd64.deb
+```
+
 ```
 cd Downloads/
 sudo apt -y install gdebi-core 
@@ -452,6 +458,11 @@ sudo apt install libssl-dev libcurl4-openssl-dev unixodbc-dev libxml2-dev libmar
 ```
 
 Then we fire up Rstudio. on the R command line we do:
+using Rscript
+
+```
+Rscript -e 'print("hi there")'
+```
 
 ```
 install.packages("tidyverse")
@@ -467,34 +478,155 @@ install.packages(c("coda","mvtnorm","devtools","loo","dagitty","shape"))
 devtools::install_github("rmcelreath/rethinking")
 ```
 
+## Create the VM
 
 
-# Now without Azure CLI?
 
-This blog used Azure CLI. However, this is vendor specific.
-Next step would be to accomplish the same thing with vendor independent tooling such as Terraform /openTofu or Ansible.
+Create the VM by bringing all the resources and information together with the `az vm create` command. 
+The following example creates a VM:
 
-## Hashicorp Terraform
+**When specifying an existing NIC, do not specify NSG, public IP, ASGs, VNet or subnet.**
 
 
-One of the advantages of Terraform is that it creates a single source of truth (that HCL file) that can be deployed over and over again without having to understand how it gets to the end-state. Another advantage of the Terraform approach is that it is just as easy to tear down (de-provision) your cloud resources. This allows developers to quickly spin up resources, test something, then tear them down.
-
-https://cloudinfrastructureservices.co.uk/how-to-install-terraform-on-ubuntu-server-20-04/
 
 ```
-sudo apt-add-repository "deb [arch=$(dpkg --print-architecture)] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
-sudo apt-get install terraform -y
-terraform -v
+az vm create \
+  --resource-group $resourceGroup \
+  --name $vmName \
+  --nics $NICName \
+  --image $vmImage \
+  --storage-sku $storagetype \
+  --admin-username $AdminUsername \
+  --generate-ssh-keys
 ```
 
-## Ansible
+# Security of a VM
 
-Ansible is an open-source tool that automates cloud provisioning, configuration management, and application deployments. Using Ansible you can provision virtual machines, containers, network, and complete cloud infrastructures. In addition, Ansible allows you to automate the deployment and configuration of resources in your environment.
+For a public VM facing the internet, we need some security measures in place.
+NSG is a basic type of firewall, that is relatively dumb. It does not know about applications, it just filters network packets based on rules.
 
-Ansible, by design, takes an imperative approach to automation.  You simply have a task list that iterates through each resource.  You would tell it to provision this VPC, this subnet, then this VM.  The advantage of this approach is it is very simple to understand, there is no hidden magic, which helps it become easy to troubleshoot.  
+## Creating a passwd 
 
-The disadvantage is usually it is more cumbersome to do teardowns and de-provision without knowing the correct order.  I have to delete the instance, then the security group, and so on and so forth.
+we can generate a cloud config on the fly.
+```
+VM_NAME="ubuntu-20-cloud-image"
+USERNAME="programster"
+PASSWORD="thisok"
+echo "#cloud-config
+system_info:
+  default_user:
+    name: $USERNAME
+    home: /home/$USERNAME
 
-Ansible includes a suite of Ansible modules that can be executed directly on remote hosts or via playbooks. Users can also create their own modules. Modules can be used to control system resources - such as services, packages, or files - or execute system commands.
+password: $PASSWORD
+chpasswd: { expire: False }
+hostname: $VM_NAME
 
-For interacting with Azure services, Ansible includes a suite of Ansible cloud modules that provides the tools to easily create and orchestrate your infrastructure on Azure.
+# configure sshd to allow users logging in using password 
+# rather than just keys
+ssh_pwauth: True
+" | sudo tee user-data
+```
+
+## RDP
+We need to set a password to log on using RDP.
+
+*If you only use SSH key authentication and don't have a local account password set, specify a password before you use xrdp to log in to your VM*. xrdp can't accept SSH keys for authentication. The following example specifies a password for the user account azureuser:
+
+```
+sudo passwd azureuser
+```
+
+Specifying a password does not update your SSHD configuration to permit password logins if it currently does not. 
+For security reasons we should limit pwd retries and limit IP range to connect from.
+
+## SSH
+
+We need to generate a public and private key for ourselves, and get it own the new VM.
+
+Specify an SSH key to use for authentication. If you do not have an SSH public key pair, you can create them or use the --generate-ssh-keys parameter to create them for you. If you already have a key pair, this parameter uses existing keys in ~/.ssh.
+
+
+```
+ssh azureuser@gsverhoeven.westeurope.cloudapp.azure.com
+```
+
+We start with ssh-ing into the VM. 
+
+```
+mv StanDEV_key.pem .ssh/
+chmod 600 .ssh/StanDEV_key.pem
+ssh -i ~/.ssh/StanDEV_key.pem azureuser@68.219.248.112
+mynewip.northeurope.cloudapp.azure.com
+```
+
+
+ssh-keygen -f "/home/gertjan/.ssh/known_hosts" -R "gsverhoeven.westeurope.cloudapp.azure.com"
+
+https://superuser.com/questions/1112092/hacking-attempts-to-linux-vm-in-azure
+
+## Fail2ban
+
+```
+sudo apt install fail2ban
+```
+
+fail2ban will dynamically block brute force attacks on the remote system. It is pre-configured for the default ssh port 22/tcp. If the server is internet facing, you probably want to have the router perform port translation so your log files don't get filled with denied attempts. If you don't, expect 100,000 attempts every day.
+
+
+## Starting, stopping and deallocating a VM
+
+```
+az vm start --resource-group myRG --name StanDEV
+az vm stop --resource-group myRG --name StanDEV
+About to power off the specified VM...
+It will continue to be billed. To deallocate a VM, run: az vm deallocate
+az vm deallocate --resource-group myRG --name StanDEV
+```
+
+
+# cloning a private repo from Github
+
+Use GCM
+
+```
+git config --global credential.credentialStore gpg
+sudo apt-get install pass
+pass init gertjan.verhoeven@gmail.com
+wget https://github.com/git-ecosystem/git-credential-manager/releases/download/v2.3.2/gcm-linux_amd64.2.3.2.deb
+sudo dpkg -i gcm-linux_amd64.2.3.2.deb
+git-credential-manager configure
+git clone github.com/gsverhoeven/statistical_rethinking
+```
+First time I had tro use a github access token to sign into Github
+second time I had to type the GPG passwd and marked store in pwd manager.
+Third time it worked!!!!
+
+better send this over secure rdp
+
+
+
+# Clean up resources
+
+```
+az group delete --name $RESOURCE_GROUP_NAME --no-wait --yes --verbose
+```
+
+How can we get overview of all resources?
+
+```
+az resource list --output table
+```
+
+# Now windows 10
+
+https://smsagent.blog/2020/02/03/the-cost-of-running-a-personal-windows-10-vm-in-azure/
+
+```
+az vm image list --all -f "Windows-10" -p "MicrosoftWindowsDesktop" -o table
+```
+
+# Lessons learned
+
+Need a fast dev cycle, so need to work with images, and break down image building in steps that save intermediate results.
+Possibly using a makefile. And develop locally to avoid cloud cost.
