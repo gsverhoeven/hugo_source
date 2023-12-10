@@ -317,48 +317,15 @@ az network nic create \
     --network-security-group $NetworkSecurityGroup
 ```
 
-## Storage associated with the VM
-
-When an Azure virtual machine is created, two disks are automatically attached to the virtual machine.
-
-* Operating system disk - Operating system disks can be sized up to 2 TB, and hosts the VMs operating system. The OS disk is labeled `/dev/sda` by default. The disk caching configuration of the OS disk is optimized for OS performance. Because of this configuration, the OS disk should not be used for applications or data. 
-
-(For applications and data, use data disks, which are detailed later in this tutorial.)
-
-* Temporary disk - Temporary disks use a solid-state drive that is located on the same Azure host as the VM. Temp disks are highly performant and may be used for operations such as temporary data processing. However, if the VM is moved to a new host, any data stored on a temporary disk is removed. The size of the temporary disk is determined by the VM size. Temporary disks are labeled `/dev/sdb` and have a mountpoint of `/mnt`.
-
-The Disk types are controlled by the `-storage-sku` option:
-
-```
---storage-sku
-```
-
-The SKU of the storage account with which to persist VM. Use a singular sku that would be applied across all disks, or specify individual disks. Usage: [--storage-sku SKU | --storage-sku ID=SKU ID=SKU ID=SKU...], where each ID is "os" or a 0-indexed lun. Allowed values: Standard_LRS, Premium_LRS, StandardSSD_LRS, UltraSSD_LRS, Premium_ZRS, StandardSSD_ZRS, PremiumV2_LRS.
-
-https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types
-
-For now we only want OS disk, and we want it  fast so SSD. But we choose `StandardSSD_LRS` for lower cost.
-We get 30GB OSdisk and 7GB tmp disk.
-
-## VM Size choice
-
-`Standard` is recommended tier.
-
-```
-D – General purpose compute
-2 – VM Size
-s – Premium Storage capable
-v3 – version
-```
-
-PM Did not choose size. want standardds1_v2
-
 ## VM Image choice
 
-There are many choices here in the Azure Marketplace.
-Canonical offers various Ubuntu images here.
+As VM image I chose **Ubuntu Server 22.04 LTS** for reasons already mentioned above.
+But which one, how do we find the image we need?
 
-Canonical is the publisher of official Ubuntu images on Microsoft Azure. Users can find the latest Ubuntu images in the Azure Marketplace when using the web interface. For a programmatic interface, users can use Microsoft’s Azure CLI 32. All images published by Canonical are discoverable using the following command:
+Canonical, the company behind Ubuntu Linux, offers various preconfigured Ubuntu images in the Azure Marketplace.
+Azure-CLI can be used to programmatically interact with Azure Marketplace. I used [this blog post by Joshua Powers](https://powersj.io/posts/ubuntu-images-azure/) to learn how this works.
+
+All images published by Canonical are discoverable using the following command:
 
 ```
 az vm image list-skus \
@@ -368,7 +335,68 @@ az vm image list-skus \
 -o table
 ```
 
-I chose Ubuntu Server 20.04 LTS, because Linux, and to keep cost low (PM check if this is actually cheaper than WinOS).
+I went with `22_04-lts`. 
+
+## VM Size choice
+
+To have a reasonable fast software install I found we need at least 8GB of mem and 2 vCPUs.
+
+https://azureprice.net/vm/Standard_D2s_v3?currency=EUR&timeoption=day&paymentType=payasyougo
+
+
+```
+`Standard` is recommended tier.
+D – General purpose compute
+2 – VM Size
+s – Premium Storage capable
+v3 – version
+```
+
+
+## Storage associated with the VM
+
+When an Azure virtual machine is created, two disks are automatically attached to the virtual machine.
+
+https://www.cloudelicious.net/azure-vms-and-their-temporary-storage/
+
+
+* **Operating system disk** - Operating system disks can be sized up to 2 TB, and hosts the VMs operating system. The OS disk is labeled `/dev/sda` by default. The disk caching configuration of the OS disk is optimized for OS performance. Because of this configuration, the OS disk should not be used for applications or data. 
+
+(For applications and data, use data disks, which are detailed later in this tutorial.)
+
+* **Temporary disk** - Temporary disks use a solid-state drive that is located on the same Azure host as the VM. Temp disks are highly performant and may be used for operations such as temporary data processing. However, if the VM is moved to a new host, any data stored on a temporary disk is removed. The size of the temporary disk is determined by the VM size. Temporary disks are labeled `/dev/sdb` and have a mountpoint of `/mnt`.
+
+The Disk types are controlled by the `-storage-sku` option:
+
+```
+--storage-sku
+```
+
+The SKU of the storage account with which to persist the VM.
+
+Use a singular sku that would be applied across all disks, or specify individual disks. 
+
+```
+Usage: [--storage-sku SKU | --storage-sku ID=SKU ID=SKU ID=SKU...], where each ID is "os" or a 0-indexed lun. 
+```
+
+Allowed values: 
+
+* Standard_LRS, (HDD)
+* Premium_LRS, 
+* **StandardSSD_LRS**, 
+* UltraSSD_LRS, 
+* PremiumV2_LRS.
+
+https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types
+
+Locally redundant storage (LRS) replicates your data three times within a single data center in the selected region.
+
+We want the cheapest SSD option, this seems to be `StandardSSD_LRS`.
+
+For the 2cpu 8GB we get 30GB OS disk and 16GB tmp disk. 
+
+I did not go so far as to attach a data disk. So we need to make sure that work we do on it is pushed to e.g. Github, because if we tear the VM down, the user data is lost as well.
 
 ## Create the VM
 
@@ -410,40 +438,37 @@ How can we get overview of all resources?
 az resource list --output table
 ```
 
-# Security of a VM
+# Securing our VM
 
 For a public VM facing the internet, we need some security measures in place.
-NSG is a basic type of firewall, that is relatively dumb. 
-It does not know about applications, it just filters network packets based on rules.
-In addition we take the following steps to secure our VM from outside attacks:
+Hackers' will be using a list of azure IPs and will attempt brute force SSH to gain access to your server.
+
+We take the following steps to secure our VM from outside attacks:
 
 * All ports are closed except SSH and RDP
-* Only RDP connections from a single trusted IP address are allowed
 * SSH password authentication is disabled, access only through SSH keys
+* We generate an Admin password (needed for RDP logon) on the fly from user input when creating the VM
+* Only RDP connections from a single trusted IP address are allowed
 * Use **Fail2ban** to ban IPs that have multiple unsuccessful login attempts
 
-## Creating a passwd 
+NSG is a basic type of firewall, that is relatively dumb. 
+It does not know about applications, it just filters network packets based on rules.
+So we use it to block all incoming connections from the internet, except SSH and RDP.
+To connect using SSH, a private key is needed that is only available on my local desktop system.
+To connect using RDP, it only accepts connections from the IP address attached to my local desktop system via my ISP.
+When someone tries to brute force the SSH connection, their IP is banned after a few unsuccessful login attempts.
 
-we can generate a cloud config on the fly.
+Hopefully this is enough, and I did not make any mistake here :) 
+
+(Apparently, Microsoft has created a product "Azure Bastion" for our use case, when we want to use RDP / remote desktop into a VM on Azure, but do not want to use a VPN or expose the VM using a public IP address.)
+
+## Generate password interactively
+
+
 ```
-VM_NAME="ubuntu-20-cloud-image"
-USERNAME="programster"
-PASSWORD="thisok"
-echo "#cloud-config
-system_info:
-  default_user:
-    name: $USERNAME
-    home: /home/$USERNAME
-
-password: $PASSWORD
-chpasswd: { expire: False }
-hostname: $VM_NAME
-
-# configure sshd to allow users logging in using password 
-# rather than just keys
-ssh_pwauth: True
-" | sudo tee user-data
+mkpasswd test --method=SHA-512 --rounds=4096
 ```
+
 
 ## RDP
 We need to set a password to log on using RDP.
@@ -455,7 +480,6 @@ sudo passwd azureuser
 ```
 
 Specifying a password does not update your SSHD configuration to permit password logins if it currently does not. 
-For security reasons we should limit pwd retries and limit IP range to connect from.
 
 ## SSH
 
@@ -484,11 +508,24 @@ https://superuser.com/questions/1112092/hacking-attempts-to-linux-vm-in-azure
 
 ## Fail2ban
 
-fail2ban will dynamically block brute force attacks on the remote system. It is pre-configured for the default ssh port 22/tcp. If the server is internet facing, you probably want to have the router perform port translation so your log files don't get filled with denied attempts. If you don't, expect 100,000 attempts every day.
-
+fail2ban will dynamically block brute force attacks on the remote system. It is pre-configured for the default ssh port 22/tcp. 
 ```
 sudo apt install fail2ban
 ```
+
+It is not enabled by default.
+```
+systemctl status fail2ban.service
+```
+
+```
+sudo cp jail.conf jail.local
+sudo systemctl enable fail2ban
+sudo systemctl start fail2ban
+```
+
+N.b. it looks like fail2ban does not by default monitors failed xrdp login attempts.
+https://stackoverflow.com/questions/75915624/xrdp-filter-setting-for-fail2ban
 
 # Adding software to the Ubuntu base image
 
@@ -614,18 +651,13 @@ https://help.ubuntu.com/community/CloudInit
 
 https://learn.microsoft.com/en-us/azure/virtual-machines/linux/using-cloud-init
 
-```
-cloud-init devel make-mime -a config.yaml:cloud-config -a script.sh:x-shellscript > userdata
-```
-
-```
-mkpasswd test --method=SHA-512 --rounds=4096
-```
 
 # Lessons learned
 
 Need a fast dev cycle, so need to work with images, and break down image building in steps that save intermediate results.
 Possibly using a makefile. And develop locally to avoid cloud cost.
+
+stamparm/ipsum repo with bad IPs, that actively scan. abuseipdb.com
 
 # Azure cloud cost
 
