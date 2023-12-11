@@ -48,7 +48,7 @@ The blog uses Linux throughout, but as it uses Azure-CLI it should work for Wind
 As mentioned above, we use both **Azure-CLI** and **QEMU virtual emulator** for local VM development.
 My local desktop system is Ubuntu 18.04 LTS.
 
-## Using Azure CLI to interact with our Azure account
+## Using Azure CLI to connect with Azure and execute commands
 
 We start with creating a free account on Azure. This comes with 200 Euro free credit to spent within a month.
 
@@ -80,18 +80,29 @@ az group create --location westeurope --resource-group MyCoolRG
 az group delete --resource-group MyCoolRG
 ```
 
-## QEMU
+## QEMU virtualizer
 
 Next we install **QEMU**. The documentation for Cloud-init contains a [section on how to work with QEMU](https://cloudinit.readthedocs.io/en/23.3.3/tutorial/qemu.html).
 
-QEMU on Linux required KVM. QEMU threw an error 
-https://16shuklarahul.medium.com/how-to-fix-kvm-permission-denied-error-on-ubuntu-18-04-16-04-14-04-f04a6e23c0cd
+QEMU on ubuntu can be used as virtualiser in collaboration with KVM kernel components. In that case it uses the hardware virtualisation technology to virtualise guests. Using KVM, one can run multiple virtual machines running unmodified Linux or Windows images. Each virtual machine has private virtualized hardware: a network card, disk, graphics adapter, etc. 
 
 Install QEMU:
 ```
 sudo apt install qemu-kvm
 ```
 This installs QEMU 2.11 (2018) that plays well with Ubuntu 18.04.
+
+QEMU threw an error 
+https://16shuklarahul.medium.com/how-to-fix-kvm-permission-denied-error-on-ubuntu-18-04-16-04-14-04-f04a6e23c0cd
+
+Use the adduser command to add your user to the kvm group.
+
+```
+sudo adduser gertjan kvm
+```
+
+On my machine, all users in group `kvm` have `rw` access for `/dev/kvm`.
+
 ```
 qemu-system-x86_64 --version
 
@@ -317,6 +328,14 @@ az network nic create \
     --network-security-group $NetworkSecurityGroup
 ```
 
+From the dependencies, we can see that a NIC ties together:
+
+* A Network Security Group, 
+* A public IP,
+* A VNet & subnet
+
+All within a resource group. Later on, when we create the VM, we only need to specify the NIC to bring up the VM in the virtual network with the desired NSG.
+
 ## VM Image choice
 
 As VM image I chose **Ubuntu Server 22.04 LTS** for reasons already mentioned above.
@@ -339,7 +358,10 @@ I went with `22_04-lts`.
 
 ## VM Size choice
 
-To have a reasonable fast software install I found we need at least 8GB of mem and 2 vCPUs.
+There is a bewildering amount of choice regarding [different types of VMs offered by Microsoft]((https://azure.microsoft.com/en-us/pricing/details/virtual-machines/series/
+). As my focus is on cheap, general purpose compute, I ended up with D-series VMs.
+
+To have a reasonable fast software install I found we need at least 8GB of mem and 2 vCPUs, this corresponds to `Standard_D2s_v3`. With this VM, cloud-init installation finishes after 23 min, after which the VM is fully operational.
 
 https://azureprice.net/vm/Standard_D2s_v3?currency=EUR&timeoption=day&paymentType=payasyougo
 
@@ -353,57 +375,25 @@ v3 – version
 ```
 
 
-## Storage associated with the VM
+## Disk storage associated with the VM
 
 When an Azure virtual machine is created, two disks are automatically attached to the virtual machine.
 
-https://www.cloudelicious.net/azure-vms-and-their-temporary-storage/
+The disk that holds the VM image (in our case Ubuntu 22) is called the **OS disk**. In Azure, the [default OS disk size for Linux VMs](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/expand-disks?tabs=ubuntu) is 30 GB. This appears to also be the minimum OS disk size, there is only the option to expand them. The OS disk is labeled `/dev/sda` by default.
 
+In addition, there is a temp disk mounted that is physically located on the Azure host where the VM is running. This can only be used for temporary data processing, and its size is given. It does not incur any extra cost. Temporary disks are labeled `/dev/sdb` and have a mountpoint of `/mnt`. More info on temp disks [here](https://www.cloudelicious.net/azure-vms-and-their-temporary-storage/)
 
-* **Operating system disk** - Operating system disks can be sized up to 2 TB, and hosts the VMs operating system. The OS disk is labeled `/dev/sda` by default. The disk caching configuration of the OS disk is optimized for OS performance. Because of this configuration, the OS disk should not be used for applications or data. 
+I did not go so far as to attach a data disk. So we need to make sure that work we do on the VM is pushed to e.g. Github, because if we tear the VM down, the user data is lost as well.
 
-(For applications and data, use data disks, which are detailed later in this tutorial.)
-
-* **Temporary disk** - Temporary disks use a solid-state drive that is located on the same Azure host as the VM. Temp disks are highly performant and may be used for operations such as temporary data processing. However, if the VM is moved to a new host, any data stored on a temporary disk is removed. The size of the temporary disk is determined by the VM size. Temporary disks are labeled `/dev/sdb` and have a mountpoint of `/mnt`.
-
-The Disk types are controlled by the `-storage-sku` option:
-
-```
---storage-sku
-```
-
-The SKU of the storage account with which to persist the VM.
-
-Use a singular sku that would be applied across all disks, or specify individual disks. 
-
-```
-Usage: [--storage-sku SKU | --storage-sku ID=SKU ID=SKU ID=SKU...], where each ID is "os" or a 0-indexed lun. 
-```
-
-Allowed values: 
-
-* Standard_LRS, (HDD)
-* Premium_LRS, 
-* **StandardSSD_LRS**, 
-* UltraSSD_LRS, 
-* PremiumV2_LRS.
-
-https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types
-
-Locally redundant storage (LRS) replicates your data three times within a single data center in the selected region.
+The Disk types are controlled by the `-storage-sku` option when we create the VM.
+Allowed values for this option include `Standard_LRS` for traditional hard disks (HDD), `StandardSSD_LRS` and `Premium_LRS` both consists of SSD disks but with differing performance characteristics. Locally redundant storage (LRS) replicates your data three times within a single data center in the selected region. More info at [Azure disk types](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types)
 
 We want the cheapest SSD option, this seems to be `StandardSSD_LRS`.
 
-For the 2cpu 8GB we get 30GB OS disk and 16GB tmp disk. 
-
-I did not go so far as to attach a data disk. So we need to make sure that work we do on it is pushed to e.g. Github, because if we tear the VM down, the user data is lost as well.
-
 ## Create the VM
 
-Create the VM by bringing all the resources and information together with the `az vm create` command. 
-The following example creates a VM:
-
-**When specifying an existing NIC, do not specify NSG, public IP, ASGs, VNet or subnet.**
+We now are ready to bring it all together and create the VM. For this Azure-CLI has the `az vm create` command. 
+The following example creates a VM that automatically starts up:
 
 ```
 az vm create \
@@ -412,30 +402,22 @@ az vm create \
   --nics $NICName \
   --image $vmImage \
   --storage-sku $storagetype \
+  --size $vmSize \
   --admin-username $AdminUsername \
-  --generate-ssh-keys
+  --custom-data $customDataScript.tmp \
+  --generate-ssh-keys \
+  --output $azOutput \
+  --security-type Standard # no trusted launch
 ```
 
-## Starting, stopping and deallocating a VM
+Most options we already discussed above, except two:
+* `--custom-data`, this specifies the **Cloud-init** script that will passed on to the cloud-init enabled VM image and contains instructions to create user accounts, install packages etc. More below. 
+* `--generate-ssh-keys`, this is described below under "Securing the VM".
 
-```
-az vm start --resource-group myRG --name StanDEV
-az vm stop --resource-group myRG --name StanDEV
-About to power off the specified VM...
-It will continue to be billed. To deallocate a VM, run: az vm deallocate
-az vm deallocate --resource-group myRG --name StanDEV
-```
-
-Clean up resources
+Although there are Azure-cli commands to stop, start and dellocate the VM, I typically use a shell script `deploy_vm_ubuntu.sh` to bring it up, leave it running while I need it, and then tear it down using another script `delete_vm_ubuntu.sh`. This script simply removes the Resource group including everything that is contained within:
 
 ```
 az group delete --name $RESOURCE_GROUP_NAME --no-wait --yes --verbose
-```
-
-How can we get overview of all resources?
-
-```
-az resource list --output table
 ```
 
 # Securing our VM
@@ -462,7 +444,7 @@ Hopefully this is enough, and I did not make any mistake here :)
 
 (Apparently, Microsoft has created a product "Azure Bastion" for our use case, when we want to use RDP / remote desktop into a VM on Azure, but do not want to use a VPN or expose the VM using a public IP address.)
 
-## Generate password interactively
+## TODO Generate password interactively
 
 
 ```
@@ -470,7 +452,7 @@ mkpasswd test --method=SHA-512 --rounds=4096
 ```
 
 
-## RDP
+## TODO RDP
 We need to set a password to log on using RDP.
 
 *If you only use SSH key authentication and don't have a local account password set, specify a password before you use xrdp to log in to your VM*. xrdp can't accept SSH keys for authentication. The following example specifies a password for the user account azureuser:
@@ -481,7 +463,7 @@ sudo passwd azureuser
 
 Specifying a password does not update your SSHD configuration to permit password logins if it currently does not. 
 
-## SSH
+## TODO SSH
 
 We need to generate a public and private key for ourselves, and get it own the new VM.
 
@@ -508,7 +490,11 @@ https://superuser.com/questions/1112092/hacking-attempts-to-linux-vm-in-azure
 
 ## Fail2ban
 
-fail2ban will dynamically block brute force attacks on the remote system. It is pre-configured for the default ssh port 22/tcp. 
+fail2ban will dynamically block brute force attacks on the remote system. It is pre-configured for the default ssh port 22/tcp.
+As I am writing this blog, the VM is up and running, and every few hours an IP address get banned.
+It is configured to ban an IP after 5 login attempts. A ban lasts for 10 min, after which the ban is released again.
+Apparantly this is for performance reasons, as we do not want to gather a very long list of IP address that needs to be scanned every time a new login attempt is made.
+
 ```
 sudo apt install fail2ban
 ```
