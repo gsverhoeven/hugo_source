@@ -414,20 +414,17 @@ Most options we already discussed above, except two:
 * `--custom-data`, this specifies the **Cloud-init** script that will passed on to the cloud-init enabled VM image and contains instructions to create user accounts, install packages etc. More below. 
 * `--generate-ssh-keys`, this is described below under "Securing the VM".
 
-Although there are Azure-cli commands to stop, start and dellocate the VM, I typically use a shell script `deploy_vm_ubuntu.sh` to bring it up, leave it running while I need it, and then tear it down using another script `delete_vm_ubuntu.sh`. This script simply removes the Resource group including everything that is contained within:
-
-```
-az group delete --name $RESOURCE_GROUP_NAME --no-wait --yes --verbose
-```
+Although there are Azure-cli commands to stop, start and dellocate the VM, I typically use a shell script `deploy_vm_ubuntu.sh` to bring it up, leave it running while I need it, and then tear it down using another script `delete_vm_ubuntu.sh`. This script simply uses `az group delete` to remove the Resource group containing the VM and related resources.
 
 # Securing our VM
 
-For a public VM facing the internet, we need some security measures in place.
-Hackers' will be using a list of azure IPs and will attempt brute force SSH to gain access to your server.
+For a VM with a public IP on the hostile internet, we need some security measures in place.
+"Hackers" will be using a list of azure IPs and will attempt brute force SSH to gain access.
+See for example this [post](https://superuser.com/questions/1112092/hacking-attempts-to-linux-vm-in-azure) on superuser.com.
 
 We take the following steps to secure our VM from outside attacks:
 
-* All ports are closed except SSH and RDP
+* All inbound traffic ports are closed using Azure NSG except SSH and RDP (detailed above)
 * SSH password authentication is disabled, access only through SSH keys
 * We generate an Admin password (needed for RDP logon) on the fly from user input when creating the VM
 * Only RDP connections from a single trusted IP address are allowed
@@ -444,24 +441,10 @@ Hopefully this is enough, and I did not make any mistake here :)
 
 (Apparently, Microsoft has created a product "Azure Bastion" for our use case, when we want to use RDP / remote desktop into a VM on Azure, but do not want to use a VPN or expose the VM using a public IP address.)
 
-## TODO Generate password interactively
+## Remote desktop access using RDP
 
-
-```
-mkpasswd test --method=SHA-512 --rounds=4096
-```
-
-
-## TODO RDP
-We need to set a password to log on using RDP.
-
-*If you only use SSH key authentication and don't have a local account password set, specify a password before you use xrdp to log in to your VM*. xrdp can't accept SSH keys for authentication. The following example specifies a password for the user account azureuser:
-
-```
-sudo passwd azureuser
-```
-
-Specifying a password does not update your SSHD configuration to permit password logins if it currently does not. 
+Since we want to use the VM as a remote desktop, we need a connection that supports graphics.
+Both RDP and VNC are popular protocols for remote desktop access. I went with RDP as it appears the faster of the two, and because RDP is natively supported in Windows. I did not explore tunneling RDP over SSH or VPN because it would reduce performance too much. To be able to use RDP with Linux we need to install `xrdp`. To be able to login to `xrdp` requires setting a password for the user that logs in, introducing a security risk that we need to mitigate.
 
 ## TODO SSH
 
@@ -481,17 +464,21 @@ mv StanDEV_key.pem .ssh/
 chmod 600 .ssh/StanDEV_key.pem
 ssh -i ~/.ssh/StanDEV_key.pem azureuser@68.219.248.112
 mynewip.northeurope.cloudapp.azure.com
+
+ssh-keygen -f "/home/gertjan/.ssh/known_hosts" -R "gsverhoeven.westeurope.cloudapp.azure.com"
+```
+
+## TODO Generate password interactively
+
+
+```
+mkpasswd test --method=SHA-512 --rounds=4096
 ```
 
 
-ssh-keygen -f "/home/gertjan/.ssh/known_hosts" -R "gsverhoeven.westeurope.cloudapp.azure.com"
-
-https://superuser.com/questions/1112092/hacking-attempts-to-linux-vm-in-azure
-
 ## Fail2ban
 
-fail2ban will dynamically block brute force attacks on the remote system. It is pre-configured for the default ssh port 22/tcp.
-As I am writing this blog, the VM is up and running, and every few hours an IP address get banned.
+fail2ban will dynamically block brute force attacks on the remote system. It is pre-configured for the default ssh port 22/tcp. As I am writing this blog, the VM is up and running, and every few hours an IP address get banned.
 It is configured to ban an IP after 5 login attempts. A ban lasts for 10 min, after which the ban is released again.
 Apparantly this is for performance reasons, as we do not want to gather a very long list of IP address that needs to be scanned every time a new login attempt is made.
 
