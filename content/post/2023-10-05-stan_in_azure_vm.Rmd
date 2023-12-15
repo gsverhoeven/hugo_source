@@ -441,42 +441,53 @@ Hopefully this is enough, and I did not make any mistake here :)
 
 (Apparently, Microsoft has created a product "Azure Bastion" for our use case, when we want to use RDP / remote desktop into a VM on Azure, but do not want to use a VPN or expose the VM using a public IP address.)
 
-## Remote desktop access using RDP
+## SSH access
 
-Since we want to use the VM as a remote desktop, we need a connection that supports graphics.
-Both RDP and VNC are popular protocols for remote desktop access. I went with RDP as it appears the faster of the two, and because RDP is natively supported in Windows. I did not explore tunneling RDP over SSH or VPN because it would reduce performance too much. To be able to use RDP with Linux we need to install `xrdp`. To be able to login to `xrdp` requires setting a password for the user that logs in, introducing a security risk that we need to mitigate.
+A common, secure way of connecting to a VM is through a "secure shell" aka SSH connection.
+It is secure because all traffic is encrypted. We can either use passwords or work with "key pairs". We choose SSH keys because it is safer, since passwords can be guessed or brute-force discovered.
 
-## TODO SSH
+SSH works with so-called "key pairs", that consist of a public and private key. The private key is kept secret and is stored on our local system. The public key is passed to the VM when it is created. The VM uses this public key to encrypt all communication. To decrypt this communication, the private key is needed. Since nobody else has this key except we ourselves on our local system in a safe place, the connection is safeguarded.
 
 We need to generate a public and private key for ourselves, and get it own the new VM.
+We use the `--generate-ssh-keys` parameter to create them the first time. After that, since we already have a key pair, this parameter uses existing keys in `~/.ssh`.
 
-Specify an SSH key to use for authentication. If you do not have an SSH public key pair, you can create them or use the --generate-ssh-keys parameter to create them for you. If you already have a key pair, this parameter uses existing keys in ~/.ssh.
+Since SSH communication goes back and forth between our local system and the VM, we also need to encrypt the information we send to the VM. For that we need to use the **VM's public** key that it hands out to whoever wants to communicate with it.
 
+```
+ssh-keyscan -H $mypublicdns.westeurope.cloudapp.azure.com >> ~/.ssh/known_hosts
+```
+
+After all this, we can connect to the VM using SSH without the need to supply a password, the key-pairs in the background take care of the authentication process.
 
 ```
 ssh azureuser@gsverhoeven.westeurope.cloudapp.azure.com
 ```
+## Remote desktop access using RDP
 
-We start with ssh-ing into the VM. 
+Since we want to use the VM as a remote desktop, we need a connection that supports graphics.
+Both RDP and VNC are popular protocols for remote desktop access. I went with RDP as it appears the faster of the two, and because RDP is natively supported in Windows. 
+
+I did not explore tunneling RDP over SSH or VPN because it would reduce performance too much, and it requires too much configuration on the client side, which is often not possible with company restricted laptops. 
+
+To be able to use RDP with Linux we need to install `xrdp`. To be able to login to `xrdp` requires setting a password for the user that logs in, introducing a security risk that we need to mitigate.
+
+## Interactive password generation for RDP access
+
+For remote desktop access with sufficient performance (no lags) we still need to set a password on the VM when we create it.
+Since we want a fully scripted process of VM creation, I needed a secure way to generate and set a password during VM creation. In the end, I figured out a way to accomplish this using a shell script with an interactive prompt, that dynamically inserts the hashed password into the Cloud-init config file. This config file is then used to set the password on the VM upon creation, after which the copy of the config file containing the hashed password is deleted.
 
 ```
-mv StanDEV_key.pem .ssh/
-chmod 600 .ssh/StanDEV_key.pem
-ssh -i ~/.ssh/StanDEV_key.pem azureuser@68.219.248.112
-mynewip.northeurope.cloudapp.azure.com
-
-ssh-keygen -f "/home/gertjan/.ssh/known_hosts" -R "gsverhoeven.westeurope.cloudapp.azure.com"
+echo "generate cloud-config with encrypted password .."
+read -sp 'Enter password for Cloud-config: ' SECRET
+HASHEDPW=$(mkpasswd $SECRET --method=SHA-512 --rounds=4096)
+cp $customDataScript $customDataScript.tmp
+sed -i -e "/password:/ s@:.*@: $HASHEDPW@" $customDataScript.tmp
 ```
 
-## TODO Generate password interactively
+This way, I do not have to store a hashed password, not in the Github code repository, or on my local computer.
+I have the password stored in my Keepass password manager in case I should forget it.
 
-
-```
-mkpasswd test --method=SHA-512 --rounds=4096
-```
-
-
-## Fail2ban
+## Fail2ban for SSH
 
 fail2ban will dynamically block brute force attacks on the remote system. It is pre-configured for the default ssh port 22/tcp. As I am writing this blog, the VM is up and running, and every few hours an IP address get banned.
 It is configured to ban an IP after 5 login attempts. A ban lasts for 10 min, after which the ban is released again.
@@ -508,11 +519,6 @@ https://learn.microsoft.com/en-us/azure/virtual-machines/linux/use-remote-deskto
 
 Most Linux VMs in Azure don't have a desktop environment installed by default. Linux VMs are commonly managed using SSH connections rather than a desktop environment, however there are several desktop environments that you can choose to install. Depending on your choice of desktop environment, it consumes up to 2 GB of disk space and take up to ten minutes to both install and configure all the required packages.
 
-```
-sudo apt-get update
-sudo apt install inxi
-```
-
 install xfce4 lightweight desktop.
 
 ```
@@ -520,7 +526,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get -y install xfce4
 sudo apt install xfce4-session
 ```
 
-Now that you have a desktop environment installed, configure a remote desktop service to listen for incoming remote access connections. xrdp is an open source Remote Desktop Protocol (RDP) server that is available on most Linux distributions and works well with xfce. Install xrdp on your Ubuntu VM as follows:
+Now that we have a desktop environment installed, configure a remote desktop service to listen for incoming remote access connections. xrdp is an open source Remote Desktop Protocol (RDP) server that is available on most Linux distributions and works well with xfce. Install xrdp on your Ubuntu VM as follows:
 
 ```
 sudo apt-get -y install xrdp
@@ -614,11 +620,16 @@ make examples/bernoulli/bernoulli
 examples/bernoulli/bernoulli sample data file=examples/bernoulli/bernoulli.data.json
 ```
 
-# Cloudinit script for Installing software on the VM
+# TODO Cloudinit script for Installing software on the VM
 
 We can install software using cloud init. It needs a script or cloud config that will be run directly after provisioning the VM.
 This is called "User data" b y most cloud providers, M$ calls it custom-data.
 If we pass a shell script to Cloud-init it will just execute it on provisioning.
+
+```
+sudo apt-get update
+sudo apt install inxi
+```
 
 https://help.ubuntu.com/community/CloudInit
 
