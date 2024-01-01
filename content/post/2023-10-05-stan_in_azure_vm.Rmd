@@ -579,6 +579,43 @@ Most options we already discussed above, except two:
 
 Although there are Azure-cli commands to stop, start and deallocate the VM, I typically use a shell script `deploy_vm_ubuntu.sh` to bring it up, leave it running while I need it, and then tear it down using another script `delete_vm_ubuntu.sh`. This script simply uses `az group delete` to remove the Resource group containing the VM and related resources.
 
+After running the deploy script, we can ssh into the VM and for example verify that cloud-init is still running:
+
+```
+(base) gertjan:~/azure_cli_scripts$ ssh stanuser@gsverhoeven.westeurope.cloudapp.azure.com
+Welcome to Ubuntu 22.04.3 LTS (GNU/Linux 6.2.0-1018-azure x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/advantage
+
+  System information as of Mon Jan  1 17:45:14 UTC 2024
+
+  System load:  0.69873046875     Processes:             130
+  Usage of /:   5.1% of 28.89GB   Users logged in:       0
+  Memory usage: 3%                IPv4 address for eth0: 10.0.0.4
+  Swap usage:   0%
+
+
+Expanded Security Maintenance for Applications is not enabled.
+
+33 updates can be applied immediately.
+25 of these updates are standard security updates.
+To see these additional updates run: apt list --upgradable
+
+Enable ESM Apps to receive additional future security updates.
+See https://ubuntu.com/esm or run: sudo pro status
+
+
+*** System restart required ***
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+stanuser@standev:~$ cloud-init status
+status: running
+stanuser@standev:~$ exit
+```
+
 # Lessons learned
 
 Need a fast dev cycle, so need to work with images, and break down image building in steps that save intermediate results.
