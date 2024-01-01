@@ -1,8 +1,8 @@
 ---
-title: 'Rstudio & Stan on a shoestring in the cloud using Azure-CLI'
+title: 'Rstudio & Stan on a shoestring in the Azure cloud using Cloud-init'
 author: "Gertjan Verhoeven"
-date: '2023-09-21'
-summary: Setting up A Linux Stan development environment on Azure.
+date: '2024-01-01'
+summary: Automating deployment of a Linux R/Stan development environment in the Azure public cloud.
 slug: azure-stan-linux
 draft: no
 categories:
@@ -10,12 +10,15 @@ categories:
 - Statistics
 tags:
 - R
+- Azure
 - cmdstanr
 baseurl: https://gsverhoeven.github.io
 header:
-  image: headers/bb_heatmap_banner.png
+  image: headers/cloud_banner.png
   preview: no
 ---
+
+*Photo source: cropped from original by Taylor van Riper https://unsplash.com/@taylorvanriper925*
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -53,6 +56,8 @@ We have three main cost drivers:
 
 If we would bring it up and keep it on for a whole day we pay around 6-7 euro's a day.
 If we only use it for 8 hours we would bring it down to 3 euro per day.
+
+Ok lets do it!
 
 # Setting up our local IaaS dev environment
 
