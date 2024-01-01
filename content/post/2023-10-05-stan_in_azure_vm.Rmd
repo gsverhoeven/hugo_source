@@ -43,6 +43,17 @@ To summarize and motivate the tech choices I made:
 
 The blog uses Linux throughout, but as it uses Azure-CLI it should work for Windows as well.
 
+So how much do we end up paying for this low cost cloud computing data analytics VM?
+
+We have three main cost drivers: 
+
+* public IP address (2 euro / day), 
+* virtual machine (2.5 euro / day for a `Standard D2s v3`) , 
+* SSD disk (2 euro / day)
+
+If we would bring it up and keep it on for a whole day we pay around 6-7 euro's a day.
+If we only use it for 8 hours we would bring it down to 3 euro per day.
+
 # Setting up our local IaaS dev environment
 
 As mentioned above, we use both **Azure-CLI** and **QEMU virtual emulator** for local VM development.
@@ -112,38 +123,6 @@ Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
 
 https://askubuntu.com/questions/213512/buffer-i-o-error-on-device-fd0-logical-block-0-error
 
-
-testing with QEMU first for the cloud-init part.
-
-Here is example code that download a Cloud-init enabled Ubuntu 22.04 image (`jammy`) that we use for local testing.
-The initial disk size of the image is 2.2 GB, which is too small to install all the software we need to run Rstudio.
-So we increase the image size to 30GB.
-
-```
-wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
-qemu-img info jammy-server-cloudimg-amd64.img 
-# 2.2 GB
-qemu-img resize jammy-server-cloudimg-amd64.img 30G
-
-qemu-system-x86_64                                            \
-    -net nic                                                    \
-    -net user
-    -machine accel=kvm:tcg                                      \ # use hardware acceleration
-    -cpu host                                                   \ # emulate host processor
-    -m 1024                                                      \ # use 1 GB RAM
-    -nographic                                                  \ # graphic window disabled
-    -hda jammy-server-cloudimg-amd64.img                        \ # Set a virtual hard drive and use the specified image file 
-    -smbios type=1,serial=ds='nocloud;s=http://10.0.2.2:8000/'
-```
-
-```
-ubuntu@jammy:~$ sudo lsblk -d | grep disk
-fd0     2:0    1     4K  0 disk 
-sda     8:0    0    30G  0 disk 
-```
-
-I ended up writing a script `do_qemu.sh` that starts a local VM using the cloud-config YAML file that is also used to configure the Azure VM.
-
 # Azure cloud in a nutshell
 
 Azure is organized as a hierarchical structure. See the schematic below.
@@ -175,7 +154,7 @@ I chose not to use an "Availability Set" as this only makes sense for groups of 
 
 We use Linux shell **Environment Variables** to separate the actual resource configuration choices (which image, which VM type etc) from the actual Azure CLI commands that create the resources.
 
-# Step-by-step resource creation
+# Step-by-step guide to set up the VM
 
 * First we create a new **Resource group**
 * Then we create a **Virtual Network** with a **Subnet**
@@ -374,53 +353,116 @@ s – Premium Storage capable
 v3 – version
 ```
 
-
 ## Disk storage associated with the VM
 
 When an Azure virtual machine is created, two disks are automatically attached to the virtual machine.
 
-The disk that holds the VM image (in our case Ubuntu 22) is called the **OS disk**. In Azure, the [default OS disk size for Linux VMs](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/expand-disks?tabs=ubuntu) is 30 GB. This appears to also be the minimum OS disk size, there is only the option to expand them. The OS disk is labeled `/dev/sda` by default.
+The disk that holds the VM image (in our case Ubuntu 22) is called the **OS disk**. In Azure, the [default OS disk size for Linux VMs](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/expand-disks?tabs=ubuntu) is currently at 30 GB. This appears to also be the minimum OS disk size, there is only the option to expand them. The OS disk is labeled `/dev/sda` by default.
 
-In addition, there is a temp disk mounted that is physically located on the Azure host where the VM is running. This can only be used for temporary data processing, and its size is given. It does not incur any extra cost. Temporary disks are labeled `/dev/sdb` and have a mountpoint of `/mnt`. More info on temp disks [here](https://www.cloudelicious.net/azure-vms-and-their-temporary-storage/)
+In addition, there is a **temp disk** mounted that is physically located on the Azure host where the VM is running. This can only be used for temporary data processing, and its size is given. It does not incur any extra cost. Temporary disks are labeled `/dev/sdb` and have a mountpoint of `/mnt`. More info on temp disks [here](https://www.cloudelicious.net/azure-vms-and-their-temporary-storage/)
 
-I did not go so far as to attach a data disk. So we need to make sure that work we do on the VM is pushed to e.g. Github, because if we tear the VM down, the user data is lost as well.
+**N.b.** I did not go so far as to attach a **data disk**. So we need to make sure that work we do on the VM is pushed to e.g. Github, because if we tear the VM down, the user data is lost as well.
 
 The Disk types are controlled by the `-storage-sku` option when we create the VM.
 Allowed values for this option include `Standard_LRS` for traditional hard disks (HDD), `StandardSSD_LRS` and `Premium_LRS` both consists of SSD disks but with differing performance characteristics. Locally redundant storage (LRS) replicates your data three times within a single data center in the selected region. More info at [Azure disk types](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types)
 
 We want the cheapest SSD option, this seems to be `StandardSSD_LRS`.
 
-## Create the VM
+# Cloud-init to automate software installation and VM configuration
 
-We now are ready to bring it all together and create the VM. For this Azure-CLI has the `az vm create` command. 
-The following example creates a VM that automatically starts up:
+At this point we could stop, and create the VM. However, it would just be a plain out-of-the-box Linux installation.
+And our goal is to use the VM for data science, Bayesian modelling in particular!
+So directly after creating the VM, we want to install additional software on it.
+For this we use Cloud-init. It typically runs directly after a cloud instance is created.
+It is cross-platform across the public cloud, so in theory we should be able to easily move our instance from one cloud provider to another. Already in the early days of cloud computing (2007), where it was mostly about AWS EC2, people recognized the need to automatically configure AWS instances using user defined scripts. Around that time Cloud-init was born (it was called `ec2-init`  at that time).
+
+According to the documentation:
+
+*Cloud-init is an open source initialisation tool that was designed to make it easier to get your systems up and running with a minimum of effort, already configured according to your needs. [...] During boot, cloud-init identifies the cloud it is running on and initialises the system accordingly. Cloud instances will automatically be provisioned during first boot with networking, storage, SSH keys, packages and various other system aspects already configured.*
+
+[Here](https://cloudinit.readthedocs.io/en/latest/explanation/introduction.html#introduction) is a nice overview introduction.
+
+**Cloud-init** needs a script or cloud config that will be run directly after provisioning the VM.
+This is called "User data" by most cloud providers, M$ calls it `custom-data`.
+Although it can run any shell script, there is also a declarative YAML based configuration file that works with modules to perform common tasks like adding users, updating and installing linux software packages etc.
+For this blog I went with a YAML file called `cloud_init_cfg.yaml`.
+
+## Testing cloud-init on the local file system
+As we are developing our cloud config script, it nice to be able to test it locally before deploying the whole shabam to the Azure cloud, as this is slow (you don't want to wait 10 minutes to discover you made a typo).
+Enter the QEMU virtualizer, that can act as a virtualization host to run the instance locally.
+As the Cloud-init enabled instance is booted up inside QEMU, it needs a data source to fetch the cloud config script from.
+Cloud-init supports the [special data source "nocloud"](https://cloudinit.readthedocs.io/en/23.4.1/reference/datasources/nocloud.html#nocloud) that allows us to use the local file system to offer the data source to the instance in three variants. I use the variant with a local HTTP server running using the python built-in webserver at local port 8000:
 
 ```
-az vm create \
-  --resource-group $resourceGroup \
-  --name $vmName \
-  --nics $NICName \
-  --image $vmImage \
-  --storage-sku $storagetype \
-  --size $vmSize \
-  --admin-username $AdminUsername \
-  --custom-data $customDataScript.tmp \
-  --generate-ssh-keys \
-  --output $azOutput \
-  --security-type Standard # no trusted launch
+gnome-terminal -- python3 -m http.server --directory .
 ```
 
-Most options we already discussed above, except two:
-* `--custom-data`, this specifies the **Cloud-init** script that will passed on to the cloud-init enabled VM image and contains instructions to create user accounts, install packages etc. More below. 
-* `--generate-ssh-keys`, this is described below under "Securing the VM".
+The url of the webserver is communicated to the instance by **Qemu** using a [hack](https://github.com/canonical/cloud-init/issues/3133), which is putting it into the serial number field of the SMBIOS:
 
-Although there are Azure-cli commands to stop, start and dellocate the VM, I typically use a shell script `deploy_vm_ubuntu.sh` to bring it up, leave it running while I need it, and then tear it down using another script `delete_vm_ubuntu.sh`. This script simply uses `az group delete` to remove the Resource group containing the VM and related resources.
+```
+-smbios type=1,serial=ds='nocloud;s=http://10.0.2.2:8000/'
+```
+
+Here is example code that download a Cloud-init enabled Ubuntu 22.04 image (`jammy`) that we use for local testing.
+The initial disk size of the image is 2.2 GB, which is too small to install all the software we need to run Rstudio.
+So we increase the image size to 30GB.
+
+```
+wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+qemu-img info jammy-server-cloudimg-amd64.img 
+# 2.2 GB
+qemu-img resize jammy-server-cloudimg-amd64.img 30G
+
+qemu-system-x86_64                                            \
+    -net nic                                                    \
+    -net user
+    -machine accel=kvm:tcg                                      \ # use hardware acceleration
+    -cpu host                                                   \ # emulate host processor
+    -m 1024                                                      \ # use 1 GB RAM
+    -nographic                                                  \ # graphic window disabled
+    -hda jammy-server-cloudimg-amd64.img                        \ # Set a virtual hard drive and use the specified image file 
+    -smbios type=1,serial=ds='nocloud;s=http://10.0.2.2:8000/'
+```
+
+```
+ubuntu@jammy:~$ sudo lsblk -d | grep disk
+fd0     2:0    1     4K  0 disk 
+sda     8:0    0    30G  0 disk 
+```
+
+I ended up writing a script `do_qemu.sh` that starts a local VM using the same cloud-config YAML file that is also used to configure the actual Azure VM. This allowed for fast development and seamless switching between local and cloud testing.
+
+## Using cloud-init to install additional packages
+
+Using the `packages` module, we install the following software:
+
+* inxi (system information tool)
+* Firefox
+* Fail2ban
+* XFCE4 desktop (default ubuntu image comes without a desktop)
+* xRDP (to use the VM as a remote desktop)
+* GNU make and g++ compiler (to compile R packages as well as Stan programs)
+* various dependencies for R packages, notably tidyverse
+
+## Using cloud-init to run scripts on the VM during late boot
+
+To configure Fail2ban, xRDP, install R and Rstudio, I wrote separate scripts that perform the necessary steps.
+These scripts are contained within the `cloud_init_cfg.yaml` file to be written to disk within the instance during init:
+
+*  - [bash, /enable_fail2ban.sh ]
+*  - [bash, /install_xrdp.sh ]
+*  - [bash, /install_r.sh ]
+*  - [bash, /install_rstudio.sh ]
 
 # Securing our VM
 
 For a VM with a public IP on the hostile internet, we need some security measures in place.
 "Hackers" will be using a list of azure IPs and will attempt brute force SSH to gain access.
 See for example this [post](https://superuser.com/questions/1112092/hacking-attempts-to-linux-vm-in-azure) on superuser.com.
+Also these sites that document "bad IPs" that are known culprits of unauthorized scanning for open ports:
+
+* `stamparm/ipsum` Github repo with bad IPs, that actively scan. 
+* `abuseipdb.com`
 
 We take the following steps to secure our VM from outside attacks:
 
@@ -491,7 +533,7 @@ I have the password stored in my Keepass password manager in case I should forge
 
 fail2ban will dynamically block brute force attacks on the remote system. It is pre-configured for the default ssh port 22/tcp. As I am writing this blog, the VM is up and running, and every few hours an IP address get banned.
 It is configured to ban an IP after 5 login attempts. A ban lasts for 10 min, after which the ban is released again.
-Apparantly this is for performance reasons, as we do not want to gather a very long list of IP address that needs to be scanned every time a new login attempt is made.
+Apparently this is for performance reasons, as we do not want to gather a very long list of IP addresses that needs to be scanned every time a new login attempt is made.
 
 ```
 sudo apt install fail2ban
@@ -511,145 +553,40 @@ sudo systemctl start fail2ban
 N.b. it looks like fail2ban does not by default monitors failed xrdp login attempts.
 https://stackoverflow.com/questions/75915624/xrdp-filter-setting-for-fail2ban
 
-# Adding software to the Ubuntu base image
+# Create the VM
 
-## A desktop enviroment
-
-https://learn.microsoft.com/en-us/azure/virtual-machines/linux/use-remote-desktop?tabs=azure-cli
-
-Most Linux VMs in Azure don't have a desktop environment installed by default. Linux VMs are commonly managed using SSH connections rather than a desktop environment, however there are several desktop environments that you can choose to install. Depending on your choice of desktop environment, it consumes up to 2 GB of disk space and take up to ten minutes to both install and configure all the required packages.
-
-install xfce4 lightweight desktop.
+We now are ready to bring it all together and create the VM. For this Azure-CLI has the `az vm create` command. 
+The following example creates a VM that automatically starts up:
 
 ```
-sudo DEBIAN_FRONTEND=noninteractive apt-get -y install xfce4
-sudo apt install xfce4-session
+az vm create \
+  --resource-group $resourceGroup \
+  --name $vmName \
+  --nics $NICName \
+  --image $vmImage \
+  --storage-sku $storagetype \
+  --size $vmSize \
+  --admin-username $AdminUsername \
+  --custom-data $customDataScript.tmp \
+  --generate-ssh-keys \
+  --output $azOutput \
+  --security-type Standard # no trusted launch
 ```
 
-Now that we have a desktop environment installed, configure a remote desktop service to listen for incoming remote access connections. xrdp is an open source Remote Desktop Protocol (RDP) server that is available on most Linux distributions and works well with xfce. Install xrdp on your Ubuntu VM as follows:
+Most options we already discussed above, except two:
+* `--custom-data`, this specifies the **Cloud-init** script that will passed on to the cloud-init enabled VM image and contains instructions to create user accounts, install packages etc. More below. 
+* `--generate-ssh-keys`, this is described below under "Securing the VM".
 
-```
-sudo apt-get -y install xrdp
-sudo systemctl enable xrdp
-sudo adduser xrdp ssl-cert
-echo xfce4-session >~/.xsession
-sudo service xrdp restart
-```
-
-Access will be through RDP (Remote Desktop Protocol).  Ubuntu provides the `Remmina` software for this.
-
-## A browser
-
-We need to browse online documentation so let's install `firefox`.
-
-```
-sudo apt install firefox
-```
-
-## R programming language plus tidyverse
-
-We also want R with the tidyverse packages.
-follow instructions on CRAN to install r-base. 
-```
-sudo apt install --no-install-recommends software-properties-common dirmngr
-wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | sudo tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
-sudo add-apt-repository "deb https://cloud.r-project.org/bin/linux/ubuntu $(lsb_release -cs)-cran40/"
-sudo apt install --no-install-recommends r-base
-```
-
-Now we have the latest R (4.3.1)!
-
-Next step is installing the R packages we need.
-Often R packages contain C code that needs to be compiled.
-So we need a C++ compiler.
-
-```
-sudo apt install make
-sudo apt install g++
-```
-
-Tidyverse needs a lot of extra deb packages. So we install those first.
-```
-sudo apt install libssl-dev libcurl4-openssl-dev unixodbc-dev libxml2-dev libmariadb-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev
-```
-
-```
-install.packages("tidyverse")
-install.packages("gapminder")
-remotes::install_github(standev/cmdstanr)
-cmdstanr::install_stan()
-```
-
-Installing tidyverse took about 30 min on my VM as all the packages and dependencies had to be compiled from source.
-
-```
-install.packages(c("coda","mvtnorm","devtools","loo","dagitty","shape"))
-devtools::install_github("rmcelreath/rethinking")
-```
-
-## Posit Rstudio IDE
-
-Next up: install Rstudio. We browse to the website of Rstudio (Now Posit) and download the latest Ubuntu .deb installer.
-To automate this:
-
-```
-curl -s https://www.posit.co/links/check_for_update?version=1.0.0 | grep -oEi 'update-version=([0-9]+\.[0-9]+\.[0-9]+)' | awk -F= '{print $2}'
-```
-
-```
-https://download1.rstudio.org/electron/jammy/amd64/rstudio-2023.09.1-494-amd64.deb
-```
-
-```
-cd Downloads/
-sudo apt -y install gdebi-core 
-sudo gdebi rstudio-2023.09.0-463-amd64.deb 
-```
-
-## Stan statistical software
-
-Then we want to be able to compile Stan models.
-```
-mkdir Github
-cd Github
-git clone https://github.com/stan-dev/cmdstan.git --recursive
-cd cmdstan/
-
-make build
-make examples/bernoulli/bernoulli
-examples/bernoulli/bernoulli sample data file=examples/bernoulli/bernoulli.data.json
-```
-
-# TODO Cloudinit script for Installing software on the VM
-
-We can install software using cloud init. It needs a script or cloud config that will be run directly after provisioning the VM.
-This is called "User data" b y most cloud providers, M$ calls it custom-data.
-If we pass a shell script to Cloud-init it will just execute it on provisioning.
-
-```
-sudo apt-get update
-sudo apt install inxi
-```
-
-https://help.ubuntu.com/community/CloudInit
-
-https://learn.microsoft.com/en-us/azure/virtual-machines/linux/using-cloud-init
-
+Although there are Azure-cli commands to stop, start and deallocate the VM, I typically use a shell script `deploy_vm_ubuntu.sh` to bring it up, leave it running while I need it, and then tear it down using another script `delete_vm_ubuntu.sh`. This script simply uses `az group delete` to remove the Resource group containing the VM and related resources.
 
 # Lessons learned
 
 Need a fast dev cycle, so need to work with images, and break down image building in steps that save intermediate results.
 Possibly using a makefile. And develop locally to avoid cloud cost.
 
-stamparm/ipsum repo with bad IPs, that actively scan. abuseipdb.com
 
-# Azure cloud cost
 
-We have three main cost drivers: 
 
-* public IP address (2 euro / day), 
-* virtual machine (2.5 euro / day for a `Standard D2s v3`) , 
-* SSD disk (2 euro / day)
 
 
 
