@@ -14,11 +14,12 @@ tags:
 - cmdstanr
 baseurl: https://gsverhoeven.github.io
 header:
-  image: headers/cloud_banner.png
+  image: headers/cloud_banner_stan.png
   preview: no
 ---
 
 *Photo source: cropped from original by Taylor van Riper https://unsplash.com/@taylorvanriper925*
+*Graphics source: Michael Betancourt at [stan-dev/propaganda](https://github.com/stan-dev/propaganda/tree/master/moore-sloan_sell_sheet/figures)*
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -41,27 +42,27 @@ To summarize and motivate the tech choices I made:
 * I chose **Azure** since my employer recently moved to Azure and me learning it would be beneficial for work.
 * I chose **Azure CLI** to write simple shell scripts without the additional abstraction layer introduced by more generic tools like **Terraform/OpenTofu** or **Ansible**
 * I chose **Linux Ubuntu OS** to keep cost down, as it is free and needs less resources than **Windows 10/11**
-* I chose **Cloud-init** as it has emerged as the standard wayu to configure Linux cloud images across all cloud platforms
-* I chose the **QEMU emulator** to run VMs locally to speed up development
+* I chose **Cloud-init** as it has emerged as the standard way to configure Linux cloud images across all cloud platforms
+* I chose the **QEMU Quick Emulator** to run VMs locally to speed up development
 
-The blog uses Linux throughout, but as it uses Azure-CLI it should work for Windows as well.
+The blog uses Linux throughout, but as it uses Azure CLI it should work for Windows as well.
 
 So how much do we end up paying for this low cost cloud computing data analytics VM?
 
 We have three main cost drivers: 
 
 * public IP address (2 euro / day), 
-* virtual machine (2.5 euro / day for a `Standard D2s v3`) , 
+* virtual machine (2.5 euro / day for a `Standard D2s_v3`) , 
 * SSD disk (2 euro / day)
 
 If we would bring it up and keep it on for a whole day we pay around 6-7 euro's a day.
-If we only use it for 8 hours we would bring it down to 3 euro per day.
+If we only use it for 8 hours, cost is reduced to an estimated 3 euro per day.
 
-Ok lets do it!
+Ok let's do it!
 
 # Setting up our local IaaS dev environment
 
-As mentioned above, we use both **Azure-CLI** and **QEMU virtual emulator** for local VM development.
+As mentioned above, we use both **Azure CLI** and **QEMU virtual emulator** for local VM development.
 My local desktop system is Ubuntu 18.04 LTS.
 
 ## Using Azure CLI to connect with Azure and execute commands
@@ -98,9 +99,7 @@ az group delete --resource-group MyCoolRG
 
 ## QEMU virtualizer
 
-Next we install **QEMU**. The documentation for Cloud-init contains a [section on how to work with QEMU](https://cloudinit.readthedocs.io/en/23.3.3/tutorial/qemu.html).
-
-QEMU on ubuntu can be used as virtualiser in collaboration with KVM kernel components. In that case it uses the hardware virtualisation technology to virtualise guests. Using KVM, one can run multiple virtual machines running unmodified Linux or Windows images. Each virtual machine has private virtualized hardware: a network card, disk, graphics adapter, etc. 
+Next we install **QEMU**, which stands for Quick Emulator. The documentation for Cloud-init contains a [section on how to work with QEMU](https://cloudinit.readthedocs.io/en/23.3.3/tutorial/qemu.html).
 
 Install QEMU:
 ```bash
@@ -108,31 +107,32 @@ sudo apt install qemu-kvm
 ```
 This installs QEMU 2.11 (2018) that plays well with Ubuntu 18.04.
 
-QEMU threw an error 
-https://16shuklarahul.medium.com/how-to-fix-kvm-permission-denied-error-on-ubuntu-18-04-16-04-14-04-f04a6e23c0cd
+QEMU on ubuntu works with KVM kernel components to make use of the hardware virtualisation technology to virtualise guests. Using KVM, one can run multiple virtual machines running unmodified Linux or Windows images. Each virtual machine has private virtualized hardware: a network card, disk, graphics adapter, etc. 
 
-Use the adduser command to add your user to the kvm group.
+QEMU upon first use threw an error "/dev/kvm device: permission denied" that I fixed as follows [after reading this explanation](https://16shuklarahul.medium.com/how-to-fix-kvm-permission-denied-error-on-ubuntu-18-04-16-04-14-04-f04a6e23c0cd):
+
+Use the `adduser` linux command to add your user to the `kvm` group.
 
 ```bash
 sudo adduser gertjan kvm
 ```
 
-On my machine, all users in group `kvm` have `rw` access for `/dev/kvm`.
+On my machine, all users in group `kvm` have `rw` access for `/dev/kvm`, thereby fixing the permission error.
 
-```bash
-qemu-system-x86_64 --version
-
-#QEMU emulator version 2.11.1(Debian 1:2.11+dfsg-1ubuntu7.41)
-#Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
+```
+(base) gertjan:~$ qemu-system-x86_64 --version
+QEMU emulator version 2.11.1(Debian 1:2.11+dfsg-1ubuntu7.41)
+Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
 ```
 
 # Azure cloud in a nutshell
 
 Azure is organized as a hierarchical structure. See the schematic below.
-All the components that make up the infrastructure are called *resources*.
-**Resources** are contained within **resource groups**.
-**Resource groups** exist within a **subscription**.
-Finally, **subscriptions** exist within **management groups**.
+All the components that make up the infrastructure are called *resources*. Traversing upwards through the hierarchy:
+
+* **Resources** are contained within **resource groups**.
+* **Resource groups** exist within a **subscription**.
+* Finally, **subscriptions** exist within **management groups**.
 
 ![](azure_scope-levels.png)
 
@@ -155,7 +155,8 @@ More on our security measures below.
 
 I chose not to use an "Availability Set" as this only makes sense for groups of VMs.
 
-We use Linux shell **Environment Variables** to separate the actual resource configuration choices (which image, which VM type etc) from the actual Azure CLI commands that create the resources.
+We use Linux shell **Environment Variables** to separate the actual resource configuration choices (which image, which VM type etc) from the actual Azure CLI commands that create the resources. 
+All scripts that accompany this blog post are in a separate repo on Github [gsverhoeven/azure_cli_scripts](https://github.com/gsverhoeven/azure_cli_scripts). The file containing the choices is [here](https://raw.githubusercontent.com/gsverhoeven/azure_cli_scripts/main/azure_config_ubuntu.sh)
 
 # Step-by-step guide to set up the VM
 
@@ -201,13 +202,6 @@ az network vnet create \
 ## Create Public IP address
 
 Now let's create a public IP address with `az network public-ip create`. 
-Public IP addresses come in two different flavours (or "SKU"s , stock keeping units).
-
-**Standard** which is better than **Basic**. 
-We use **standard**, as its the default and its better.
-This always results in a static IP address.
-
-*Standard SKU: Secure by default model and be closed to inbound traffic when used as a frontend. Allow traffic with network security group is required (for example, on the NIC of a virtual machine with a Standard SKU public IP attached).*
 
 ```bash
 publicIP=TEST-public-ip
@@ -219,7 +213,7 @@ az network public-ip create \
     --dns-name $mypublicdns
 ```
 
-This public IP address enables you to connect to your VMs from the Internet. 
+This public IP address enables us to connect to our VM from the Internet. 
 
 This results in a Fully qualified domain name (FQDN) of `gsverhoeven.westeurope.cloudapp.azure.com`
 
@@ -246,7 +240,7 @@ TEST-public-ip  myRGtest         westeurope           104.46.41.142  4          
 
 ## Create network security group & Rules
 
-To control the flow of traffic in and out of your VMs, we use a so-called **network security group**. The following example uses `az network nsg create` to create a network security group named `myNSG`:
+To control the flow of traffic in and out of our VM, we use a so-called **network security group**. The following example uses `az network nsg create` to create a network security group named `myNSG`:
 
 ```bash
 NetworkSecurityGroup=myNSG
@@ -334,7 +328,7 @@ As VM image I chose **Ubuntu Server 22.04 LTS** for reasons already mentioned ab
 But which one, how do we find the image we need?
 
 Canonical, the company behind Ubuntu Linux, offers various preconfigured Ubuntu images in the Azure Marketplace.
-Azure-CLI can be used to programmatically interact with Azure Marketplace. I used [this blog post by Joshua Powers](https://powersj.io/posts/ubuntu-images-azure/) to learn how this works.
+Azure CLI can be used to programmatically interact with Azure Marketplace. I used [this blog post by Joshua Powers](https://powersj.io/posts/ubuntu-images-azure/) to learn how this works.
 
 All images published by Canonical are discoverable using the following command:
 
@@ -346,11 +340,26 @@ az vm image list-skus \
 -o table
 ```
 
+```
+Location    Name
+----------  ----------------------
+westeurope  18_04-lts
+westeurope  18_04-lts-gen2
+westeurope  18_04-lts-minimal
+westeurope  18_04-lts-minimal-gen2
+...
+westeurope  22_04-lts
+westeurope  22_04-lts-gen2
+westeurope  22_04-lts-minimal
+westeurope  22_04-lts-minimal-gen2
+...
+
+```
 I went with `22_04-lts`. 
 
 ## VM Size choice
 
-There is a bewildering amount of choice regarding [different types of VMs offered by Microsoft]((https://azure.microsoft.com/en-us/pricing/details/virtual-machines/series/
+There is a bewildering amount of choice regarding [different types of VMs offered by Microsoft](https://azure.microsoft.com/en-us/pricing/details/virtual-machines/series/
 ). As my focus is on cheap, general purpose compute, I ended up with D-series VMs.
 
 To have a reasonable fast software install I found we need at least 8GB of mem and 2 vCPUs, this corresponds to `Standard_D2s_v3`. With this VM, cloud-init installation finishes after 23 min, after which the VM is fully operational.
@@ -385,10 +394,12 @@ We want the cheapest SSD option, this seems to be `StandardSSD_LRS`.
 
 At this point we could stop, and create the VM. However, it would just be a plain out-of-the-box Linux installation.
 And our goal is to use the VM for data science, Bayesian modelling in particular!
-So directly after creating the VM, we want to install additional software on it.
 
-For this we use **Cloud-init**. It typically runs directly after a cloud instance is created.
-It is cross-platform across the public cloud, so in theory we should be able to easily move our instance from one cloud provider to another. Already in the early days of cloud computing (2007), where it was mostly about AWS EC2, people recognized the need to automatically configure AWS instances using user defined scripts. Around that time Cloud-init was born (it was called `ec2-init`  at that time).
+So directly after creating the VM, we want to install additional software on it.
+For this we use the open source tool [Cloud-init](https://cloud-init.io/). It typically runs directly after a cloud instance is created.
+Cloud-init is cross-platform across the public cloud, so in theory we should be able to easily move our instance from one cloud provider to another. 
+
+Already in the early days of cloud computing (2007), people recognized the need to automatically configure cloud instances using user defined scripts. Around that time Cloud-init was born (it was called `ec2-init`  at that time, because at that time AWS EC2 basically WAS the complete public cloud).
 
 According to the documentation:
 
@@ -401,9 +412,9 @@ This is called "User data" by most cloud providers, M$ calls it `custom-data`.
 Although it can run any shell script, there is also a declarative YAML based configuration file that works with modules to perform common tasks like adding users, updating and installing linux software packages etc.
 For this blog I went with a YAML file called `cloud_init_cfg.yaml`.
 
-## Testing cloud-init on the local file system
+## Testing cloud-init on the local file system using QEMU
 As we are developing our cloud config script, it nice to be able to test it locally before deploying the whole shabam to the Azure cloud, as this is slow (you don't want to wait 10 minutes to discover you made a typo).
-Enter the QEMU virtualizer, that can act as a virtualization host to run the instance locally.
+Enter the **QEMU virtualizer** (website [here](https://www.qemu.org/)), that can act as a virtualization host to run the instance locally.
 As the Cloud-init enabled instance is booted up inside QEMU, it needs a data source to fetch the cloud config script from.
 Cloud-init supports the [special data source "nocloud"](https://cloudinit.readthedocs.io/en/23.4.1/reference/datasources/nocloud.html#nocloud) that allows us to use the local file system to offer the data source to the instance in three variants. I use the variant with a local HTTP server running using the python built-in webserver at local port 8000:
 
@@ -569,7 +580,7 @@ https://stackoverflow.com/questions/75915624/xrdp-filter-setting-for-fail2ban
 
 # Create the VM
 
-We now are ready to bring it all together and create the VM. For this Azure-CLI has the `az vm create` command. 
+We now are ready to bring it all together and create the VM. For this Azure CLI has the `az vm create` command. 
 The following example creates a VM that automatically starts up:
 
 ```bash
@@ -588,12 +599,13 @@ az vm create \
 ```
 
 Most options we already discussed above, except two:
+
 * `--custom-data`, this specifies the **Cloud-init** script that will passed on to the cloud-init enabled VM image and contains instructions to create user accounts, install packages etc. More below. 
 * `--generate-ssh-keys`, this is described below under "Securing the VM".
 
-Although there are Azure-cli commands to stop, start and deallocate the VM, I typically use a shell script `deploy_vm_ubuntu.sh` to bring it up, leave it running while I need it, and then tear it down using another script `delete_vm_ubuntu.sh`. This script simply uses `az group delete` to remove the Resource group containing the VM and related resources.
+Although there are Azure CLI commands to stop, start and deallocate the VM, I typically use a shell script `deploy_vm_ubuntu.sh` to bring it up, leave it running while I need it, and then tear it down using another script `delete_vm_ubuntu.sh`. This script simply uses `az group delete` to remove the Resource group containing the VM and related resources.
 
-After running the deploy script, we can ssh into the VM and for example verify that cloud-init is still running:
+After running the deploy script, we can ssh into the VM and verify that cloud-init is still running in the background:
 
 ```
 (base) gertjan:~/azure_cli_scripts$ ssh stanuser@gsverhoeven.westeurope.cloudapp.azure.com
@@ -629,6 +641,21 @@ stanuser@standev:~$ cloud-init status
 status: running
 stanuser@standev:~$ exit
 ```
+
+
+After some 25 minutes of installing software, the VM is ready to compile and sample its first bayesian model!
+```
+Cloud-init v. 23.3.3-0ubuntu0~22.04.1 finished at Mon, 01 Jan 2024 18:09:08 +0000. \
+Datasource DataSourceAzure [seed=/dev/sr0].  Up 1453.38 seconds
+```
+
+```
+(base) gertjan:~/Werk/Github/gsverhoeven/azure_cli_scripts$  ssh stanuser@gsverhoeven.westeurope.cloudapp.azure.com
+[...]
+sudo reboot
+```
+
+![](rdp_rstudio_stan.png)
 
 # Lessons learned
 
