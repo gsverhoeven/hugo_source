@@ -34,14 +34,14 @@ This has two big advantages, **reproducibility** and **lower switching cost**:
 * Scripting the compute resources that made a data analysis possible is the next level in reproducibility. 
 * Ideally, we want our scripts to be independent of a particular cloud provider. This would allow us to easily change from e.g. Azure to Amazon AWS if things stagnate or we can get a better deal elsewhere.
 
-After weighing my options, I chose to write Linux shell scripts that use Azure-CLI to deploy Linux Ubuntu VMs that are configured using Cloud-init. While doing so I discovered that being able to test changes locally first before deploying to the cloud speeds up development significantly. 
+After weighing my options, I chose to write Linux shell scripts that use the **Azure command-line interface (Azure CLI)** to deploy a Linux VM configured using **Cloud-init**. While doing so I discovered that being able to test changes locally first before deploying to the cloud speeds up development significantly. 
 
 To summarize and motivate the tech choices I made:
 
 * I chose **Azure** since my employer recently moved to Azure and me learning it would be beneficial for work.
-* I chose **Azure-CLI** to avoid the additional abstraction layer introduced by more generic tools like **Terraform/OpenTofu** or **Ansible**
+* I chose **Azure CLI** to write simple shell scripts without the additional abstraction layer introduced by more generic tools like **Terraform/OpenTofu** or **Ansible**
 * I chose **Linux Ubuntu OS** to keep cost down, as it is free and needs less resources than **Windows 10/11**
-* I chose **Cloud-init** as it appears to be an emerging standard to configure Linux cloud images
+* I chose **Cloud-init** as it has emerged as the standard wayu to configure Linux cloud images across all cloud platforms
 * I chose the **QEMU emulator** to run VMs locally to speed up development
 
 The blog uses Linux throughout, but as it uses Azure-CLI it should work for Windows as well.
@@ -70,7 +70,7 @@ We start with creating a free account on Azure. This comes with 200 Euro free cr
 
 First we need to install `azure-cli`:
 
-```
+```bash
 #downloads the signing key from Microsoft
 curl -sL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/microsoft.gpg > /dev/null 
 ## creates a file called microsoft.gpg in the folder where keys are stored
@@ -83,14 +83,14 @@ sudo apt-get install azure-cli
 ```
 
 First time we need to login to Azure and choose a subscription:
-```
+```bash
 # Log in interactively.
 az login
 ```
 
 Test if it works by creating and deleting a new resource group:
 
-```
+```bash
 az group create --location westeurope --resource-group MyCoolRG
 
 az group delete --resource-group MyCoolRG
@@ -103,7 +103,7 @@ Next we install **QEMU**. The documentation for Cloud-init contains a [section o
 QEMU on ubuntu can be used as virtualiser in collaboration with KVM kernel components. In that case it uses the hardware virtualisation technology to virtualise guests. Using KVM, one can run multiple virtual machines running unmodified Linux or Windows images. Each virtual machine has private virtualized hardware: a network card, disk, graphics adapter, etc. 
 
 Install QEMU:
-```
+```bash
 sudo apt install qemu-kvm
 ```
 This installs QEMU 2.11 (2018) that plays well with Ubuntu 18.04.
@@ -113,20 +113,18 @@ https://16shuklarahul.medium.com/how-to-fix-kvm-permission-denied-error-on-ubunt
 
 Use the adduser command to add your user to the kvm group.
 
-```
+```bash
 sudo adduser gertjan kvm
 ```
 
 On my machine, all users in group `kvm` have `rw` access for `/dev/kvm`.
 
-```
+```bash
 qemu-system-x86_64 --version
 
-QEMU emulator version 2.11.1(Debian 1:2.11+dfsg-1ubuntu7.41)
-Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
+#QEMU emulator version 2.11.1(Debian 1:2.11+dfsg-1ubuntu7.41)
+#Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
 ```
-
-https://askubuntu.com/questions/213512/buffer-i-o-error-on-device-fd0-logical-block-0-error
 
 # Azure cloud in a nutshell
 
@@ -173,21 +171,19 @@ Within this subscription, we create a *Resource Group*, `myRG2`.
 
 This needs a location, Since I am in West europe, let's choose westeurope.
 
-```
+```bash
 # create shell variables
 resourceGroup=myRG2
 location=westeurope
 az group create --name $resourceGroup --location $location
-az group show --resource-group myRG2
+az group show --resource-group $resourceGroup
 ```
 
 ## Create Virtual Network
 
-https://learn.microsoft.com/en-us/cli/azure/azure-cli-vm-tutorial-2
+Next we create a *Virtual Network* and a *Subnet*, as explained in [the Azure documentation](https://learn.microsoft.com/en-us/cli/azure/azure-cli-vm-tutorial-2): 
 
-Next we create a Virtual Network and a Subnet: 
-
-```
+```bash
 # create shell variables
 vnetName=StanDEV-VNet1
 subnetName=StanDEV-Subnet1
@@ -213,7 +209,7 @@ This always results in a static IP address.
 
 *Standard SKU: Secure by default model and be closed to inbound traffic when used as a frontend. Allow traffic with network security group is required (for example, on the NIC of a virtual machine with a Standard SKU public IP attached).*
 
-```
+```bash
 publicIP=TEST-public-ip
 mypublicdns=gsverhoeven
 
@@ -225,19 +221,19 @@ az network public-ip create \
 
 This public IP address enables you to connect to your VMs from the Internet. 
 
-This results in a Fully qualified domaine name `fqdn` of `gsverhoeven.westeurope.cloudapp.azure.com`
+This results in a Fully qualified domain name (FQDN) of `gsverhoeven.westeurope.cloudapp.azure.com`
 
-```
+```bash
 nslookup  gsverhoeven.westeurope.cloudapp.azure.com
-Server:		127.0.0.53
-Address:	127.0.0.53#53
+#Server:		127.0.0.53
+#Address:	127.0.0.53#53
 
-Non-authoritative answer:
-Name:	gsverhoeven.westeurope.cloudapp.azure.com
-Address: 68.219.248.112
+#Non-authoritative answer:
+#Name:	gsverhoeven.westeurope.cloudapp.azure.com
+#Address: 68.219.248.112
 ```
 
-```
+```bash
 az network public-ip list -o table
 ```
 
@@ -250,9 +246,9 @@ TEST-public-ip  myRGtest         westeurope           104.46.41.142  4          
 
 ## Create network security group & Rules
 
-To control the flow of traffic in and out of your VMs, apply a **network security group** to a virtual NIC or subnet. The following example uses `az network nsg create` to create a network security group named `myNetworkSecurityGroup`:
+To control the flow of traffic in and out of your VMs, we use a so-called **network security group**. The following example uses `az network nsg create` to create a network security group named `myNSG`:
 
-```
+```bash
 NetworkSecurityGroup=myNSG
 
 az network nsg create \
@@ -260,25 +256,29 @@ az network nsg create \
     --name $NetworkSecurityGroup
 ```
 
-You define rules that allow or deny specific traffic. 
+This works by defining rules that allow or deny specific traffic. 
 
 **To allow inbound connections on port 22 (to enable SSH access)**, create an inbound rule with `az network nsg rule create`. The following example creates a rule named `myNetworkSecurityGroupRuleSSH`:
 
-```
+```bash
+echo "create SSH rule .."
 az network nsg rule create \
-    --resource-group myResourceGroup \
-    --nsg-name myNetworkSecurityGroup \
+    --resource-group $resourceGroup \
+    --nsg-name $NetworkSecurityGroup \
     --name myNetworkSecurityGroupRuleSSH \
+    --description "Allow SSH at port 22" \
     --protocol tcp \
     --priority 1000 \
     --destination-port-range 22 \
-    --access allow
+    --access allow \
+    --output $azOutput
 ```
 
 To allow **Remote Desktop traffic** to reach your Linux VM, add another network security group rule.
 The following example creates a rule named `myNetworkSecurityGroupRuleRDP`:
 
-```
+```bash
+echo "create RDP rule .."
 az network nsg rule create \
     --resource-group $resourceGroup \
     --nsg-name $NetworkSecurityGroup \
@@ -288,13 +288,19 @@ az network nsg rule create \
     --protocol tcp \
     --priority 1001 \
     --destination-port-range 3389 \
-    --access allow
+    --access allow \
+    --output $azOutput \
+    --source-address-prefixes $trustedIPAdress
 ```
 
 Examine the network security group and rules with `az network nsg rule list`:
 
-```
-az network nsg rule list --resource-group myRG --nsg-name StanDEV-nsg --output table
+```bash
+echo "check NSG rules .."
+az network nsg rule list \
+    --resource-group $resourceGroup \
+    --nsg-name $NetworkSecurityGroup \
+    --output table
 ```
 
 ## Create NIC
@@ -302,13 +308,15 @@ az network nsg rule list --resource-group myRG --nsg-name StanDEV-nsg --output t
 Virtual network interface cards (NICs) are programmatically available because you can apply rules to their use. 
 In the following `az network nic create` command, you create a NIC named `myNic` and associate it with your network security group. The public IP address `myPublicIP` is also associated with the virtual NIC.
 
-```
+```bash
+echo "create NIC .."
 az network nic create \
     --resource-group $resourceGroup \
     --name $NICName \
     --vnet-name $vnetName \
     --subnet $subnetName \
     --public-ip-address $publicIP \
+    --output $azOutput \
     --network-security-group $NetworkSecurityGroup
 ```
 
@@ -330,7 +338,7 @@ Azure-CLI can be used to programmatically interact with Azure Marketplace. I use
 
 All images published by Canonical are discoverable using the following command:
 
-```
+```bash
 az vm image list-skus \
 --publisher Canonical \
 --offer Ubuntu \
@@ -378,7 +386,8 @@ We want the cheapest SSD option, this seems to be `StandardSSD_LRS`.
 At this point we could stop, and create the VM. However, it would just be a plain out-of-the-box Linux installation.
 And our goal is to use the VM for data science, Bayesian modelling in particular!
 So directly after creating the VM, we want to install additional software on it.
-For this we use Cloud-init. It typically runs directly after a cloud instance is created.
+
+For this we use **Cloud-init**. It typically runs directly after a cloud instance is created.
 It is cross-platform across the public cloud, so in theory we should be able to easily move our instance from one cloud provider to another. Already in the early days of cloud computing (2007), where it was mostly about AWS EC2, people recognized the need to automatically configure AWS instances using user defined scripts. Around that time Cloud-init was born (it was called `ec2-init`  at that time).
 
 According to the documentation:
@@ -398,7 +407,7 @@ Enter the QEMU virtualizer, that can act as a virtualization host to run the ins
 As the Cloud-init enabled instance is booted up inside QEMU, it needs a data source to fetch the cloud config script from.
 Cloud-init supports the [special data source "nocloud"](https://cloudinit.readthedocs.io/en/23.4.1/reference/datasources/nocloud.html#nocloud) that allows us to use the local file system to offer the data source to the instance in three variants. I use the variant with a local HTTP server running using the python built-in webserver at local port 8000:
 
-```
+```bash
 gnome-terminal -- python3 -m http.server --directory .
 ```
 
@@ -412,7 +421,7 @@ Here is example code that download a Cloud-init enabled Ubuntu 22.04 image (`jam
 The initial disk size of the image is 2.2 GB, which is too small to install all the software we need to run Rstudio.
 So we increase the image size to 30GB.
 
-```
+```bash
 wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
 qemu-img info jammy-server-cloudimg-amd64.img 
 # 2.2 GB
@@ -500,13 +509,13 @@ We use the `--generate-ssh-keys` parameter to create them the first time. After 
 
 Since SSH communication goes back and forth between our local system and the VM, we also need to encrypt the information we send to the VM. For that we need to use the **VM's public** key that it hands out to whoever wants to communicate with it.
 
-```
+```bash
 ssh-keyscan -H $mypublicdns.westeurope.cloudapp.azure.com >> ~/.ssh/known_hosts
 ```
 
 After all this, we can connect to the VM using SSH without the need to supply a password, the key-pairs in the background take care of the authentication process.
 
-```
+```bash
 ssh azureuser@gsverhoeven.westeurope.cloudapp.azure.com
 ```
 ## Remote desktop access using RDP
@@ -523,7 +532,7 @@ To be able to use RDP with Linux we need to install `xrdp`. To be able to login 
 For remote desktop access with sufficient performance (no lags) we still need to set a password on the VM when we create it.
 Since we want a fully scripted process of VM creation, I needed a secure way to generate and set a password during VM creation. In the end, I figured out a way to accomplish this using a shell script with an interactive prompt, that dynamically inserts the hashed password into the Cloud-init config file. This config file is then used to set the password on the VM upon creation, after which the copy of the config file containing the hashed password is deleted.
 
-```
+```bash
 echo "generate cloud-config with encrypted password .."
 read -sp 'Enter password for Cloud-config: ' SECRET
 HASHEDPW=$(mkpasswd $SECRET --method=SHA-512 --rounds=4096)
@@ -540,16 +549,16 @@ fail2ban will dynamically block brute force attacks on the remote system. It is 
 It is configured to ban an IP after 5 login attempts. A ban lasts for 10 min, after which the ban is released again.
 Apparently this is for performance reasons, as we do not want to gather a very long list of IP addresses that needs to be scanned every time a new login attempt is made.
 
-```
+```bash
 sudo apt install fail2ban
 ```
 
 It is not enabled by default.
-```
+```bash
 systemctl status fail2ban.service
 ```
 
-```
+```bash
 sudo cp jail.conf jail.local
 sudo systemctl enable fail2ban
 sudo systemctl start fail2ban
@@ -563,7 +572,7 @@ https://stackoverflow.com/questions/75915624/xrdp-filter-setting-for-fail2ban
 We now are ready to bring it all together and create the VM. For this Azure-CLI has the `az vm create` command. 
 The following example creates a VM that automatically starts up:
 
-```
+```bash
 az vm create \
   --resource-group $resourceGroup \
   --name $vmName \
