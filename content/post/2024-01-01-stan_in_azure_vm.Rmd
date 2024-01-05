@@ -17,16 +17,17 @@ header:
   image: headers/cloud_banner_stan.png
   preview: no
 ---
-
+<small>
 *Photo source: cropped from original by Taylor van Riper https://unsplash.com/@taylorvanriper925*
-*Graphics source: Michael Betancourt at [stan-dev/propaganda](https://github.com/stan-dev/propaganda/tree/master/moore-sloan_sell_sheet/figures)*
 
+*Graphics source: Michael Betancourt at [stan-dev/propaganda](https://github.com/stan-dev/propaganda/tree/master/moore-sloan_sell_sheet/figures)*
+</small>
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Time to explore what the cloud is all about, in particular what is called **Infrastructure as code**.
-Our goal is to write code (i.e. scripts) using open-source tools to automatically set up cloud infrastructure.
+Time to explore what the public cloud is all about.
+Our goal is to write code (i.e. scripts) using open-source tools to automatically set up cloud infrastructure. In short, we want **Infrastructure as code**.
 
 For this I chose a specific use case, which is **spinning up a data analysis development environment with R, Rstudio and Stan tools** installed and configured. 
 
@@ -45,15 +46,16 @@ To summarize and motivate the tech choices I made:
 * I chose **Cloud-init** as it has emerged as the standard way to configure Linux cloud images across all cloud platforms
 * I chose the **QEMU Quick Emulator** to run VMs locally to speed up development
 
-The blog uses Linux throughout, but as it uses Azure CLI it should work for Windows as well.
+The blog uses Linux throughout, but the Azure CLI commands should work for Windows as well.
 
-So how much do we end up paying for this low cost cloud computing data analytics VM?
+All well you ask, but cloud cost money, so what do we need to pay for this low cost cloud computing data analytics VM?
 
-We have three main cost drivers: 
+We have two main cost drivers: 
 
-* public IP address (2 euro / day), 
 * virtual machine (2.5 euro / day for a `Standard D2s_v3`) , 
 * SSD disk (2 euro / day)
+
+The public IP address costs 7 ct per day.
 
 If we would bring it up and keep it on for a whole day we pay around 6-7 euro's a day.
 If we only use it for 8 hours, cost is reduced to an estimated 3 euro per day.
@@ -63,13 +65,10 @@ Ok let's do it!
 # Setting up our local IaaS dev environment
 
 As mentioned above, we use both **Azure CLI** and **QEMU virtual emulator** for local VM development.
-My local desktop system is Ubuntu 18.04 LTS.
 
-## Using Azure CLI to connect with Azure and execute commands
+I started with creating a free account on Azure. This comes with 200 Euro free credit to spent within a month.
 
-We start with creating a free account on Azure. This comes with 200 Euro free credit to spent within a month.
-
-First we need to install `azure-cli`:
+Then I installed `azure-cli` on my local system (Ubuntu 18.04 LTS):
 
 ```bash
 #downloads the signing key from Microsoft
@@ -83,23 +82,31 @@ sudo apt-get update
 sudo apt-get install azure-cli
 ```
 
-First time we need to login to Azure and choose a subscription:
+First time we use `azure-cli` locally we need authenticate:
 ```bash
-# Log in interactively.
+# Log in interactively using the browser.
 az login
 ```
 
 Test if it works by creating and deleting a new resource group:
 
 ```bash
-az group create --location westeurope --resource-group MyCoolRG
+az group create --location westeurope --resource-group MyCoolRG -o table
+```
 
+```
+Location    Name
+----------  --------
+westeurope  MyCoolRG
+
+```
+Great! that worked. Now let's get rid of it.
+
+```bash
 az group delete --resource-group MyCoolRG
 ```
 
-## QEMU virtualizer
-
-Next we install **QEMU**, which stands for Quick Emulator. The documentation for Cloud-init contains a [section on how to work with QEMU](https://cloudinit.readthedocs.io/en/23.3.3/tutorial/qemu.html).
+Next we install **QEMU**, which stands for Quick Emulator. The documentation for Cloud-init contains a section on [how to work with QEMU](https://cloudinit.readthedocs.io/en/23.3.3/tutorial/qemu.html). This will be our local development environment to test Cloud-init scripts before launching them on the cloud.
 
 Install QEMU:
 ```bash
@@ -107,11 +114,9 @@ sudo apt install qemu-kvm
 ```
 This installs QEMU 2.11 (2018) that plays well with Ubuntu 18.04.
 
-QEMU on ubuntu works with KVM kernel components to make use of the hardware virtualisation technology to virtualise guests. Using KVM, one can run multiple virtual machines running unmodified Linux or Windows images. Each virtual machine has private virtualized hardware: a network card, disk, graphics adapter, etc. 
+QEMU on Ubuntu works with hypervisor KVM to run virtual machines locally. Each virtual machine has private virtualized hardware: a network card, disk, graphics adapter, etc. For windows VMware is a popular alternative.
 
-QEMU upon first use threw an error "/dev/kvm device: permission denied" that I fixed as follows [after reading this explanation](https://16shuklarahul.medium.com/how-to-fix-kvm-permission-denied-error-on-ubuntu-18-04-16-04-14-04-f04a6e23c0cd):
-
-Use the `adduser` linux command to add your user to the `kvm` group.
+QEMU upon first use threw an error "/dev/kvm device: permission denied" that I fixed by adding my own user account to the `kvm` group [after reading this explanation](https://16shuklarahul.medium.com/how-to-fix-kvm-permission-denied-error-on-ubuntu-18-04-16-04-14-04-f04a6e23c0cd):
 
 ```bash
 sudo adduser gertjan kvm
@@ -125,7 +130,7 @@ QEMU emulator version 2.11.1(Debian 1:2.11+dfsg-1ubuntu7.41)
 Copyright (c) 2003-2017 Fabrice Bellard and the QEMU Project developers
 ```
 
-# Azure cloud in a nutshell
+# Creating the Azure infrastucture
 
 Azure is organized as a hierarchical structure. See the schematic below.
 All the components that make up the infrastructure are called *resources*. Traversing upwards through the hierarchy:
@@ -136,15 +141,12 @@ All the components that make up the infrastructure are called *resources*. Trave
 
 ![](azure_scope-levels.png)
 
-# Our Azure Infrastructure
-
-In this blog post, we will create the infrastructure from scratch.
-Our infrastructure consists of a single virtual network that contains a single VM.
-The VM will be configured to be accessible through the internet using SSH and "Microsoft Remote Desktop"(RDP).
+In this blog post, we will create the infrastructure we need from scratch.
+Our desired infrastructure consists of a single virtual network that contains a single VM.
+The VM will be configured to be accessible through the internet using SSH and "Microsoft Remote Desktop" (RDP).
 
 To quickly create a virtual machine (VM) in Azure, it is possible to use a single Azure CLI command with default values that automatically creates any required supporting resources.
-This however, does not lead to understanding how all the parts add up and depend on one another.
-I therefore decided to **create each Azure resource separately**.
+However, to really understand the Azure building blocks and their dependencies, it is better to create each Azure resource separately. 
 In doing so we gradually build up the infrastructure step by step.
 (An official Azure tutorial by Cynthia Nottingham and others that takes a similar approach can be found [here](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/create-cli-complete))
 
@@ -165,16 +167,18 @@ All scripts that accompany this blog post are in a separate repo on Github [gsve
 * Then we create a **Public IP**
 * Then we create a **Network Security Group** & Rules
 * Then we create a **Network Interface Card (NIC)**
+* Then we choose the **VM image**, **VM size** and **VM storage type**
+* Then we write a **Cloud-init script** to initialize the VM
+* Finally we **create the VM** and enjoy the show
 
 ## Create resource Group
 
-Within this subscription, we create a *Resource Group*, `myRG2`. 
-
-This needs a location, Since I am in West europe, let's choose westeurope.
+First we create a new *Resource Group*, `myRGtest`. 
+This needs a location. Since I am in West Europe, let's choose `westeurope`.
 
 ```bash
 # create shell variables
-resourceGroup=myRG2
+resourceGroup=myRGtest
 location=westeurope
 az group create --name $resourceGroup --location $location
 az group show --resource-group $resourceGroup
@@ -207,10 +211,14 @@ Now let's create a public IP address with `az network public-ip create`.
 publicIP=TEST-public-ip
 mypublicdns=gsverhoeven
 
+echo "creating public IP address .."
 az network public-ip create \
     --resource-group $resourceGroup \
     --name $publicIP \
-    --dns-name $mypublicdns
+    --sku standard \
+    --dns-name $mypublicdns \
+    --output $azOutput \
+    --zone 1 # non-zonal IP
 ```
 
 This public IP address enables us to connect to our VM from the Internet. 
@@ -251,6 +259,8 @@ az network nsg create \
 ```
 
 This works by defining rules that allow or deny specific traffic. 
+A new NSG starts with a set of default rules, among which is the rule that all inbound traffic is blocked.
+Rules are processed in priority order, with lower numbers processed before higher numbers, because lower numbers have higher priority. Once traffic matches a rule, processing stops. 
 
 **To allow inbound connections on port 22 (to enable SSH access)**, create an inbound rule with `az network nsg rule create`. The following example creates a rule named `myNetworkSecurityGroupRuleSSH`:
 
@@ -300,7 +310,7 @@ az network nsg rule list \
 ## Create NIC
 
 Virtual network interface cards (NICs) are programmatically available because you can apply rules to their use. 
-In the following `az network nic create` command, you create a NIC named `myNic` and associate it with your network security group. The public IP address `myPublicIP` is also associated with the virtual NIC.
+In the following `az network nic create` command, we create a NIC named `myNic` and associate it with our network security group. The public IP address we created above is also associated with the virtual NIC.
 
 ```bash
 echo "create NIC .."
@@ -318,9 +328,9 @@ From the dependencies, we can see that a NIC ties together:
 
 * A Network Security Group, 
 * A public IP,
-* A VNet & subnet
+* A VNet & subnet,
 
-All within a resource group. Later on, when we create the VM, we only need to specify the NIC to bring up the VM in the virtual network with the desired NSG.
+all within a resource group. Later on, when we create the VM, we only need to specify the NIC to bring up the VM in the virtual network with the desired NSG.
 
 ## VM Image choice
 
@@ -441,7 +451,7 @@ qemu-img resize jammy-server-cloudimg-amd64.img 30G
 qemu-system-x86_64                                            \
     -net nic                                                    \
     -net user
-    -machine accel=kvm:tcg                                      \ # use hardware acceleration
+    -machine accel=kvm                                          \ # use hardware acceleration
     -cpu host                                                   \ # emulate host processor
     -m 1024                                                      \ # use 1 GB RAM
     -nographic                                                  \ # graphic window disabled
@@ -649,9 +659,12 @@ Cloud-init v. 23.3.3-0ubuntu0~22.04.1 finished at Mon, 01 Jan 2024 18:09:08 +000
 Datasource DataSourceAzure [seed=/dev/sr0].  Up 1453.38 seconds
 ```
 
+For the finishing touch, we do all upgrades to get the latest security updates, and reboot the system.
+
 ```
 (base) gertjan:~/Werk/Github/gsverhoeven/azure_cli_scripts$  ssh stanuser@gsverhoeven.westeurope.cloudapp.azure.com
 [...]
+sudo apt upgrade
 sudo reboot
 ```
 
@@ -659,11 +672,23 @@ sudo reboot
 
 # Lessons learned
 
-Need a fast dev cycle, so need to work with images, and break down image building in steps that save intermediate results.
-Possibly using a makefile. And develop locally to avoid cloud cost.
+I learned several things from doing this.
 
+First, infrastructure as code is a form of software development, and as such needs a suitable development environment.
+This means being able to rapidly test changes in e.g. configuration scripts, and to be able to debug stuff by stripping things to the core.
 
+I improved the workflow by using QEMU, that allows me to work with Cloud-init enabled instances locally. This allowed me to figure out how cloud-init works without the overhead of doing a full cloud rollout, creating all the resources etc.
 
+However, as my local machine is quite dated (4 GB mem, 2 core CPU, so even worse than the cheap D-compute from Azure) executing the full init takes even longer than in the cloud, and I ran into memory problems as I can only run QEMU with 2 GB mem.
+So repeating the full process every time we make a small change is not the way. 
+
+Ultimately we need a build tool that breaks down the whole image building process into a pipeline of steps, saving intermediate results. Basically a `make` tool for VM (golden) image building.  Then if we change some code, it could use graph dependencies to figure out which parts are affected and need to be rebuild. My next step here would be to look at Ansible or an open source alternative to Packer. 
+
+In addition, there is this [Container thing](https://en.wikipedia.org/wiki/Containerization_(computing)), with Docker etc. This might offer a different way of "desktop computing" where I develop locally and run analyses in [Docker](https://en.wikipedia.org/wiki/Docker_(software)) containers in the cloud, managed by [Kubernetes](https://en.wikipedia.org/wiki/Kubernetes). This is completely uncharted territory for me.  
+
+Another thing I found that Cloud computing is expensive. Even with the most low cost options, for a 24/7 desktop solution in the cloud we still end up paying at least a 100 euro per month. And that's with a 2 core 8GB RAM machine! This is the price we pay for the flexibility of renting without any long term commitment, the hardware already being there, it just works etc.
+
+Finally, I am used to the relatively safe computing environment at home behind an ISP's firewall. In the public cloud, we are fully exposed, and one can actually see the continuous break-in attempts occurring by the hour. That somehow feels a bit.. chilly. To be continued ...
 
 
 
