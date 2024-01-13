@@ -1,13 +1,14 @@
 ---
-title: 'Rstudio & Stan on a shoestring in the Azure cloud using Cloud-init'
+title: 'Statistical computing on a shoestring: Stan in the Azure cloud using Cloud-init'
 author: "Gertjan Verhoeven"
 date: '2024-01-01'
-summary: Automating deployment of a Linux R/Stan development environment in the Azure public cloud.
+summary: Automating deployment of an inexpensive Linux R/Stan development environment in the Azure public cloud.
 slug: azure-stan-linux
 draft: no
 categories:
 - Linux
 - Statistics
+- Cloud Computing
 tags:
 - R
 - Azure
@@ -29,14 +30,14 @@ knitr::opts_chunk$set(echo = TRUE)
 Time to explore what the public cloud is all about.
 Our goal is to write code (i.e. scripts) using open-source tools to automatically set up cloud infrastructure. In short, we want **Infrastructure as code**.
 
-For this I chose a specific use case, which is **spinning up a data analysis development environment with R, Rstudio and Stan tools** installed and configured. 
+For this I chose a specific use case, which is **spinning up a low cost data analysis development environment with R, Rstudio and Stan tools** installed and configured. 
 
 This has two big advantages, **reproducibility** and **lower switching cost**: 
 
 * Scripting the compute resources that made a data analysis possible is the next level in reproducibility. 
 * Ideally, we want our scripts to be independent of a particular cloud provider. This would allow us to easily change from e.g. Azure to Amazon AWS if things stagnate or we can get a better deal elsewhere.
 
-After weighing my options, I chose to write Linux shell scripts that use the **Azure command-line interface (Azure CLI)** to deploy a Linux VM configured using **Cloud-init**. While doing so I discovered that being able to test changes locally first before deploying to the cloud speeds up development significantly. 
+I ended up writing Linux shell scripts that use the **Azure command-line interface (Azure CLI)** to deploy a Linux VM configured using **Cloud-init**. While doing so I discovered that being able to test changes locally first before deploying to the cloud speeds up development significantly. 
 
 To summarize and motivate the tech choices I made:
 
@@ -48,17 +49,23 @@ To summarize and motivate the tech choices I made:
 
 The blog uses Linux throughout, but the Azure CLI commands should work for Windows as well.
 
+# Cloud computing in Azure on a shoestring
+
 All well you ask, but cloud cost money, so what do we need to pay for this low cost cloud computing data analytics VM?
 
-We have two main cost drivers: 
+For a single VM the main cost driver is the VM itself. We need at least 8GB of RAM and a minimum of 2 CPU, so we end up with a `Standard D2s` VM. At the time of writing, monthly cost, assuming 24/7 usage is 73 euro. 
 
-* virtual machine (2.5 euro / day for a `Standard D2s_v3`) , 
-* SSD disk (2 euro / day)
+(To find out about these prices in the first place: Azure shows them when you select "create new VM" in the portal)
 
-The public IP address costs 7 ct per day.
+We have two additional cost drivers, the associated disk ("storage"), and we need to pay for a public IP address. 
 
-If we would bring it up and keep it on for a whole day we pay around 6-7 euro's a day.
-If we only use it for 8 hours, cost is reduced to an estimated 3 euro per day.
+* virtual machine (2.4 euro / day for a `Standard D2s_v3`) , 
+* public IP address (0.1 euro / day for a static IPv4 address)
+* SSD disk (0.1 euro / day)
+
+If we would bring it up and keep it on for a whole day we pay around 2.5 euro a day.
+If we only use it for 8 hours, cost is reduced to an estimated 1 euro per day.
+If we stop the VM such that the resources are released (deallocated), we only need to pay for the IP and disk storage, which is 0.2 euro per day, or 6 euro on a monthly basis. This allows us a "fast resume" option that avoids waiting 30 min to install and configure all the software. I tried this, it is a feasible strategy, it takes a minute or so to boot up.
 
 Ok let's do it!
 
@@ -372,10 +379,13 @@ I went with `22_04-lts`.
 There is a bewildering amount of choice regarding [different types of VMs offered by Microsoft](https://azure.microsoft.com/en-us/pricing/details/virtual-machines/series/
 ). As my focus is on cheap, general purpose compute, I ended up with D-series VMs.
 
-To have a reasonable fast software install I found we need at least 8GB of mem and 2 vCPUs, this corresponds to `Standard_D2s_v3`. With this VM, cloud-init installation finishes after 23 min, after which the VM is fully operational.
+Azureprice.net shows regional price variation, however without subscription it only shows the extent of the price variation.
+My current heuristic is taking the median (i.e. middle) price, so far it seems to give a good estimate of monthly pay-as-you-go prices for west-europe.
 
 https://azureprice.net/vm/Standard_D2s_v3?currency=EUR&timeoption=day&paymentType=payasyougo
 
+To have a reasonable fast software install I found we need at least 8GB of mem and 2 vCPUs, this corresponds to `Standard_D2s_v3`. With this VM, cloud-init installation finishes after 23 min, after which the VM is fully operational.
+This has a monthly cost of 78 euro (based on 24/7 usage).
 
 ```
 `Standard` is recommended tier.
@@ -482,7 +492,7 @@ Using the `packages` module, we install the following software:
 ## Using cloud-init to run scripts on the VM during late boot
 
 To configure Fail2ban, xRDP, install R and Rstudio, I wrote separate scripts that perform the necessary steps.
-These scripts are contained within the `cloud_init_cfg.yaml` file to be written to disk within the instance during init:
+These scripts are contained within the `cloud_init_cfg.yaml` file to be written to disk within the instance during early init. At late init, the scripts are then executed one after another.
 
 *  - [bash, /enable_fail2ban.sh ]
 *  - [bash, /install_xrdp.sh ]
