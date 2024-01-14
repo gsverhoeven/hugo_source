@@ -48,22 +48,19 @@ To summarize and motivate the tech choices I made:
 * I chose the **QEMU Quick Emulator** to run VMs locally to speed up development
 
 The blog uses Linux throughout, but the Azure CLI commands should work for Windows as well.
+All scripts mentioned in this blog are available in a separate repository, [azure_cli_scripts](https://github.com/gsverhoeven/azure_cli_scripts).
 
 # Cloud computing in Azure on a shoestring
 
-All well you ask, but cloud cost money, so what do we need to pay for this low cost cloud computing data analytics VM?
+So what do we need to pay for this low cost cloud computing data analytics VM?
 
 For a single VM the main cost driver is the VM itself. We need at least 8GB of RAM and a minimum of 2 CPU, so we end up with a `Standard D2s` VM. At the time of writing, monthly cost, assuming 24/7 usage is 73 euro. 
 
 (To find out about these prices in the first place: Azure shows them when you select "create new VM" in the portal)
 
-We have two additional cost drivers, the associated disk ("storage"), and we need to pay for a public IP address. 
+We have two additional small cost drivers, the associated disk ("storage"), and we need to pay for a public IP address, each roughly 0.1 euro per day.
 
-* virtual machine (2.4 euro / day for a `Standard D2s_v3`) , 
-* public IP address (0.1 euro / day for a static IPv4 address)
-* SSD disk (0.1 euro / day)
-
-If we would bring it up and keep it on for a whole day we pay around 2.5 euro a day.
+If we would bring the VM up and keep it on for a whole day we pay around 2.5 euro a day.
 If we only use it for 8 hours, cost is reduced to an estimated 1 euro per day.
 If we stop the VM such that the resources are released (deallocated), we only need to pay for the IP and disk storage, which is 0.2 euro per day, or 6 euro on a monthly basis. This allows us a "fast resume" option that avoids waiting 30 min to install and configure all the software. I tried this, it is a feasible strategy, it takes a minute or so to boot up.
 
@@ -433,7 +430,7 @@ Although it can run any shell script, there is also a declarative YAML based con
 For this blog I went with a YAML file called `cloud_init_cfg.yaml`.
 
 ## Testing cloud-init on the local file system using QEMU
-As we are developing our cloud config script, it nice to be able to test it locally before deploying the whole shabam to the Azure cloud, as this is slow (you don't want to wait 10 minutes to discover you made a typo).
+As we are developing our cloud config script, we want to test it locally before deploying the whole shabam to the Azure cloud, as this is slow (you don't want to wait 10 minutes to discover you made a typo .. AGAIN!!).
 Enter the **QEMU virtualizer** (website [here](https://www.qemu.org/)), that can act as a virtualization host to run the instance locally.
 As the Cloud-init enabled instance is booted up inside QEMU, it needs a data source to fetch the cloud config script from.
 Cloud-init supports the [special data source "nocloud"](https://cloudinit.readthedocs.io/en/23.4.1/reference/datasources/nocloud.html#nocloud) that allows us to use the local file system to offer the data source to the instance in three variants. I use the variant with a local HTTP server running using the python built-in webserver at local port 8000:
@@ -448,8 +445,8 @@ The url of the webserver is communicated to the instance by **Qemu** using a [ha
 -smbios type=1,serial=ds='nocloud;s=http://10.0.2.2:8000/'
 ```
 
-Here is example code that download a Cloud-init enabled Ubuntu 22.04 image (`jammy`) that we use for local testing.
-The initial disk size of the image is 2.2 GB, which is too small to install all the software we need to run Rstudio.
+Here is example code that downloads a Cloud-init enabled Ubuntu 22.04 image (`jammy`) for local testing.
+The initial (virtual) disk size of the image is 2.2 GB, which is too small to install all the software we need to run Rstudio.
 So we increase the image size to 30GB.
 
 ```bash
@@ -483,7 +480,7 @@ Using the `packages` module, we install the following software:
 
 * inxi (system information tool)
 * Firefox
-* Fail2ban
+* Fail2ban (Blocking of bad IP addresses)
 * XFCE4 desktop (default ubuntu image comes without a desktop)
 * xRDP (to use the VM as a remote desktop)
 * GNU make and g++ compiler (to compile R packages as well as Stan programs)
@@ -504,29 +501,32 @@ These scripts are contained within the `cloud_init_cfg.yaml` file to be written 
 For a VM with a public IP on the hostile internet, we need some security measures in place.
 "Hackers" will be using a list of azure IPs and will attempt brute force SSH to gain access.
 See for example this [post](https://superuser.com/questions/1112092/hacking-attempts-to-linux-vm-in-azure) on superuser.com.
-Also these sites that document "bad IPs" that are known culprits of unauthorized scanning for open ports:
+There are sites that document so called "bad IPs", known culprits of e.g. unauthorized scanning for open ports:
 
-* `stamparm/ipsum` Github repo with bad IPs, that actively scan. 
-* `abuseipdb.com`
+* [IPsum Github repository](https://github.com/stamparm/ipsum) list with bad IPs, including a Wall of Shame
+* [AbuseIPDB](https://www.abuseipdb.com/), a database of abusive IP addresses.
 
 We take the following steps to secure our VM from outside attacks:
 
-* All inbound traffic ports are closed using Azure NSG except SSH and RDP (detailed above)
 * SSH password authentication is disabled, access only through SSH keys
-* We generate an Admin password (needed for RDP logon) on the fly from user input when creating the VM
+* We generate an password (needed for RDP logon) on the fly from keyboard input when creating the VM
 * Only RDP connections from a single trusted IP address are allowed
-* Use **Fail2ban** to ban IPs that have multiple unsuccessful login attempts
+* All other ports are closed for inbound traffic using Azure NSG
+* Use **Fail2ban** to ban IPs that have multiple unsuccessful SSH login attempts
 
 NSG is a basic type of firewall, that is relatively dumb. 
 It does not know about applications, it just filters network packets based on rules.
 So we use it to block all incoming connections from the internet, except SSH and RDP.
-To connect using SSH, a private key is needed that is only available on my local desktop system.
-To connect using RDP, it only accepts connections from the IP address attached to my local desktop system via my ISP.
-When someone tries to brute force the SSH connection, their IP is banned after a few unsuccessful login attempts.
 
-Hopefully this is enough, and I did not make any mistake here :) 
+* To connect using SSH, a private key is needed that is only available on my local desktop system. When someone tries to brute force the SSH connection, their IP is banned after a few unsuccessful login attempts.
 
-(Apparently, Microsoft has created a product "Azure Bastion" for our use case, when we want to use RDP / remote desktop into a VM on Azure, but do not want to use a VPN or expose the VM using a public IP address.)
+* To connect using RDP, it only accepts connections from the IP address attached to my local desktop system via my ISP. It would be nice to add RDP to fail2ban, however this apparently is not easy.
+
+Hopefully this is enough security for a single VM without important secrets, and I did not make any mistake here :) 
+
+(Microsoft has created a product "Azure Bastion" for our use case, when we want to use RDP / remote desktop into a VM on Azure, but do not want to use a VPN or expose the VM using a public IP address. It seems expensive though ..)
+
+To explain and document we will now describe our security measures in more detail, starting with SSH access.
 
 ## SSH access
 
@@ -549,14 +549,6 @@ After all this, we can connect to the VM using SSH without the need to supply a 
 ```bash
 ssh azureuser@gsverhoeven.westeurope.cloudapp.azure.com
 ```
-## Remote desktop access using RDP
-
-Since we want to use the VM as a remote desktop, we need a connection that supports graphics.
-Both RDP and VNC are popular protocols for remote desktop access. I went with RDP as it appears the faster of the two, and because RDP is natively supported in Windows. 
-
-I did not explore tunneling RDP over SSH or VPN because it would reduce performance too much, and it requires too much configuration on the client side, which is often not possible with company restricted laptops. 
-
-To be able to use RDP with Linux we need to install `xrdp`. To be able to login to `xrdp` requires setting a password for the user that logs in, introducing a security risk that we need to mitigate.
 
 ## Interactive password generation for RDP access
 
@@ -572,7 +564,16 @@ sed -i -e "/password:/ s@:.*@: $HASHEDPW@" $customDataScript.tmp
 ```
 
 This way, I do not have to store a hashed password, not in the Github code repository, or on my local computer.
-I have the password stored in my Keepass password manager in case I should forget it.
+I have the password stored in my Keepass password manager in case I forget it.
+
+## Remote desktop access using RDP
+
+Since we want to use the VM as a remote desktop, we need a connection that supports graphics.
+Both RDP and VNC are popular protocols for remote desktop access. I went with RDP as it appears the faster of the two, and because RDP is natively supported in Windows. 
+
+I did not explore tunneling RDP over SSH or VPN because it would reduce performance too much, and it requires too much configuration on the client side, which is often not possible with company restricted laptops. 
+
+To be able to use RDP with Linux we need to install `xrdp`. To be able to login to `xrdp` requires setting a password for the user that logs in, introducing a security risk. To mitigate this risk, Azure NSG (our firewall) only accepts RDP connections from the IP address attached to my local desktop system via my ISP.
 
 ## Fail2ban for SSH
 
@@ -585,17 +586,31 @@ sudo apt install fail2ban
 ```
 
 It is not enabled by default.
-```bash
-systemctl status fail2ban.service
-```
 
 ```bash
 sudo cp jail.conf jail.local
 sudo systemctl enable fail2ban
 sudo systemctl start fail2ban
+
+sudo systemctl status fail2ban.service
+```
+```
+● fail2ban.service - Fail2Ban Service
+     Loaded: loaded (/lib/systemd/system/fail2ban.service; enabled; vendor preset: enabled)
+     Active: active (running) since Sun 2024-01-14 21:21:40 UTC; 1min 48s ago
+       Docs: man:fail2ban(1)
+   Main PID: 563 (fail2ban-server)
+      Tasks: 5 (limit: 9510)
+     Memory: 17.7M
+        CPU: 298ms
+     CGroup: /system.slice/fail2ban.service
+             └─563 /usr/bin/python3 /usr/bin/fail2ban-server -xf start
+
+Jan 14 21:21:40 standev systemd[1]: Started Fail2Ban Service.
+Jan 14 21:21:42 standev fail2ban-server[563]: Server ready
 ```
 
-N.b. it looks like fail2ban does not by default monitors failed xrdp login attempts.
+It should be possibly to have fail2ban also monitor failed RDP login attempts, that would improve security even more.
 https://stackoverflow.com/questions/75915624/xrdp-filter-setting-for-fail2ban
 
 # Create the VM
@@ -620,10 +635,10 @@ az vm create \
 
 Most options we already discussed above, except two:
 
-* `--custom-data`, this specifies the **Cloud-init** script that will passed on to the cloud-init enabled VM image and contains instructions to create user accounts, install packages etc. More below. 
-* `--generate-ssh-keys`, this is described below under "Securing the VM".
+* `--custom-data`, this specifies the **Cloud-init** script that will passed on to the cloud-init enabled VM image and contains instructions to create user accounts, install packages etc. 
+* `--generate-ssh-keys`, this was described under "Securing the VM".
 
-Although there are Azure CLI commands to stop, start and deallocate the VM, I typically use a shell script `deploy_vm_ubuntu.sh` to bring it up, leave it running while I need it, and then tear it down using another script `delete_vm_ubuntu.sh`. This script simply uses `az group delete` to remove the Resource group containing the VM and related resources.
+Although there are Azure CLI commands to stop, start and deallocate the VM, I typically use a shell script `deploy_vm_ubuntu.sh` to bring it up, leave it running while I need it, use the Azure Portal to manually stop and start the VM, and when no longer needed, tear it down using another script `delete_vm_ubuntu.sh`. This script simply uses `az group delete` to remove the Resource group containing the VM and related resources. 
 
 After running the deploy script, we can ssh into the VM and verify that cloud-init is still running in the background:
 
@@ -669,7 +684,7 @@ Cloud-init v. 23.3.3-0ubuntu0~22.04.1 finished at Mon, 01 Jan 2024 18:09:08 +000
 Datasource DataSourceAzure [seed=/dev/sr0].  Up 1453.38 seconds
 ```
 
-For the finishing touch, we do all upgrades to get the latest security updates, and reboot the system.
+For the finishing touch, we (manually) do all upgrades to get the latest security updates, and reboot the system.
 
 ```
 (base) gertjan:~/Werk/Github/gsverhoeven/azure_cli_scripts$  ssh stanuser@gsverhoeven.westeurope.cloudapp.azure.com
@@ -692,11 +707,11 @@ I improved the workflow by using QEMU, that allows me to work with Cloud-init en
 However, as my local machine is quite dated (4 GB mem, 2 core CPU, so even worse than the cheap D-compute from Azure) executing the full init takes even longer than in the cloud, and I ran into memory problems as I can only run QEMU with 2 GB mem.
 So repeating the full process every time we make a small change is not the way. 
 
-Ultimately we need a build tool that breaks down the whole image building process into a pipeline of steps, saving intermediate results. Basically a `make` tool for VM (golden) image building.  Then if we change some code, it could use graph dependencies to figure out which parts are affected and need to be rebuild. My next step here would be to look at Ansible or an open source alternative to Packer. 
+Ultimately we need a build tool that breaks down the whole image building process into a pipeline of steps, saving intermediate results. Basically a `make` tool for VM (golden) image building.  Then if we change some code, it could use graph dependencies to figure out which parts are affected and need to be rebuild. My next step here would be to look at [Ansible](https://github.com/ansible/ansible) or an open source alternative to HashiCorp Packer. 
 
 In addition, there is this [Container thing](https://en.wikipedia.org/wiki/Containerization_(computing)), with Docker etc. This might offer a different way of "desktop computing" where I develop locally and run analyses in [Docker](https://en.wikipedia.org/wiki/Docker_(software)) containers in the cloud, managed by [Kubernetes](https://en.wikipedia.org/wiki/Kubernetes). This is completely uncharted territory for me.  
 
-Another thing I found that Cloud computing is expensive. Even with the most low cost options, for a 24/7 desktop solution in the cloud we still end up paying at least a 100 euro per month. And that's with a 2 core 8GB RAM machine! This is the price we pay for the flexibility of renting without any long term commitment, the hardware already being there, it just works etc.
+Another thing I found that Cloud computing is expensive. Even with the most low cost options, for a 24/7 desktop solution in the cloud we still end up paying around a 100 euro per month. And that's with a 2 core 8GB RAM machine! This is the price we pay for the flexibility of renting without any long term commitment, the hardware already being there, it just works etc.
 
 Finally, I am used to the relatively safe computing environment at home behind an ISP's firewall. In the public cloud, we are fully exposed, and one can actually see the continuous break-in attempts occurring by the hour. That somehow feels a bit.. chilly. To be continued ...
 
