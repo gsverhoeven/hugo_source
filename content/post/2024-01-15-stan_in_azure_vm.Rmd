@@ -2,7 +2,8 @@
 title: 'Statistical computing on a shoestring: Stan in the Azure cloud using Cloud-init'
 author: "Gertjan Verhoeven"
 date: '2024-01-15'
-summary: Automating deployment of an inexpensive Linux R/Stan development environment in the Azure public cloud.
+summary: Automating deployment of an inexpensive Linux R/Stan development environment
+  in the Azure public cloud.
 slug: azure-stan-linux
 draft: no
 categories:
@@ -143,7 +144,7 @@ All the components that make up the infrastructure are called *resources*. Trave
 * **Resource groups** exist within a **subscription**.
 * Finally, **subscriptions** exist within **management groups**.
 
-![](azure_scope-levels.png)
+![](/post/stan_in_azure/azure_scope-levels.png)
 
 In this blog post, we will create the infrastructure we need from scratch.
 Our desired infrastructure consists of a single virtual network that contains a single virtual machine (VM)
@@ -681,7 +682,7 @@ sudo reboot
 ```
 
 After this, we are in business, let the Bayesian modelling commence!
-![](rdp_rstudio_stan.png)
+![](/post/stan_in_azure/rdp_rstudio_stan.png)
 
 # Lessons learned
 
