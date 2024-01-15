@@ -1,7 +1,7 @@
 ---
 title: 'Statistical computing on a shoestring: Stan in the Azure cloud using Cloud-init'
 author: "Gertjan Verhoeven"
-date: '2024-01-01'
+date: '2024-01-15'
 summary: Automating deployment of an inexpensive Linux R/Stan development environment in the Azure public cloud.
 slug: azure-stan-linux
 draft: no
@@ -42,13 +42,13 @@ I ended up writing Linux shell scripts that use the **Azure command-line interfa
 To summarize and motivate the tech choices I made:
 
 * I chose **Azure** since my employer recently moved to Azure and me learning it would be beneficial for work.
-* I chose **Azure CLI** to write simple shell scripts without the additional abstraction layer introduced by more generic tools like **Terraform/OpenTofu** or **Ansible**
+* I chose **Azure CLI** to write simple shell scripts without the additional abstraction layer introduced by more generic tools like Terraform/OpenTofu or Ansible
 * I chose **Linux Ubuntu OS** to keep cost down, as it is free and needs less resources than **Windows 10/11**
 * I chose **Cloud-init** as it has emerged as the standard way to configure Linux cloud images across all cloud platforms
 * I chose the **QEMU Quick Emulator** to run VMs locally to speed up development
 
 The blog uses Linux throughout, but the Azure CLI commands should work for Windows as well.
-All scripts mentioned in this blog are available in a separate repository, [azure_cli_scripts](https://github.com/gsverhoeven/azure_cli_scripts).
+All scripts mentioned in this blog are available in a separate Github repository, [gsverhoeven/azure_cli_scripts](https://github.com/gsverhoeven/azure_cli_scripts).
 
 # Cloud computing in Azure on a shoestring
 
@@ -146,10 +146,10 @@ All the components that make up the infrastructure are called *resources*. Trave
 ![](azure_scope-levels.png)
 
 In this blog post, we will create the infrastructure we need from scratch.
-Our desired infrastructure consists of a single virtual network that contains a single VM.
+Our desired infrastructure consists of a single virtual network that contains a single virtual machine (VM)
 The VM will be configured to be accessible through the internet using SSH and "Microsoft Remote Desktop" (RDP).
 
-To quickly create a virtual machine (VM) in Azure, it is possible to use a single Azure CLI command with default values that automatically creates any required supporting resources.
+To quickly create a VM in Azure, it is possible to use a single Azure CLI command with default values that automatically creates any required supporting resources.
 However, to really understand the Azure building blocks and their dependencies, it is better to create each Azure resource separately. 
 In doing so we gradually build up the infrastructure step by step.
 (An official Azure tutorial by Cynthia Nottingham and others that takes a similar approach can be found [here](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/create-cli-complete))
@@ -157,12 +157,10 @@ In doing so we gradually build up the infrastructure step by step.
 Special attention is given to secure our network and VM, because it is exposed to the public internet.
 Hackers are continuously scanning the Azure network IP address ranges for vulnerable systems, so we need to defend ourselves.
 We use a basic Firewall called "Network Security Group" that works with **Security Rules**.
-More on our security measures below.
+More on our security measures below. I chose not to use an "Availability Set" as this only makes sense for groups of VMs.
 
-I chose not to use an "Availability Set" as this only makes sense for groups of VMs.
-
-We use Linux shell **Environment Variables** to separate the actual resource configuration choices (which image, which VM type etc) from the actual Azure CLI commands that create the resources. 
-All scripts that accompany this blog post are in a separate repo on Github [gsverhoeven/azure_cli_scripts](https://github.com/gsverhoeven/azure_cli_scripts). The file containing the choices is [here](https://raw.githubusercontent.com/gsverhoeven/azure_cli_scripts/main/azure_config_ubuntu.sh)
+I use Linux shell Environment Variables to separate the **Azure configuration parameters** (which image, which VM type etc) from the actual Azure CLI commands that create the resources. 
+To view my current configuration file containing all Azure parameters:  [gsverhoeven/azure_cli_scripts/main/azure_config_ubuntu.sh](https://raw.githubusercontent.com/gsverhoeven/azure_cli_scripts/main/azure_config_ubuntu.sh)
 
 # Step-by-step guide to set up the VM
 
@@ -225,9 +223,9 @@ az network public-ip create \
     --zone 1 # non-zonal IP
 ```
 
-This public IP address enables us to connect to our VM from the Internet. 
+This public IP address enables us to connect to the VM from the Internet. 
 
-This results in a Fully qualified domain name (FQDN) of `gsverhoeven.westeurope.cloudapp.azure.com`
+This command results in an IP address with a Fully qualified domain name (FQDN) of `gsverhoeven.westeurope.cloudapp.azure.com`
 
 ```bash
 nslookup  gsverhoeven.westeurope.cloudapp.azure.com
@@ -428,6 +426,7 @@ According to the documentation:
 This is called "User data" by most cloud providers, M$ calls it `custom-data`.
 Although it can run any shell script, there is also a declarative YAML based configuration file that works with modules to perform common tasks like adding users, updating and installing linux software packages etc.
 For this blog I went with a YAML file called `cloud_init_cfg.yaml`.
+The content of this file can be inspected [here](https://raw.githubusercontent.com/gsverhoeven/azure_cli_scripts/main/cloud_init_cfg.yaml).
 
 ## Testing cloud-init on the local file system using QEMU
 As we are developing our cloud config script, we want to test it locally before deploying the whole shabam to the Azure cloud, as this is slow (you don't want to wait 10 minutes to discover you made a typo .. AGAIN!!).
@@ -447,7 +446,7 @@ The url of the webserver is communicated to the instance by **Qemu** using a [ha
 
 Here is example code that downloads a Cloud-init enabled Ubuntu 22.04 image (`jammy`) for local testing.
 The initial (virtual) disk size of the image is 2.2 GB, which is too small to install all the software we need to run Rstudio.
-So we increase the image size to 30GB.
+So we increase the image size to 30GB. After that we fire up the instance with QEMU:
 
 ```bash
 wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
@@ -472,11 +471,11 @@ fd0     2:0    1     4K  0 disk
 sda     8:0    0    30G  0 disk 
 ```
 
-I ended up writing a script `do_qemu.sh` that starts a local VM using the same cloud-config YAML file that is also used to configure the actual Azure VM. This allowed for fast development and seamless switching between local and cloud testing.
+I ended up writing a script [do_qemu.sh](https://raw.githubusercontent.com/gsverhoeven/azure_cli_scripts/main/qemu/do_qemu.sh) that starts a local VM using the same cloud-config YAML file that is also used to configure the actual Azure VM. This allowed for fast development and seamless switching between local and cloud testing.
 
 ## Using cloud-init to install additional packages
 
-Using the `packages` module, we install the following software:
+Using Cloud-init's `packages` module, we install the following software:
 
 * inxi (system information tool)
 * Firefox
@@ -500,12 +499,13 @@ These scripts are contained within the `cloud_init_cfg.yaml` file to be written 
 
 For a VM with a public IP on the hostile internet, we need some security measures in place.
 "Hackers" will be using a list of azure IPs and will attempt brute force SSH to gain access.
-See for example this [post](https://superuser.com/questions/1112092/hacking-attempts-to-linux-vm-in-azure) on superuser.com.
+See for example this [post on superuser.com](https://superuser.com/questions/1112092/hacking-attempts-to-linux-vm-in-azure).
 There are sites that document so called "bad IPs", known culprits of e.g. unauthorized scanning for open ports:
 
 * [IPsum Github repository](https://github.com/stamparm/ipsum) list with bad IPs, including a Wall of Shame
 * [AbuseIPDB](https://www.abuseipdb.com/), a database of abusive IP addresses.
 
+Some of these were indeed scanning my VM as well.
 We take the following steps to secure our VM from outside attacks:
 
 * SSH password authentication is disabled, access only through SSH keys
@@ -526,7 +526,7 @@ Hopefully this is enough security for a single VM without important secrets, and
 
 (Microsoft has created a product "Azure Bastion" for our use case, when we want to use RDP / remote desktop into a VM on Azure, but do not want to use a VPN or expose the VM using a public IP address. It seems expensive though ..)
 
-To explain and document we will now describe our security measures in more detail, starting with SSH access.
+To explain and document I will now describe my security measures in more detail, starting with SSH access.
 
 ## SSH access
 
@@ -535,10 +535,10 @@ It is secure because all traffic is encrypted. We can either use passwords or wo
 
 SSH works with so-called "key pairs", that consist of a public and private key. The private key is kept secret and is stored on our local system. The public key is passed to the VM when it is created. The VM uses this public key to encrypt all communication. To decrypt this communication, the private key is needed. Since nobody else has this key except we ourselves on our local system in a safe place, the connection is safeguarded.
 
-We need to generate a public and private key for ourselves, and get it own the new VM.
-We use the `--generate-ssh-keys` parameter to create them the first time. After that, since we already have a key pair, this parameter uses existing keys in `~/.ssh`.
+We need to generate a public and private key for ourselves, and get it on the new VM.
+We use the `--generate-ssh-keys` parameter to create them the first time we create the VM. After that, since we already have a key pair, this parameter uses existing keys in `~/.ssh`.
 
-Since SSH communication goes back and forth between our local system and the VM, we also need to encrypt the information we send to the VM. For that we need to use the **VM's public** key that it hands out to whoever wants to communicate with it.
+Since SSH communication goes back and forth between our local system and the VM, we also need to encrypt the information we send to the VM. For that we need to use the **VM's public** key that it hands out to whoever wants to communicate with it. We fetch after VM creation using `ssh-keyscan`:
 
 ```bash
 ssh-keyscan -H $mypublicdns.westeurope.cloudapp.azure.com >> ~/.ssh/known_hosts
@@ -546,8 +546,14 @@ ssh-keyscan -H $mypublicdns.westeurope.cloudapp.azure.com >> ~/.ssh/known_hosts
 
 After all this, we can connect to the VM using SSH without the need to supply a password, the key-pairs in the background take care of the authentication process.
 
-```bash
-ssh azureuser@gsverhoeven.westeurope.cloudapp.azure.com
+```
+(base) gertjan:~$ ssh stanuser@gsverhoeven.westeurope.cloudapp.azure.com
+Welcome to Ubuntu 22.04.3 LTS (GNU/Linux 6.2.0-1018-azure x86_64)
+
+[...]
+
+Last login: Sun Jan 14 22:02:30 2024 from 77.248.168.82
+stanuser@standev:~$ 
 ```
 
 ## Interactive password generation for RDP access
@@ -616,7 +622,7 @@ https://stackoverflow.com/questions/75915624/xrdp-filter-setting-for-fail2ban
 # Create the VM
 
 We now are ready to bring it all together and create the VM. For this Azure CLI has the `az vm create` command. 
-The following example creates a VM that automatically starts up:
+The following example creates a VM that automatically starts up and runs our Cloud-init script:
 
 ```bash
 az vm create \
@@ -646,26 +652,7 @@ After running the deploy script, we can ssh into the VM and verify that cloud-in
 (base) gertjan:~/azure_cli_scripts$ ssh stanuser@gsverhoeven.westeurope.cloudapp.azure.com
 Welcome to Ubuntu 22.04.3 LTS (GNU/Linux 6.2.0-1018-azure x86_64)
 
- * Documentation:  https://help.ubuntu.com
- * Management:     https://landscape.canonical.com
- * Support:        https://ubuntu.com/advantage
-
-  System information as of Mon Jan  1 17:45:14 UTC 2024
-
-  System load:  0.69873046875     Processes:             130
-  Usage of /:   5.1% of 28.89GB   Users logged in:       0
-  Memory usage: 3%                IPv4 address for eth0: 10.0.0.4
-  Swap usage:   0%
-
-
-Expanded Security Maintenance for Applications is not enabled.
-
-33 updates can be applied immediately.
-25 of these updates are standard security updates.
-To see these additional updates run: apt list --upgradable
-
-Enable ESM Apps to receive additional future security updates.
-See https://ubuntu.com/esm or run: sudo pro status
+[....]
 
 
 *** System restart required ***
@@ -678,7 +665,7 @@ stanuser@standev:~$ exit
 ```
 
 
-After some 25 minutes of installing software, the VM is ready to compile and sample its first bayesian model!
+After some 25 minutes of installing software, the VM is ready for use.
 ```
 Cloud-init v. 23.3.3-0ubuntu0~22.04.1 finished at Mon, 01 Jan 2024 18:09:08 +0000. \
 Datasource DataSourceAzure [seed=/dev/sr0].  Up 1453.38 seconds
@@ -693,6 +680,7 @@ sudo apt upgrade
 sudo reboot
 ```
 
+After this, we are in business, let the Bayesian modelling commence!
 ![](rdp_rstudio_stan.png)
 
 # Lessons learned
@@ -713,7 +701,9 @@ In addition, there is this [Container thing](https://en.wikipedia.org/wiki/Conta
 
 Another thing I found that Cloud computing is expensive. Even with the most low cost options, for a 24/7 desktop solution in the cloud we still end up paying around a 100 euro per month. And that's with a 2 core 8GB RAM machine! This is the price we pay for the flexibility of renting without any long term commitment, the hardware already being there, it just works etc.
 
-Finally, I am used to the relatively safe computing environment at home behind an ISP's firewall. In the public cloud, we are fully exposed, and one can actually see the continuous break-in attempts occurring by the hour. That somehow feels a bit.. chilly. To be continued ...
+Finally, I am used to the relatively safe computing environment at home behind an ISP's firewall. In the public cloud, we are fully exposed, and one can actually see the continuous break-in attempts occurring by the hour. That somehow feels a bit.. chilly. 
+
+To be continued ...
 
 
 
