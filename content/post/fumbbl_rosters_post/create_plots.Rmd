@@ -8,6 +8,9 @@ date: '2023-01-20'
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+library(tidyverse)
+```
 
 # Fetching the FUMBBL roster data using Python
 
@@ -17,15 +20,15 @@ This dataset allows us to identify the teams that participated in the online NAF
 The **NAF Online Tournaments** FUMBBL group (group id 9298) contains the Road To Malta tournament:
 
 ```{r}
-df_matches <- read.csv(file = "../../../fumbbl_datasets/datasets/current/df_matches.csv")
+df_matches <- read.csv(file = "../../../../fumbbl_datasets/datasets/current/df_matches.csv")
 df_matches$match_date <- as.Date(df_matches$match_date)
 df_matches$week_date <- as.Date(df_matches$week_date)
 ```
 
 ```{r}
 res <- df_matches %>%
-  filter(league == 9298) %>%
-  group_by(division_name, tournament_id, division_id, league, ruleset) %>%
+  filter(group_id == 9298) %>%
+  group_by(division_name, tournament_id, division_id, group_id, current_ruleset) %>%
   summarise(cnt = n(), start_date = min(match_date), end_date = max(match_date)) %>%
   filter(start_date > as.Date("2022-08-01")) %>%
   arrange(-tournament_id)
