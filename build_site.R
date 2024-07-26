@@ -69,7 +69,7 @@ AND category Python for Python-bloggers
 # en uitzoeken hoe ik losse pngs automatisch in post/*-files/x.png krijg
 # dit geldt alleen voor figuren die niet door Rmarkdown chunks worden gemaakt
 
-# do blogdown:::build_rmds: onlye for new blog post
+# do blogdown:::build_rmds: only for new blog post
 
 # empty the public folder
 
@@ -87,7 +87,8 @@ AND category Python for Python-bloggers
 #blogdown:::build_rmds("content/post/2022-11-01_clustered_heatmaps_blood_bowl.Rmd")
 #blogdown:::build_rmds("content/post/2023-03-01_fumbbl_rosters_blood_bowl.Rmd")
 #blogdown:::build_rmds("content/post/2023-09-21_fumbbl_super_league.Rmd")
-blogdown:::build_rmds("content/post/2024-01-15-stan_in_azure_vm.Rmd")
+#blogdown:::build_rmds("content/post/2024-01-15-stan_in_azure_vm.Rmd")
+blogdown:::build_rmds("content/post/2024-08-01_fumbbl_replays_blog_post.Rmd")
 # rebuild site
 
 #The function blogdown::build_site() has an argument local that defaults to FALSE, which means building the website for publishing instead of local previewing
