@@ -63,7 +63,7 @@ for team_id in team_ids:
 
 
     
-![png](/post/2025-04-29_application_team_league_development_files/application_team_league_development_2_1.png)
+![](/post/2025-04-29_application_team_league_development_files/application_team_league_development_2_1.png)
     
 
 
@@ -71,7 +71,7 @@ for team_id in team_ids:
 
 
     
-![png](/post/2025-04-29_application_team_league_development_files/application_team_league_development_2_3.png)
+![](/post/2025-04-29_application_team_league_development_files/application_team_league_development_2_3.png)
     
 
 
@@ -79,7 +79,7 @@ for team_id in team_ids:
 
 
     
-![png](/post/2025-04-29_application_team_league_development_files/application_team_league_development_2_5.png)
+![](/post/2025-04-29_application_team_league_development_files/application_team_league_development_2_5.png)
     
 
 
@@ -87,7 +87,7 @@ for team_id in team_ids:
 
 
     
-![png](/post/2025-04-29_application_team_league_development_files/application_team_league_development_2_7.png)
+![](/post/2025-04-29_application_team_league_development_files/application_team_league_development_2_7.png)
     
 
 
@@ -95,7 +95,7 @@ for team_id in team_ids:
 
 
     
-![png](/post/2025-04-29_application_team_league_development_files/application_team_league_development_2_9.png)
+![](/post/2025-04-29_application_team_league_development_files/application_team_league_development_2_9.png)
     
 
 
