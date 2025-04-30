@@ -2,7 +2,7 @@
 title: "Visualizing Blood Bowl Gnome roster development during League play"
 author: "Gertjan Verhoeven"
 date: '2025-04-29'
-summary: In the board game Blood Bowl, coaches develop their teams over a series of matches. In this post, we use the **fumbbl_replays** to plot and analyze Gnome team development choices in Blood Bowl league play.
+summary: In the board game Blood Bowl, coaches develop their teams over a series of matches. In this post, we use the **fumbbl_replays** Python package to plot and analyze Gnome team development choices during league play.
 slug: fumbbl-league-team-development
 draft: no
 categories: 
@@ -141,4 +141,8 @@ So as with the other gnomes, they want **Dodge** first for more protection. Afte
 
 I had great fun painting up and playing Gnomes, so give em a try!
 
+*Want more BB Gnome stuff? check out [the Gnome Counties Discord server](https://discord.gg/f6PPj5nsVg).*
+*Enjoy the company of over one hundred Gnome coaches discussing and sharing all things Gnomey!*
 
+
+ 
