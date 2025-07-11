@@ -73,5 +73,7 @@ user_groups:
 - Visitors
 ---
 
-I am a research scientist at the Dutch Healthcare Authority and extramural fellow at Tilburg University, working on health policy and statistical methods. 
+I am a research scientist at the Dutch Healthcare Authority, working on health policy analysis and statistical methods. 
 I have a background in experimental physics, with a PhD in Biophysics.
+
+All the Blood Bowl related posts have been moved to my personal site at [bbscholar.netlify.app](https://bbscholar.netlify.app)
